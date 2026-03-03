@@ -8,6 +8,7 @@ interface Settings {
   elapsedNotificationEnabled: boolean
   elapsedNotificationMinutes: number
   userName: string
+  setupCompleted: boolean
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -17,6 +18,7 @@ const DEFAULT_SETTINGS: Settings = {
   elapsedNotificationEnabled: false,
   elapsedNotificationMinutes: 30,
   userName: '',
+  setupCompleted: false,
 }
 
 export class SettingsStore {
@@ -103,4 +105,13 @@ export class SettingsStore {
     await this.writeAll({ ...s, userName })
   }
 
+  async isSetupCompleted(): Promise<boolean> {
+    const s = await this.readAll()
+    return s.setupCompleted
+  }
+
+  async completeSetup(): Promise<void> {
+    const s = await this.readAll()
+    await this.writeAll({ ...s, setupCompleted: true })
+  }
 }

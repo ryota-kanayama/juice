@@ -10,6 +10,7 @@ import { MonthView } from './components/Calendar/MonthView'
 import { DayDetail } from './components/Calendar/DayDetail'
 import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
+import { SetupView } from './components/Setup/SetupView'
 
 // URLハッシュでカレンダー画面かどうかを判定
 function isCalendarRoute(): boolean {
@@ -20,7 +21,12 @@ function isSettingsRoute(): boolean {
   return window.location.hash === '#settings'
 }
 
+function isSetupRoute(): boolean {
+  return window.location.hash === '#setup'
+}
+
 export default function App() {
+  if (isSetupRoute()) return <SetupView />
   if (isSettingsRoute()) return <SettingsView />
   if (isCalendarRoute()) {
     return <CalendarView />

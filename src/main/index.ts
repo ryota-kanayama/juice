@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, ipcMain, nativeImage, Menu, shell, Notification } from 'electron'
+import { app, BrowserWindow, Tray, ipcMain, nativeImage, Menu, shell, Notification, screen } from 'electron'
 import { join } from 'path'
 import os from 'os'
 import { SessionStore } from './sessionStore'
@@ -86,6 +86,7 @@ function createPopoverWindow(): BrowserWindow {
   return win
 }
 
+let setupWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 
 function createSettingsWindow(): void {
@@ -204,6 +205,45 @@ function startElapsedCheck(): void {
   }, 60 * 1000)
 }
 
+function createSetupWindow(): void {
+  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize
+  const winW = 440
+  const winH = 400
+
+  setupWindow = new BrowserWindow({
+    width: winW,
+    height: winH,
+    x: Math.round((screenW - winW) / 2),
+    y: Math.round((screenH - winH) / 2),
+    resizable: false,
+    title: 'Juice — セットアップ',
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  setupWindow.webContents.on('did-finish-load', async () => {
+    const themeId = await settingsStore.getTheme()
+    setupWindow!.webContents.send('theme-changed', themeId)
+  })
+
+  if (process.env['NODE_ENV'] === 'development') {
+    setupWindow.loadURL('http://localhost:5173/#setup')
+  } else {
+    setupWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'setup' })
+  }
+
+  setupWindow.on('closed', () => {
+    setupWindow = null
+    // セットアップ未完了でウィンドウを閉じた場合はアプリ終了
+    if (!settingsStore.isSetupCompleted()) {
+      app.quit()
+    }
+  })
+}
+
 function createTray(): void {
   const icon = nativeImage.createEmpty()
   tray = new Tray(icon)
@@ -240,9 +280,9 @@ function createTray(): void {
   })
 }
 
-app.whenReady().then(() => {
-  // メニューバーアプリとしてDockに表示しない
-  app.dock?.hide()
+app.whenReady().then(async () => {
+  // 初回セットアップ判定
+  const needsSetup = !(await settingsStore.isSetupCompleted()) && !(await settingsStore.getUserName())
 
   // IPCハンドラー（whenReady後に登録）
   ipcMain.handle('sessions:get', async (_, yearMonth: string) => {
@@ -361,6 +401,16 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.handle('setup:complete', async () => {
+    await settingsStore.completeSetup()
+    if (setupWindow && !setupWindow.isDestroyed()) {
+      setupWindow.close()
+    }
+    app.dock?.hide()
+    createTray()
+    startIdleCheck()
+  })
+
   ipcMain.handle('calendar:open', () => {
     if (calendarWindow && !calendarWindow.isDestroyed()) {
       calendarWindow.focus()
@@ -428,8 +478,16 @@ app.whenReady().then(() => {
     }
   })
 
-  createTray()
-  startIdleCheck()
+  if (needsSetup) {
+    // 初回起動: Dockを表示してセットアップウィンドウを開く
+    app.dock?.show()
+    createSetupWindow()
+  } else {
+    // 通常起動: メニューバーアプリとしてDockに表示しない
+    app.dock?.hide()
+    createTray()
+    startIdleCheck()
+  }
 })
 
 // メニューバーアプリなのでウィンドウが全部閉じてもアプリは終了しない
