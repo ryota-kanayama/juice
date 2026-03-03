@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { formatLocalDate } from '../../../../shared/sessionUtils'
 import type { Session } from '../../types/session'
 import styles from './AttendanceReport.module.css'
-import { NavArrowLeft, Check, Copy, SendDiagonal } from 'iconoir-react'
+import { Check, Copy, SendDiagonal } from 'iconoir-react'
 
 export function buildAttendanceText(
   sessions: Session[],
@@ -40,10 +40,9 @@ export function buildAttendanceText(
 
 interface Props {
   sessions: Session[]
-  onBack: () => void
 }
 
-export function AttendanceReport({ sessions, onBack }: Props) {
+export function AttendanceReport({ sessions }: Props) {
   const [breakMinutes, setBreakMinutes] = useState(60)
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
@@ -82,11 +81,6 @@ export function AttendanceReport({ sessions, onBack }: Props) {
 
   return (
     <div className={styles.container}>
-      <div className={styles.backHeader}>
-        <button className={styles.backButton} onClick={onBack}><NavArrowLeft width={16} height={16} /></button>
-        <span className={styles.title}>ジュースを提供する</span>
-      </div>
-
       <div className={styles.breakRow}>
         <span className={styles.breakLabel}>休憩</span>
         <input

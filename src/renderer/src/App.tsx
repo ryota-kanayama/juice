@@ -11,16 +11,21 @@ import { DayDetail } from './components/Calendar/DayDetail'
 import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
 import { SetupView } from './components/Setup/SetupView'
-import { Menu, Timer, Calendar, Settings, Xmark, OpenNewWindow } from 'iconoir-react'
+import { Menu, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
 
-type Page = 'timer' | 'calendar' | 'settings'
+type Page = 'timer' | 'calendar' | 'attendance'
 
 function isSetupRoute(): boolean {
   return window.location.hash === '#setup'
 }
 
+function isSettingsRoute(): boolean {
+  return window.location.hash === '#settings'
+}
+
 export default function App() {
   if (isSetupRoute()) return <SetupView />
+  if (isSettingsRoute()) return <SettingsView />
 
   const [currentPage, setCurrentPage] = useState<Page>('timer')
   const [menuOpen, setMenuOpen] = useState(false)
@@ -68,7 +73,7 @@ export default function App() {
           <TimerPage />
         </div>
         {currentPage === 'calendar' && <CalendarPage />}
-        {currentPage === 'settings' && <SettingsView />}
+        {currentPage === 'attendance' && <AttendancePage />}
       </main>
 
       {/* ボトムナビゲーション */}
@@ -88,11 +93,11 @@ export default function App() {
           <span className={styles.tabLabel}>カレンダー</span>
         </button>
         <button
-          className={`${styles.tabItem} ${currentPage === 'settings' ? styles.tabActive : ''}`}
-          onClick={() => setCurrentPage('settings')}
+          className={`${styles.tabItem} ${currentPage === 'attendance' ? styles.tabActive : ''}`}
+          onClick={() => setCurrentPage('attendance')}
         >
-          <Settings width={18} height={18} />
-          <span className={styles.tabLabel}>設定</span>
+          <SendDiagonal width={18} height={18} />
+          <span className={styles.tabLabel}>勤怠</span>
         </button>
       </nav>
     </div>
@@ -101,7 +106,6 @@ export default function App() {
 
 function TimerPage() {
   const { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
-  const [view, setView] = useState<'main' | 'attendance'>('main')
   const [activeTimerName, setActiveTimerName] = useState('')
   const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
   const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
@@ -230,14 +234,6 @@ function TimerPage() {
             onStop={handleStop}
           />
         </div>
-      ) : view === 'attendance' ? (
-        /* 勤怠報告画面 */
-        <div className={styles.idleContent}>
-          <AttendanceReport
-            sessions={todaySessions}
-            onBack={() => setView('main')}
-          />
-        </div>
       ) : (
         /* 待機時: スクロール可能なコンテナ */
         <div className={styles.idleContent}>
@@ -251,11 +247,6 @@ function TimerPage() {
             onAdjustStartTime={handleAdjustStartTime}
             onAdd={handleAdd}
           />
-          <div className={styles.timerPageActions}>
-            <button className={styles.actionLink} onClick={() => setView('attendance')}>
-              ジュースを提供する
-            </button>
-          </div>
         </div>
       )}
     </div>
@@ -320,6 +311,24 @@ function CalendarPage() {
       <div className={styles.calendarRight}>
         <DayDetail date={selectedDate} sessions={selectedSessions} onUpdate={handleUpdateSession} />
       </div>
+    </div>
+  )
+}
+
+function AttendancePage() {
+  const [todaySessions, setTodaySessions] = useState<Session[]>([])
+  const today = formatLocalDate(Date.now())
+  const yearMonth = today.slice(0, 7)
+
+  useEffect(() => {
+    window.electronAPI.getSessions(yearMonth).then(sessions => {
+      setTodaySessions(sessions.filter(s => s.date === today))
+    })
+  }, [today, yearMonth])
+
+  return (
+    <div className={styles.idleContent}>
+      <AttendanceReport sessions={todaySessions} />
     </div>
   )
 }

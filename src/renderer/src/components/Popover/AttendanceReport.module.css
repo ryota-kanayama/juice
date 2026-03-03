@@ -3,39 +3,10 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: 0 16px 16px;
-}
-
-.backHeader {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0 8px;
-  border-bottom: 1px solid var(--border-light);
-  margin: 0 -16px 12px;
-  padding-left: 16px;
-}
-
-.backButton {
-  font-size: 16px;
-  color: var(--text-secondary);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  line-height: 1;
-}
-
-.backButton:hover {
-  color: var(--text-primary);
-  background: var(--border-light);
-}
-
-.title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
 }
 
 .breakRow {
