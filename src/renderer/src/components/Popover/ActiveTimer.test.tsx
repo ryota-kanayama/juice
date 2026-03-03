@@ -14,7 +14,7 @@ describe('ActiveTimer', () => {
       />
     )
     expect(screen.getByText('企画書作業')).toBeInTheDocument()
-    expect(screen.getByText('00:02:05')).toBeInTheDocument()
+    expect(screen.getByText('2分経過')).toBeInTheDocument()
   })
 
   it('停止ボタンを押すとonStopが呼ばれる', async () => {

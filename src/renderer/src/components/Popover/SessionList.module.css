@@ -1,8 +1,11 @@
+/* ====== 追加ダイアログ ====== */
 .addDialog {
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-elevated);
   padding: 20px 24px 16px;
   width: 260px;
   display: flex;
@@ -20,12 +23,15 @@
   width: 100%;
   box-sizing: border-box;
   font-size: 13px;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--text-primary);
   outline: none;
+  transition: var(--transition-smooth);
 }
 
 .addDialogInput:focus {
@@ -42,12 +48,15 @@
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
+  padding: 6px 8px;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--text-primary);
   outline: none;
+  transition: var(--transition-smooth);
 }
 
 .addDialogInputSmall:focus {
@@ -72,12 +81,15 @@
   flex: 1;
   min-width: 0;
   font-size: 13px;
-  padding: 5px 6px;
-  border: 1px solid var(--border);
+  padding: 6px 8px;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--text-primary);
   outline: none;
+  transition: var(--transition-smooth);
 }
 
 .addDialogTimeInput:focus {
@@ -85,10 +97,13 @@
   box-shadow: 0 0 0 3px var(--accent-light);
 }
 
+/* ====== タイムピッカーダイアログ ====== */
 .timePickerBackdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,9 +112,11 @@
 
 .timePickerDialog {
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-elevated);
   padding: 20px 24px 16px;
   min-width: 200px;
   display: flex;
@@ -109,7 +126,7 @@
 
 .timePickerTitle {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   text-align: center;
@@ -118,14 +135,17 @@
 .timePickerInput {
   font-size: 22px;
   text-align: center;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--text-primary);
   outline: none;
   width: 100%;
   box-sizing: border-box;
+  transition: var(--transition-smooth);
 }
 
 .timePickerInput:focus {
@@ -140,13 +160,16 @@
 }
 
 .timePickerCancel {
-  background: none;
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  padding: 6px 14px;
+  padding: 7px 14px;
   font-size: 13px;
   color: var(--text-muted);
   cursor: pointer;
+  transition: var(--transition-smooth);
 }
 
 .timePickerCancel:hover {
@@ -154,33 +177,45 @@
 }
 
 .timePickerConfirm {
-  background: var(--accent);
+  background: var(--gradient-accent);
   border: none;
   border-radius: var(--radius-sm);
-  padding: 6px 14px;
+  padding: 7px 14px;
   font-size: 13px;
   color: #fff;
   font-weight: 600;
   cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px var(--accent-light);
 }
 
 .timePickerConfirm:hover {
-  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--accent-light);
 }
 
+.timePickerConfirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ====== コンテナ ====== */
 .container {
-  padding: 8px 16px 0;
+  padding: 10px 16px 0;
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
+/* ====== ヘッダー ====== */
 .headingRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .heading {
@@ -188,11 +223,12 @@
   color: var(--text-muted);
   margin: 0;
   font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .startButton {
   font-size: 11px;
-  padding: 2px 9px;
+  padding: 3px 10px;
   border-radius: var(--radius-md);
   border: 1px solid #26de81;
   color: #26de81;
@@ -200,16 +236,18 @@
   cursor: pointer;
   font-weight: 600;
   line-height: 1.4;
+  transition: var(--transition-smooth);
 }
 
 .startButton:hover {
   background: #26de81;
   color: #fff;
+  box-shadow: 0 4px 12px rgba(38, 222, 129, 0.3);
 }
 
 .endButton {
   font-size: 11px;
-  padding: 2px 9px;
+  padding: 3px 10px;
   border-radius: var(--radius-md);
   border: 1px solid #e74c3c;
   color: #e74c3c;
@@ -217,16 +255,18 @@
   cursor: pointer;
   font-weight: 600;
   line-height: 1.4;
+  transition: var(--transition-smooth);
 }
 
 .endButton:hover {
   background: #e74c3c;
   color: #fff;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
 
 .divider {
   height: 1px;
-  background: var(--border-light);
+  background: var(--glass-border);
   margin-bottom: 8px;
 }
 
@@ -234,17 +274,19 @@
   font-size: 13px;
   color: var(--text-muted);
   text-align: center;
-  padding: 16px 0;
+  padding: 24px 0;
   margin: 0;
+  flex: 1;
 }
 
+/* ====== セッションリスト ====== */
 .list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -255,17 +297,23 @@
   display: none;
 }
 
+/* ====== セッションアイテム（グラスカード） ====== */
 .item {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-  transition: background 0.1s;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  transition: var(--transition-smooth);
 }
 
 .item:hover {
   background: var(--bg-hover);
+  border-color: var(--border);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .dot {
@@ -274,13 +322,14 @@
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: 3px;
+  box-shadow: 0 0 8px currentColor;
 }
 
 .info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -291,6 +340,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.15s;
 }
 
 .time {
@@ -333,24 +383,35 @@
   flex-shrink: 0;
 }
 
+/* ====== 合計フッター（グラスカード） ====== */
 .total {
-  margin-top: 10px;
-  padding: 8px 0 16px;
-  border-top: 1px solid var(--border-light);
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   font-size: 13px;
   color: var(--text-secondary);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.workTimeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .workTime {
   font-size: 11px;
   color: var(--text-muted);
-  min-width: 0;
+  min-width: 90px;
 }
 
+/* ====== アクションボタン ====== */
 .editButton {
   background: none;
   border: none;
@@ -359,7 +420,8 @@
   padding: 2px 4px;
   opacity: 0;
   flex-shrink: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.2s;
+  color: var(--text-secondary);
 }
 
 .item:hover .editButton,
@@ -380,12 +442,13 @@
 .metaInput {
   font-size: 11px;
   color: var(--text-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  padding: 1px 4px;
+  padding: 2px 6px;
   width: 100%;
   outline: none;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  transition: var(--transition-smooth);
 }
 
 .metaInput:focus {
@@ -402,9 +465,10 @@
 .metaTag {
   font-size: 11px;
   color: var(--text-muted);
-  background: var(--bg-tag);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  padding: 0 5px;
+  padding: 0 6px;
   line-height: 1.6;
 }
 
@@ -414,10 +478,10 @@
   color: var(--text-primary);
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
-  padding: 1px 4px;
+  padding: 2px 6px;
   width: 100%;
   outline: none;
-  background: var(--bg-card);
+  background: var(--glass-bg);
 }
 
 .moreButton {
@@ -428,7 +492,7 @@
   padding: 2px 4px;
   opacity: 0;
   flex-shrink: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.2s;
   color: #26de81;
   font-weight: 600;
 }
@@ -447,19 +511,23 @@
   padding: 2px 4px;
   flex-shrink: 0;
   color: var(--text-secondary);
+  transition: color 0.15s;
 }
 
 .confirmButton:hover { color: #26de81; }
 .cancelButton:hover  { color: #e74c3c; }
 
+/* ====== コンテキストメニュー（グラスカード） ====== */
 .contextMenu {
   position: fixed;
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated);
   z-index: 1000;
-  min-width: 100px;
+  min-width: 120px;
   padding: 4px 0;
 }
 
@@ -469,10 +537,11 @@
   text-align: left;
   background: none;
   border: none;
-  padding: 6px 14px;
+  padding: 8px 16px;
   font-size: 13px;
   color: var(--text-primary);
   cursor: pointer;
+  transition: var(--transition-smooth);
 }
 
 .contextMenuItemNormal:hover {
@@ -485,10 +554,11 @@
   text-align: left;
   background: none;
   border: none;
-  padding: 6px 14px;
+  padding: 8px 16px;
   font-size: 13px;
   color: #e74c3c;
   cursor: pointer;
+  transition: var(--transition-smooth);
 }
 
 .contextMenuItem:hover {
@@ -503,10 +573,10 @@
   background: #e74c3c;
   color: #fff;
   font-size: 12px;
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
   z-index: 3000;
   white-space: nowrap;
   pointer-events: none;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
-

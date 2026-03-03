@@ -327,7 +327,7 @@ function AttendancePage() {
   }, [today, yearMonth])
 
   return (
-    <div className={styles.idleContent}>
+    <div className={styles.attendanceContent}>
       <AttendanceReport sessions={todaySessions} />
     </div>
   )

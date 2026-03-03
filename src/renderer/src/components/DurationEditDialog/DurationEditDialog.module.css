@@ -1,7 +1,9 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,10 +12,12 @@
 
 .dialog {
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-soft);
-  padding: 20px 24px 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-elevated);
+  padding: 24px 24px 18px;
   min-width: 200px;
 }
 
@@ -38,10 +42,17 @@
   color: var(--text-primary);
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
-  padding: 4px 8px;
+  padding: 6px 8px;
   outline: none;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   text-align: right;
+  transition: var(--transition-smooth);
+}
+
+.input:focus {
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .unit {
@@ -56,13 +67,16 @@
 }
 
 .cancelButton {
-  background: none;
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  padding: 6px 14px;
+  padding: 7px 14px;
   font-size: 13px;
   color: var(--text-muted);
   cursor: pointer;
+  transition: var(--transition-smooth);
 }
 
 .cancelButton:hover {
@@ -70,16 +84,19 @@
 }
 
 .confirmButton {
-  background: var(--accent);
+  background: var(--gradient-accent);
   border: none;
   border-radius: var(--radius-sm);
-  padding: 6px 14px;
+  padding: 7px 14px;
   font-size: 13px;
   color: #fff;
   cursor: pointer;
   font-weight: 600;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px var(--accent-light);
 }
 
 .confirmButton:hover {
-  opacity: 0.85;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--accent-light);
 }

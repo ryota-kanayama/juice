@@ -186,17 +186,6 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
           </div>
         </div>
       )}
-      <div className={styles.headingRow}>
-        <h3 className={styles.heading}>今日注いだジュース</h3>
-        {!workEnd && (
-          <button
-            className={workStart ? styles.endButton : styles.startButton}
-            onClick={workStart ? handleWorkEnd : handleWorkStart}
-          >
-            {workStart ? '終了' : '開始'}
-          </button>
-        )}
-      </div>
       <div className={styles.divider} />
 
       {sessions.length === 0 ? (
@@ -297,16 +286,24 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
         </ul>
       )}
 
-      {(workStart || sessions.length > 0) && (
-        <div className={styles.total}>
+      <div className={styles.total}>
+        <div className={styles.workTimeRow}>
           <span className={styles.workTime}>
             {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
           </span>
-          {sessions.length > 0 && (
-            <span>今日注いだ時間: <strong>{totalMinutes}分</strong></span>
+          {!workEnd && (
+            <button
+              className={workStart ? styles.endButton : styles.startButton}
+              onClick={workStart ? handleWorkEnd : handleWorkStart}
+            >
+              {workStart ? '終了' : '開始'}
+            </button>
           )}
         </div>
-      )}
+        {sessions.length > 0 && (
+          <span>今日注いだ時間: <strong>{totalMinutes}分</strong></span>
+        )}
+      </div>
 
       {contextMenu && (
         <div

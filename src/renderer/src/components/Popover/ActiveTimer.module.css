@@ -1,49 +1,37 @@
 .container {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glass);
+  overflow: hidden;
+}
+
+/* ====== メインビジュアル ====== */
+.timerSection {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 16px;
-  gap: 12px;
+  padding: 28px 16px 16px;
+  gap: 10px;
 }
 
 .name {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
 
-.metaInputs {
-  display: flex;
-  gap: 6px;
-  width: 100%;
-}
-
-.metaInput {
-  flex: 1;
-  min-width: 0;
-  font-size: 11px;
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 3px 6px;
-  outline: none;
-  background: var(--bg);
-  text-align: center;
-}
-
-.metaInput::placeholder {
-  color: var(--text-muted);
-}
-
-.metaInput:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-light);
-}
-
 .pouring {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   margin: 0;
   letter-spacing: 0.05em;
 }
@@ -51,8 +39,11 @@
 /* ========= ジュースシーン ========= */
 .juiceScene {
   position: relative;
-  width: 100px;
-  height: 150px;
+  width: 120px;
+  height: 190px;
+  transform: scale(0.75);
+  transform-origin: center center;
+  margin: -20px 0;
 }
 
 /* ── ボトル ── */
@@ -74,7 +65,6 @@
   to   { transform: rotate(38deg); }
 }
 
-/* ボトルのキャップ (底面=回転後は上端) */
 .bottleCap {
   width: 22px;
   height: 6px;
@@ -82,7 +72,6 @@
   opacity: 0.65;
 }
 
-/* ボトル本体 */
 .bottleBody {
   position: relative;
   width: 34px;
@@ -91,7 +80,6 @@
   overflow: hidden;
 }
 
-/* ボトルのツヤ */
 .bottleShine {
   position: absolute;
   left: 14%;
@@ -103,7 +91,6 @@
   pointer-events: none;
 }
 
-/* ボトルのラベル帯 */
 .bottleLabel {
   position: absolute;
   left: 8%;
@@ -115,7 +102,6 @@
   pointer-events: none;
 }
 
-/* ボトルの肩 (くびれ) */
 .bottleShoulder {
   width: 22px;
   height: 6px;
@@ -123,7 +109,6 @@
   opacity: 0.88;
 }
 
-/* ボトルネック (注ぎ口) */
 .bottleNeck {
   width: 14px;
   height: 20px;
@@ -132,13 +117,12 @@
 }
 
 /* ── 注ぎストリーム ── */
-/* メインストリーム: 幅と形がうねるオーガニックな動き */
 .pourStream {
   position: absolute;
   top: 54px;
-  left: 37px;
+  left: 47px;
   width: 7px;
-  height: 34px;
+  height: 48px;
   border-radius: 3px 5px 5px 3px;
   transform: rotate(16deg);
   transform-origin: top center;
@@ -146,7 +130,6 @@
   animation: flow 1s ease-in-out infinite;
 }
 
-/* 内側のハイライトストリーム (奥行き感) */
 .pourStream::before {
   content: '';
   position: absolute;
@@ -185,8 +168,8 @@
 /* ── 飛び散る雫 ── */
 .drop1 {
   position: absolute;
-  top: 90px;
-  left: 40px;
+  top: 106px;
+  left: 50px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -196,8 +179,8 @@
 
 .drop2 {
   position: absolute;
-  top: 90px;
-  left: 52px;
+  top: 106px;
+  left: 62px;
   width: 4px;
   height: 4px;
   border-radius: 50%;
@@ -223,18 +206,34 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 52px;
-  height: 64px;
-  border: 2.5px solid rgba(0, 0, 0, 0.12);
-  border-top: 3px solid rgba(0, 0, 0, 0.16);
-  border-radius: 5px 5px 18px 18px;
+  width: 62px;
+  height: 80px;
+  border: 2px solid var(--glass-border);
+  border-top: 2.5px solid var(--glass-border);
+  border-radius: 5px 5px 20px 20px;
   overflow: hidden;
   display: flex;
   align-items: flex-end;
-  background: rgba(255, 248, 240, 0.35);
+  background: var(--glass-bg);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
-/* グラスのツヤ (ガラス反射) */
+.glassElapsed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+  pointer-events: none;
+  line-height: 1.2;
+}
+
 .glass::before {
   content: '';
   position: absolute;
@@ -253,12 +252,11 @@
   position: relative;
   width: 100%;
   transition: height 1s linear;
-  border-radius: 0 0 16px 16px;
+  border-radius: 0 0 18px 18px;
   opacity: 0.82;
   overflow: hidden;
 }
 
-/* 液面の波 */
 .juiceLevel::after {
   content: '';
   position: absolute;
@@ -307,29 +305,67 @@
   100% { transform: translateY(-28px); opacity: 0; }
 }
 
-/* ========= タイマー表示 ========= */
-.elapsed {
-  font-size: 30px;
-  font-weight: 700;
+/* ====== コントロールセクション ====== */
+.controlSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.metaInputs {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.metaInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
   color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  margin: 0;
-  letter-spacing: 0.02em;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  outline: none;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-align: center;
+  transition: var(--transition-smooth);
+}
+
+.metaInput::placeholder {
+  color: var(--text-muted);
+}
+
+.metaInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .stopButton {
   padding: 10px 32px;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1.5px solid var(--accent);
   color: var(--accent);
   border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: var(--transition-smooth);
 }
 
 .stopButton:hover {
   background: var(--accent-light);
-  transform: scale(0.97);
+  box-shadow: 0 4px 15px var(--accent-light);
+  transform: translateY(-1px);
+}
+
+.stopButton:active {
+  transform: translateY(0);
 }
