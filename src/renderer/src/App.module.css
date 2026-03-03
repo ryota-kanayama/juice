@@ -1,4 +1,5 @@
-.popover {
+/* ====== SPAシェル ====== */
+.app {
   width: 100%;
   height: 100vh;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
@@ -11,38 +12,15 @@
   flex-direction: column;
 }
 
+/* ====== ヘッダー ====== */
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 10px 14px 8px;
   border-bottom: 1px solid var(--border-light);
   -webkit-app-region: drag;
   user-select: none;
-}
-
-.headerLeft {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  -webkit-app-region: no-drag;
-}
-
-.closeButton {
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-secondary);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  -webkit-app-region: no-drag;
-}
-
-.closeButton:hover {
-  color: var(--text-primary);
-  background: var(--border-light);
+  flex-shrink: 0;
 }
 
 .logo {
@@ -56,6 +34,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
   -webkit-app-region: no-drag;
 }
 
@@ -112,36 +91,72 @@
   background: var(--bg-tag);
 }
 
-/* ====== 待機時レイアウト ====== */
-.idleContent {
+/* ====== コンテンツエリア ====== */
+.content {
   flex: 1;
-  overflow: hidden;
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-/* ====== 稼働時レイアウト（横並び） ====== */
-.runningLayout {
-  display: flex;
-  flex: 1;
-  height: calc(100vh - 44px);
-}
-
-.leftPanel {
-  flex: 0 0 220px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid var(--border-light);
-}
-
-.rightPanel {
-  flex: 1;
   overflow: hidden;
+}
+
+.page {
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ====== ボトムタブバー ====== */
+.tabBar {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--border-light);
+  flex-shrink: 0;
+  background: var(--bg-card);
+}
+
+.tabItem {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 0 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+
+.tabItem:hover {
+  color: var(--text-secondary);
+}
+
+.tabActive {
+  color: var(--accent);
+}
+
+.tabIcon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.tabLabel {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ====== タイマーページ ====== */
+.timerPage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .midnightBanner {
@@ -167,24 +182,58 @@
   flex-shrink: 0;
 }
 
+/* ====== 待機時レイアウト ====== */
+.idleContent {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.timerPageActions {
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+.actionLink {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+}
+
+.actionLink:hover {
+  color: var(--text-primary);
+}
+
+/* ====== 稼働時レイアウト ====== */
+.runningLayout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ====== カレンダービュー ====== */
 .calendarLayout {
   display: flex;
-  width: 720px;
-  height: 520px;
-  padding-top: 28px;
+  flex: 1;
+  min-height: 0;
   font-family: var(--font-family);
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  -webkit-app-region: drag;
 }
 
 .calendarLeft {
   width: 320px;
+  flex-shrink: 0;
   border-right: 1px solid var(--border-light);
-  -webkit-app-region: no-drag;
 }
 
 .calendarRight {
   flex: 1;
-  -webkit-app-region: no-drag;
+  overflow: hidden;
 }

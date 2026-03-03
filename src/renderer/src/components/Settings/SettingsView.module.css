@@ -2,9 +2,9 @@
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   width: 100%;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   box-sizing: border-box;
-  background: var(--bg, #fffbf7);
   display: flex;
 }
 
