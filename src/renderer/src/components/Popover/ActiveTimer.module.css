@@ -1,0 +1,335 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  gap: 12px;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.metaInputs {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.metaInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  outline: none;
+  background: var(--bg);
+  text-align: center;
+}
+
+.metaInput::placeholder {
+  color: var(--text-muted);
+}
+
+.metaInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.pouring {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0;
+  letter-spacing: 0.05em;
+}
+
+/* ========= ジュースシーン ========= */
+.juiceScene {
+  position: relative;
+  width: 100px;
+  height: 150px;
+}
+
+/* ── ボトル ── */
+.bottle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 34px;
+  transform: rotate(38deg);
+  transform-origin: top center;
+  animation: bottle-tilt 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes bottle-tilt {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(38deg); }
+}
+
+/* ボトルのキャップ (底面=回転後は上端) */
+.bottleCap {
+  width: 22px;
+  height: 6px;
+  border-radius: 3px 3px 1px 1px;
+  opacity: 0.65;
+}
+
+/* ボトル本体 */
+.bottleBody {
+  position: relative;
+  width: 34px;
+  height: 36px;
+  border-radius: 4px 4px 5px 5px;
+  overflow: hidden;
+}
+
+/* ボトルのツヤ */
+.bottleShine {
+  position: absolute;
+  left: 14%;
+  top: 8%;
+  width: 24%;
+  height: 60%;
+  background: rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ボトルのラベル帯 */
+.bottleLabel {
+  position: absolute;
+  left: 8%;
+  top: 36%;
+  width: 84%;
+  height: 30%;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* ボトルの肩 (くびれ) */
+.bottleShoulder {
+  width: 22px;
+  height: 6px;
+  border-radius: 2px;
+  opacity: 0.88;
+}
+
+/* ボトルネック (注ぎ口) */
+.bottleNeck {
+  width: 14px;
+  height: 20px;
+  border-radius: 2px 2px 4px 4px;
+  opacity: 0.85;
+}
+
+/* ── 注ぎストリーム ── */
+/* メインストリーム: 幅と形がうねるオーガニックな動き */
+.pourStream {
+  position: absolute;
+  top: 54px;
+  left: 37px;
+  width: 7px;
+  height: 34px;
+  border-radius: 3px 5px 5px 3px;
+  transform: rotate(16deg);
+  transform-origin: top center;
+  opacity: 0.7;
+  animation: flow 1s ease-in-out infinite;
+}
+
+/* 内側のハイライトストリーム (奥行き感) */
+.pourStream::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 3px;
+  margin-left: -1.5px;
+  height: 75%;
+  background: inherit;
+  border-radius: 2px;
+  opacity: 0.35;
+  filter: brightness(1.3);
+  animation: flow-inner 0.7s ease-in-out infinite;
+}
+
+@keyframes flow {
+  0%, 100% {
+    height: 28px;
+    width: 6px;
+    opacity: 0.5;
+    border-radius: 3px 5px 5px 3px;
+  }
+  50% {
+    height: 38px;
+    width: 9px;
+    opacity: 0.85;
+    border-radius: 5px 3px 4px 6px;
+  }
+}
+
+@keyframes flow-inner {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 0.5; }
+}
+
+/* ── 飛び散る雫 ── */
+.drop1 {
+  position: absolute;
+  top: 90px;
+  left: 40px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: splash-left 1.2s ease-out 0.1s infinite;
+}
+
+.drop2 {
+  position: absolute;
+  top: 90px;
+  left: 52px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  opacity: 0;
+  animation: splash-right 1.2s ease-out 0.5s infinite;
+}
+
+@keyframes splash-left {
+  0%   { transform: translate(0, 0) scale(1);   opacity: 0; }
+  15%  { opacity: 0.7; }
+  100% { transform: translate(-8px, -12px) scale(0.4); opacity: 0; }
+}
+
+@keyframes splash-right {
+  0%   { transform: translate(0, 0) scale(1);   opacity: 0; }
+  15%  { opacity: 0.6; }
+  100% { transform: translate(6px, -10px) scale(0.3); opacity: 0; }
+}
+
+/* ── グラス ── */
+.glass {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52px;
+  height: 64px;
+  border: 2.5px solid rgba(0, 0, 0, 0.12);
+  border-top: 3px solid rgba(0, 0, 0, 0.16);
+  border-radius: 5px 5px 18px 18px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(255, 248, 240, 0.35);
+}
+
+/* グラスのツヤ (ガラス反射) */
+.glass::before {
+  content: '';
+  position: absolute;
+  top: 12%;
+  left: 10%;
+  width: 22%;
+  height: 36%;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── ジュースレベル ── */
+.juiceLevel {
+  position: relative;
+  width: 100%;
+  transition: height 1s linear;
+  border-radius: 0 0 16px 16px;
+  opacity: 0.82;
+  overflow: hidden;
+}
+
+/* 液面の波 */
+.juiceLevel::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -10%;
+  width: 120%;
+  height: 10px;
+  background: inherit;
+  border-radius: 50%;
+  opacity: 0.5;
+  animation: surface-wave 2.2s ease-in-out infinite;
+}
+
+@keyframes surface-wave {
+  0%, 100% { transform: translateX(0) scaleY(1); }
+  50%      { transform: translateX(-4px) scaleY(0.5); }
+}
+
+/* ── 泡 ── */
+.bubble1,
+.bubble2 {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+.bubble1 {
+  width: 4px;
+  height: 4px;
+  bottom: 15%;
+  left: 28%;
+  animation: rise 2.8s ease-in infinite;
+}
+
+.bubble2 {
+  width: 3px;
+  height: 3px;
+  bottom: 8%;
+  left: 62%;
+  animation: rise 2.8s ease-in 1.2s infinite;
+}
+
+@keyframes rise {
+  0%   { transform: translateY(0);     opacity: 0.55; }
+  100% { transform: translateY(-28px); opacity: 0; }
+}
+
+/* ========= タイマー表示 ========= */
+.elapsed {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.stopButton {
+  padding: 10px 32px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stopButton:hover {
+  background: var(--accent-light);
+  transform: scale(0.97);
+}

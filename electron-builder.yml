@@ -1,0 +1,28 @@
+appId: com.kanaami.juice-timer
+productName: Juice
+copyright: Copyright © 2026 kanaami
+
+directories:
+  output: dist-release
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  # アイコンは後で追加: resources/icon.icns
+  # icon: resources/icon.icns
+
+dmg:
+  title: Juice
+
+# ファイルを含める
+files:
+  - '!**/.DS_Store'
+  - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
+  - '!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
+  - '!**/node_modules/.bin'
+  - '!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}'
+  - '!**/._*'

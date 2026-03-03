@@ -1,0 +1,187 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ===== Shared Design Tokens ===== */
+:root {
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --font-family: "Rounded Mplus 1c", "Hiragino Maru Gothic ProN", -apple-system, sans-serif;
+}
+
+/* ===== Theme: Orange (default) ===== */
+:root,
+[data-theme="orange"] {
+  --bg: #FFFDF5;
+  --bg-card: #FFF8EC;
+  --bg-tag: #FFEFD5;
+  --bg-hover: #FFF3E0;
+  --border: #F0D8B0;
+  --border-light: #F8E8D0;
+  --text-primary: #5C3D00;
+  --text-secondary: #A07830;
+  --text-muted: #C4A060;
+  --accent: #FF9500;
+  --accent-hover: #E88600;
+  --accent-light: #FFF0D0;
+}
+
+/* ===== Theme: Lemon ===== */
+[data-theme="lemon"] {
+  --bg: #FFFFF0;
+  --bg-card: #FFFDE6;
+  --bg-tag: #FFF9C4;
+  --bg-hover: #FFFBDC;
+  --border: #E8D88C;
+  --border-light: #F0E8B8;
+  --text-primary: #5C5000;
+  --text-secondary: #8A7A20;
+  --text-muted: #B8A850;
+  --accent: #E8C800;
+  --accent-hover: #D0B400;
+  --accent-light: #FFF8B0;
+}
+
+/* ===== Theme: Grape ===== */
+[data-theme="grape"] {
+  --bg: #F8F0FF;
+  --bg-card: #F2E8FF;
+  --bg-tag: #E8D8FF;
+  --bg-hover: #EFE4FF;
+  --border: #C8A8E8;
+  --border-light: #DCC8F0;
+  --text-primary: #3D1F56;
+  --text-secondary: #7A50A0;
+  --text-muted: #A880C8;
+  --accent: #9B59B6;
+  --accent-hover: #8A48A5;
+  --accent-light: #F0E0FF;
+}
+
+/* ===== Theme: Melon ===== */
+[data-theme="melon"] {
+  --bg: #F0FFF4;
+  --bg-card: #E4FEEC;
+  --bg-tag: #C8F5D5;
+  --bg-hover: #DDFCE6;
+  --border: #90D8A0;
+  --border-light: #B8E8C4;
+  --text-primary: #1A3D2B;
+  --text-secondary: #3A7050;
+  --text-muted: #6AA880;
+  --accent: #27AE60;
+  --accent-hover: #209850;
+  --accent-light: #D0F5E0;
+}
+
+/* ===== Theme: Peach ===== */
+[data-theme="peach"] {
+  --bg: #FFF5F0;
+  --bg-card: #FFEDE6;
+  --bg-tag: #FFD8CC;
+  --bg-hover: #FFE8E0;
+  --border: #F0B8A0;
+  --border-light: #F8D0C0;
+  --text-primary: #5C2020;
+  --text-secondary: #A05040;
+  --text-muted: #C88070;
+  --accent: #FF7675;
+  --accent-hover: #E86665;
+  --accent-light: #FFE0E0;
+}
+
+/* ===== Theme: Berry ===== */
+[data-theme="berry"] {
+  --bg: #FFF0F5;
+  --bg-card: #FFE6EF;
+  --bg-tag: #FFD0E0;
+  --bg-hover: #FFDCEA;
+  --border: #F0A0C0;
+  --border-light: #F8C0D5;
+  --text-primary: #4A1A2E;
+  --text-secondary: #9A4068;
+  --text-muted: #C07090;
+  --accent: #E84393;
+  --accent-hover: #D03580;
+  --accent-light: #FFE0EE;
+}
+
+/* ===== Dark Theme: Cocoa ===== */
+[data-theme="cocoa"] {
+  --bg: #2C2018;
+  --bg-card: #382A20;
+  --bg-tag: #4A3C30;
+  --bg-hover: #403228;
+  --border: #6A5640;
+  --border-light: #584838;
+  --text-primary: #FFF0E2;
+  --text-secondary: #D8C0A0;
+  --text-muted: #B89878;
+  --accent: #FF9500;
+  --accent-hover: #E88600;
+  --accent-light: #4A3010;
+}
+
+/* ===== Dark Theme: Blackberry ===== */
+[data-theme="blackberry"] {
+  --bg: #261C30;
+  --bg-card: #30263A;
+  --bg-tag: #403050;
+  --bg-hover: #382C42;
+  --border: #5A4070;
+  --border-light: #4A3558;
+  --text-primary: #F2EAFF;
+  --text-secondary: #CDB0E0;
+  --text-muted: #A888C0;
+  --accent: #B06CE8;
+  --accent-hover: #9B58D0;
+  --accent-light: #382050;
+}
+
+/* ===== Dark Theme: Olive ===== */
+[data-theme="olive"] {
+  --bg: #1A2820;
+  --bg-card: #243028;
+  --bg-tag: #2E4030;
+  --bg-hover: #283828;
+  --border: #3E5848;
+  --border-light: #344A38;
+  --text-primary: #E8F8EC;
+  --text-secondary: #A8D8B8;
+  --text-muted: #78B890;
+  --accent: #40C870;
+  --accent-hover: #30B060;
+  --accent-light: #204030;
+}
+
+/* ===== Dark Theme: Plum ===== */
+[data-theme="plum"] {
+  --bg: #2A1C28;
+  --bg-card: #342630;
+  --bg-tag: #463040;
+  --bg-hover: #3C2838;
+  --border: #684058;
+  --border-light: #563048;
+  --text-primary: #FCEAF5;
+  --text-secondary: #E0A8D0;
+  --text-muted: #C088A8;
+  --accent: #E84393;
+  --accent-hover: #D03580;
+  --accent-light: #402030;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}

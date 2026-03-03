@@ -1,0 +1,120 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0 16px 16px;
+}
+
+.backHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--border-light);
+  margin: 0 -16px 12px;
+  padding-left: 16px;
+}
+
+.backButton {
+  font-size: 16px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+
+.backButton:hover {
+  color: var(--text-primary);
+  background: var(--border-light);
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.breakRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.breakLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.breakInput {
+  width: 56px;
+  font-size: 13px;
+  text-align: right;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  outline: none;
+  color: var(--text-primary);
+}
+
+.breakInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.breakUnit {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.preview {
+  flex: 1;
+  min-height: 0;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  background: var(--bg-tag);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  scrollbar-width: none;
+  margin-bottom: 12px;
+}
+
+.preview::-webkit-scrollbar {
+  display: none;
+}
+
+.copyButton {
+  width: 100%;
+  padding: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.copyButton:hover {
+  background: var(--accent-hover);
+  transform: scale(0.97);
+}
+
+.copied {
+  background: #26de81;
+}
+
+.copied:hover {
+  background: #20c870;
+}

@@ -1,0 +1,199 @@
+.container {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  background: transparent;
+}
+
+.placeholder {
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.date {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.metaRow {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin: 2px 0 1px;
+}
+
+.metaTag {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-tag);
+  border-radius: var(--radius-sm);
+  padding: 0 6px;
+  line-height: 1.6;
+}
+
+.time {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+/* 複数セッションのサブリスト */
+.timeList {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.timeEntry {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeEntryFaded {
+  opacity: 0.4;
+}
+
+.entryDuration {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.duration {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.total {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.editButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+  margin-left: auto;
+}
+
+.item:hover .editButton,
+.editButton:focus {
+  opacity: 1;
+}
+
+.nameInput {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  width: 100%;
+  outline: none;
+  background: var(--bg);
+  margin: 0;
+}
+
+.confirmButton,
+.cancelButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.confirmButton:hover { color: #26de81; }
+.cancelButton:hover  { color: #e74c3c; }
+
+.contextMenu {
+  position: fixed;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-soft);
+  z-index: 1000;
+  min-width: 120px;
+  padding: 4px 0;
+}
+
+.contextMenuItemNormal {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.contextMenuItemNormal:hover {
+  background: var(--bg-hover);
+}
+
