@@ -260,6 +260,11 @@ function createTray(): void {
     tray!.popUpContextMenu(contextMenu)
   })
 
+  // macOS ではデフォルトでダブルクリック検知が有効で、
+  // 連続クリックの2回目が click ではなく double-click として扱われる。
+  // すべてのクリックを個別の click イベントとして受け取るため無効化する。
+  tray.setIgnoreDoubleClickEvents(true)
+
   tray.on('click', (_, bounds) => {
     lastTrayBounds = bounds
     if (!popoverWindow || popoverWindow.isDestroyed()) {
@@ -274,7 +279,7 @@ function createTray(): void {
       const xPos = Math.round(x - winBounds.width / 2)
       const yPos = Math.round(y)
       popoverWindow.setPosition(xPos, yPos)
-      popoverWindow.show()  // show イベントで anchorPosition を確定する
+      popoverWindow.show()
       popoverWindow.focus()
     }
   })
