@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { formatLocalDate } from '../../../../shared/sessionUtils'
 import type { Session } from '../../types/session'
 import styles from './AttendanceReport.module.css'
+import { NavArrowLeft, Check, Copy, SendDiagonal } from 'iconoir-react'
 
 export function buildAttendanceText(
   sessions: Session[],
@@ -82,7 +83,7 @@ export function AttendanceReport({ sessions, onBack }: Props) {
   return (
     <div className={styles.container}>
       <div className={styles.backHeader}>
-        <button className={styles.backButton} onClick={onBack}>←</button>
+        <button className={styles.backButton} onClick={onBack}><NavArrowLeft width={16} height={16} /></button>
         <span className={styles.title}>ジュースを提供する</span>
       </div>
 
@@ -105,14 +106,14 @@ export function AttendanceReport({ sessions, onBack }: Props) {
           className={`${styles.copyButton}${copied ? ` ${styles.copied}` : ''}`}
           onClick={handleCopy}
         >
-          {copied ? '✓ コピーしました' : '📋 コピー'}
+          {copied ? <><Check width={14} height={14} /> コピーしました</> : <><Copy width={14} height={14} /> コピー</>}
         </button>
         <button
           className={`${styles.sendButton}${sendResult === 'success' ? ` ${styles.sent}` : ''}${sendResult === 'error' ? ` ${styles.sendError}` : ''}`}
           onClick={handleSend}
           disabled={sending}
         >
-          {sending ? '送信中...' : sendResult === 'success' ? '✓ 送信しました' : sendResult === 'error' ? '送信失敗' : '📤 送る'}
+          {sending ? '送信中...' : sendResult === 'success' ? <><Check width={14} height={14} /> 送信しました</> : sendResult === 'error' ? '送信失敗' : <><SendDiagonal width={14} height={14} /> 送る</>}
         </button>
       </div>
     </div>

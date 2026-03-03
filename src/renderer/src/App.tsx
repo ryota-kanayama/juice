@@ -11,6 +11,7 @@ import { DayDetail } from './components/Calendar/DayDetail'
 import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
 import { SetupView } from './components/Setup/SetupView'
+import { Menu, Timer, Calendar, Settings, Xmark, OpenNewWindow } from 'iconoir-react'
 
 type Page = 'timer' | 'calendar' | 'settings'
 
@@ -42,7 +43,7 @@ export default function App() {
         <div className={styles.headerActions}>
           <div className={styles.menuWrapper} ref={menuRef}>
             <button className={styles.menuButton} onClick={() => setMenuOpen(p => !p)}>
-              ☰
+              <Menu width={16} height={16} />
             </button>
             {menuOpen && (
               <div className={styles.menuPopup}>
@@ -53,7 +54,7 @@ export default function App() {
                     window.electronAPI.openUrl('https://attendance.jsl.co.jp/')
                   }}
                 >
-                  JSL ↗
+                  JSL <OpenNewWindow width={12} height={12} />
                 </button>
               </div>
             )}
@@ -76,21 +77,21 @@ export default function App() {
           className={`${styles.tabItem} ${currentPage === 'timer' ? styles.tabActive : ''}`}
           onClick={() => setCurrentPage('timer')}
         >
-          <span className={styles.tabIcon}>&#9202;</span>
+          <Timer width={18} height={18} />
           <span className={styles.tabLabel}>タイマー</span>
         </button>
         <button
           className={`${styles.tabItem} ${currentPage === 'calendar' ? styles.tabActive : ''}`}
           onClick={() => setCurrentPage('calendar')}
         >
-          <span className={styles.tabIcon}>&#128197;</span>
+          <Calendar width={18} height={18} />
           <span className={styles.tabLabel}>カレンダー</span>
         </button>
         <button
           className={`${styles.tabItem} ${currentPage === 'settings' ? styles.tabActive : ''}`}
           onClick={() => setCurrentPage('settings')}
         >
-          <span className={styles.tabIcon}>&#9881;</span>
+          <Settings width={18} height={18} />
           <span className={styles.tabLabel}>設定</span>
         </button>
       </nav>
@@ -213,7 +214,7 @@ function TimerPage() {
       {midnightSession && (
         <div className={styles.midnightBanner}>
           <span>「{midnightSession.name}」を {midnightSession.date} として保存しました</span>
-          <button onClick={() => setMidnightSession(null)}>✕</button>
+          <button onClick={() => setMidnightSession(null)}><Xmark width={14} height={14} /></button>
         </div>
       )}
 

@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
+import { Check, Xmark, Play, EditPencil } from 'iconoir-react'
 
 interface AddParams {
   name: string
@@ -280,15 +281,15 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
               <span className={styles.duration}>{calcSessionMinutes(session)}分</span>
               {editingKey === session.id ? (
                 <>
-                  <button className={styles.confirmButton} onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存">✓</button>
-                  <button className={styles.cancelButton} onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル">✕</button>
+                  <button className={styles.confirmButton} onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
+                  <button className={styles.cancelButton} onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
                 </>
               ) : (
                 <>
                   {!isRunning && onStartMore && (
-                    <button className={styles.moreButton} onClick={() => onStartMore(session)} aria-label="追加で注ぐ">+</button>
+                    <button className={styles.moreButton} onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
                   )}
-                  <button className={styles.editButton} onClick={() => handleEditStart(session)} aria-label="名前を編集">✏️</button>
+                  <button className={styles.editButton} onClick={() => handleEditStart(session)} aria-label="名前を編集"><EditPencil width={14} height={14} /></button>
                 </>
               )}
             </li>

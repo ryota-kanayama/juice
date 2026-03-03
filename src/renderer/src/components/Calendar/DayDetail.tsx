@@ -5,6 +5,7 @@ import styles from './DayDetail.module.css'
 import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
+import { Check, Xmark, EditPencil } from 'iconoir-react'
 
 interface Props {
   date: string | null
@@ -157,20 +158,20 @@ export function DayDetail({ date, sessions, onUpdate }: Props) {
                       onClick={handleEditCommit}
                       onMouseDown={e => e.preventDefault()}
                       aria-label="保存"
-                    >✓</button>
+                    ><Check width={14} height={14} /></button>
                     <button
                       className={styles.cancelButton}
                       onClick={handleEditCancel}
                       onMouseDown={e => e.preventDefault()}
                       aria-label="キャンセル"
-                    >✕</button>
+                    ><Xmark width={14} height={14} /></button>
                   </>
                 ) : (
                   <button
                     className={styles.editButton}
                     onClick={() => handleEditStart(session)}
                     aria-label="名前を編集"
-                  >✏️</button>
+                  ><EditPencil width={14} height={14} /></button>
                 )}
               </li>
             ))}

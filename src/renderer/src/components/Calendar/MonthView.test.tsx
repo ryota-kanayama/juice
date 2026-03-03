@@ -51,7 +51,7 @@ describe('MonthView', () => {
         onNextMonth={vi.fn()}
       />
     )
-    expect(screen.getByRole('button', { name: '←' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '→' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '前月' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '次月' })).toBeInTheDocument()
   })
 })
