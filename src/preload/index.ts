@@ -45,4 +45,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('settings:setUserName', userName),
   sendAttendance: (text: string) =>
     ipcRenderer.invoke('attendance:send', text),
+  completeSetup: () =>
+    ipcRenderer.invoke('setup:complete'),
 })

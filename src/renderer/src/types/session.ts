@@ -25,4 +25,5 @@ export interface ElectronAPI {
   getUserName: () => Promise<string>
   setUserName: (userName: string) => Promise<void>
   sendAttendance: (text: string) => Promise<{ ok: boolean; status: number; body: string }>
+  completeSetup: () => Promise<void>
 }

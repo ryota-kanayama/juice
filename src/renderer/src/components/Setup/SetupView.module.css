@@ -1,0 +1,229 @@
+.container {
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  width: 100%;
+  height: 100vh;
+  box-sizing: border-box;
+  background: var(--bg, #fffbf7);
+  padding: 24px 24px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Step content with fade animation ===== */
+.stepContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Step 1: Welcome ===== */
+.welcomeHeader {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.welcomeLogo {
+  font-size: 56px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.welcomeTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary, #3d2b1f);
+  margin: 0 0 8px;
+}
+
+.welcomeDescription {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary, #a08060);
+  margin: 0;
+  max-width: 280px;
+}
+
+/* ===== Step 2, 3: Header ===== */
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.logo {
+  font-size: 36px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary, #3d2b1f);
+  margin: 0 0 4px;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: var(--text-secondary, #a08060);
+  margin: 0;
+}
+
+.section {
+  margin-bottom: 16px;
+}
+
+/* ===== Input ===== */
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border-light, #e8d5c0);
+  border-radius: var(--radius-sm);
+  background: var(--bg, #fffbf7);
+  color: var(--text-primary, #3d2b1f);
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--accent, #FF9500);
+  box-shadow: 0 0 0 3px var(--accent-light, #fff5e6);
+}
+
+/* ===== Theme grid ===== */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.card {
+  position: relative;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 10px 8px 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s, transform 0.1s;
+  text-align: left;
+  box-shadow: var(--shadow-soft);
+}
+
+.card:hover {
+  transform: scale(0.98);
+}
+
+.active {
+  border-color: var(--accent, #FF9500);
+}
+
+.dots {
+  display: flex;
+  gap: 4px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: block;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.check {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ===== Footer: indicator + buttons ===== */
+.footer {
+  margin-top: auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stepIndicator {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.stepDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-light, #e8d5c0);
+  transition: background 0.2s;
+}
+
+.stepDotActive {
+  background: var(--accent, #FF9500);
+}
+
+.buttonRow {
+  display: flex;
+  gap: 8px;
+}
+
+.backButton {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary, #a08060);
+  transition: all 0.15s ease;
+}
+
+.backButton:hover {
+  background: var(--border-light, #e8d5c0);
+}
+
+.nextButton {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background: var(--accent, #FF9500);
+  color: #fff;
+  transition: all 0.15s ease;
+}
+
+.nextButton:hover {
+  background: var(--accent-hover, #e68600);
+  transform: scale(0.98);
+}
+
+.nextButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
