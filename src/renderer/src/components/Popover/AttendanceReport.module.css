@@ -92,18 +92,27 @@
   display: none;
 }
 
-.copyButton {
-  width: 100%;
+.buttonRow {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.copyButton,
+.sendButton {
+  flex: 1;
   padding: 9px;
   font-size: 13px;
   font-weight: 600;
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  background: var(--accent);
-  color: #fff;
   transition: all 0.15s ease;
-  flex-shrink: 0;
+  color: #fff;
+}
+
+.copyButton {
+  background: var(--accent);
 }
 
 .copyButton:hover {
@@ -117,4 +126,35 @@
 
 .copied:hover {
   background: #20c870;
+}
+
+.sendButton {
+  background: #3b82f6;
+}
+
+.sendButton:hover {
+  background: #2563eb;
+  transform: scale(0.97);
+}
+
+.sendButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sent {
+  background: #26de81;
+}
+
+.sent:hover {
+  background: #20c870;
+}
+
+.sendError {
+  background: #ef4444;
+}
+
+.sendError:hover {
+  background: #dc2626;
 }

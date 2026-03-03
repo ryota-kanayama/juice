@@ -7,6 +7,7 @@ interface Settings {
   idleNotificationMinutes: number
   elapsedNotificationEnabled: boolean
   elapsedNotificationMinutes: number
+  userName: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: Settings = {
   idleNotificationMinutes: 60,
   elapsedNotificationEnabled: false,
   elapsedNotificationMinutes: 30,
+  userName: '',
 }
 
 export class SettingsStore {
@@ -90,4 +92,15 @@ export class SettingsStore {
     const s = await this.readAll()
     await this.writeAll({ ...s, elapsedNotificationEnabled: enabled, elapsedNotificationMinutes: minutes })
   }
+
+  async getUserName(): Promise<string> {
+    const s = await this.readAll()
+    return s.userName
+  }
+
+  async setUserName(userName: string): Promise<void> {
+    const s = await this.readAll()
+    await this.writeAll({ ...s, userName })
+  }
+
 }

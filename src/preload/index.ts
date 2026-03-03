@@ -39,4 +39,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('settings:getElapsedSettings'),
   setElapsedSettings: (enabled: boolean, minutes: number) =>
     ipcRenderer.invoke('settings:setElapsedSettings', { enabled, minutes }),
+  getUserName: () =>
+    ipcRenderer.invoke('settings:getUserName'),
+  setUserName: (userName: string) =>
+    ipcRenderer.invoke('settings:setUserName', userName),
+  sendAttendance: (text: string) =>
+    ipcRenderer.invoke('attendance:send', text),
 })

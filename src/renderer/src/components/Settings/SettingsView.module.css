@@ -148,3 +148,21 @@
   color: var(--text-primary, #3d2b1f);
   cursor: pointer;
 }
+
+/* ===== Account section ===== */
+.userNameInput {
+  margin-left: 8px;
+  padding: 5px 8px;
+  font-size: 13px;
+  border: 1px solid var(--border-light, #e8d5c0);
+  border-radius: var(--radius-sm);
+  background: var(--bg, #fffbf7);
+  color: var(--text-primary, #3d2b1f);
+  outline: none;
+  width: 140px;
+}
+
+.userNameInput:focus {
+  border-color: var(--accent, #FF9500);
+  box-shadow: 0 0 0 3px var(--accent-light, #fff5e6);
+}

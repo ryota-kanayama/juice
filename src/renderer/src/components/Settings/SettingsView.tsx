@@ -2,7 +2,7 @@ import { useState, useEffect, type ChangeEvent } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
 import styles from './SettingsView.module.css'
 
-type Section = 'theme' | 'notification'
+type Section = 'theme' | 'notification' | 'account'
 
 export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
@@ -11,6 +11,7 @@ export function SettingsView() {
   const [idleMinutes, setIdleMinutes] = useState(60)
   const [elapsedEnabled, setElapsedEnabled] = useState(false)
   const [elapsedMinutes, setElapsedMinutes] = useState(30)
+  const [userName, setUserName] = useState('')
 
   useEffect(() => {
     window.electronAPI.getTheme().then(setActiveThemeId)
@@ -23,6 +24,7 @@ export function SettingsView() {
       setElapsedEnabled(enabled)
       setElapsedMinutes(minutes)
     })
+    window.electronAPI.getUserName().then(setUserName)
   }, [])
 
   const handleSelect = (themeId: string) => {
@@ -56,9 +58,18 @@ export function SettingsView() {
     window.electronAPI.setElapsedSettings(elapsedEnabled, minutes)
   }
 
+  const handleUserNameChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setUserName(e.target.value)
+  }
+
+  const handleUserNameBlur = () => {
+    window.electronAPI.setUserName(userName.trim())
+  }
+
   const navItems: { id: Section; label: string }[] = [
     { id: 'theme', label: 'テーマ' },
     { id: 'notification', label: '通知' },
+    { id: 'account', label: 'アカウント' },
   ]
 
   return (
@@ -121,6 +132,25 @@ export function SettingsView() {
                   )}
                 </button>
               ))}
+            </div>
+          </>
+        )}
+
+        {activeSection === 'account' && (
+          <>
+            <h2 className={styles.heading}>勤怠連携</h2>
+            <div className={styles.idleRow}>
+              <label className={styles.idleLabel}>
+                ユーザー名
+                <input
+                  type="text"
+                  className={styles.userNameInput}
+                  value={userName}
+                  onChange={handleUserNameChange}
+                  onBlur={handleUserNameBlur}
+                  placeholder="Slack ユーザー名"
+                />
+              </label>
             </div>
           </>
         )}

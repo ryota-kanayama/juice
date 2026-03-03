@@ -288,6 +288,43 @@ app.whenReady().then(() => {
     await startIdleCheck()
   })
 
+  ipcMain.handle('settings:getUserName', async () => {
+    return settingsStore.getUserName()
+  })
+
+  ipcMain.handle('settings:setUserName', async (_, userName: string) => {
+    await settingsStore.setUserName(userName)
+  })
+
+  ipcMain.handle('attendance:send', async (_, text: string) => {
+    const userName = await settingsStore.getUserName()
+    if (!userName) {
+      return { ok: false, status: 0, body: 'user_name が設定されていません' }
+    }
+    const { net } = await import('electron')
+    const formBody = `user_name=${encodeURIComponent(userName)}&text=${encodeURIComponent(text)}`
+    return new Promise<{ ok: boolean; status: number; body: string }>((resolve) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${import.meta.env.MAIN_VITE_ATTENDANCE_API_URL}?key=${import.meta.env.MAIN_VITE_ATTENDANCE_API_KEY}`,
+      })
+      request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          const ok = response.statusCode >= 200 && response.statusCode < 300
+          resolve({ ok, status: response.statusCode, body })
+        })
+      })
+      request.on('error', (err) => {
+        resolve({ ok: false, status: 0, body: err.message })
+      })
+      request.write(formBody)
+      request.end()
+    })
+  })
+
   ipcMain.handle('timer:started', () => {
     timerStartTime = new Date()
     elapsedNotifyCount = 0

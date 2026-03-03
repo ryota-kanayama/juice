@@ -22,4 +22,7 @@ export interface ElectronAPI {
   timerAdjustStartTime: (newStartMs: number) => Promise<void>
   getElapsedSettings: () => Promise<{ enabled: boolean; minutes: number }>
   setElapsedSettings: (enabled: boolean, minutes: number) => Promise<void>
+  getUserName: () => Promise<string>
+  setUserName: (userName: string) => Promise<void>
+  sendAttendance: (text: string) => Promise<{ ok: boolean; status: number; body: string }>
 }

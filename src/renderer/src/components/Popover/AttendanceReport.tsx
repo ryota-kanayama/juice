@@ -45,6 +45,8 @@ interface Props {
 export function AttendanceReport({ sessions, onBack }: Props) {
   const [breakMinutes, setBreakMinutes] = useState(60)
   const [copied, setCopied] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState<'success' | 'error' | null>(null)
 
   const todayKey = formatLocalDate(Date.now())
   const workStart = localStorage.getItem(`workStart.${todayKey}`)
@@ -61,6 +63,20 @@ export function AttendanceReport({ sessions, onBack }: Props) {
       .catch(() => {
         // Electron では通常発生しないが、念のため無視
       })
+  }
+
+  const handleSend = async () => {
+    setSending(true)
+    setSendResult(null)
+    try {
+      const result = await window.electronAPI.sendAttendance(text)
+      setSendResult(result.ok ? 'success' : 'error')
+    } catch {
+      setSendResult('error')
+    } finally {
+      setSending(false)
+      setTimeout(() => setSendResult(null), 3000)
+    }
   }
 
   return (
@@ -84,12 +100,21 @@ export function AttendanceReport({ sessions, onBack }: Props) {
 
       <pre className={styles.preview}>{text}</pre>
 
-      <button
-        className={`${styles.copyButton}${copied ? ` ${styles.copied}` : ''}`}
-        onClick={handleCopy}
-      >
-        {copied ? '✓ コピーしました' : '📋 コピーする'}
-      </button>
+      <div className={styles.buttonRow}>
+        <button
+          className={`${styles.copyButton}${copied ? ` ${styles.copied}` : ''}`}
+          onClick={handleCopy}
+        >
+          {copied ? '✓ コピーしました' : '📋 コピー'}
+        </button>
+        <button
+          className={`${styles.sendButton}${sendResult === 'success' ? ` ${styles.sent}` : ''}${sendResult === 'error' ? ` ${styles.sendError}` : ''}`}
+          onClick={handleSend}
+          disabled={sending}
+        >
+          {sending ? '送信中...' : sendResult === 'success' ? '✓ 送信しました' : sendResult === 'error' ? '送信失敗' : '📤 送る'}
+        </button>
+      </div>
     </div>
   )
 }
