@@ -17,22 +17,24 @@ export function TimerForm({ onStart }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
-      <input
-        className={styles.input}
-        value={name}
-        onChange={e => setName(e.target.value)}
-        placeholder="どんなジュースにしますか？"
-        type="text"
-        aria-label="ジュースの種類"
-        autoFocus
-      />
-      <button
-        className={styles.button}
-        type="submit"
-        disabled={!name.trim()}
-      >
-        注ぐ
-      </button>
+      <div className={styles.inputRow}>
+        <input
+          className={styles.input}
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="どんなジュースにしますか？"
+          type="text"
+          aria-label="ジュースの種類"
+          autoFocus
+        />
+        <button
+          className={styles.button}
+          type="submit"
+          disabled={!name.trim()}
+        >
+          注ぐ
+        </button>
+      </div>
     </form>
   )
 }

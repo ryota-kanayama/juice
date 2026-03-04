@@ -11,43 +11,31 @@ import { DayDetail } from './components/Calendar/DayDetail'
 import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
 import { SetupView } from './components/Setup/SetupView'
+import { Menu, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
 
-// URLハッシュでカレンダー画面かどうかを判定
-function isCalendarRoute(): boolean {
-  return window.location.hash === '#calendar'
+type Page = 'timer' | 'calendar' | 'attendance'
+
+function isSetupRoute(): boolean {
+  return window.location.hash === '#setup'
 }
 
 function isSettingsRoute(): boolean {
   return window.location.hash === '#settings'
 }
 
-function isSetupRoute(): boolean {
-  return window.location.hash === '#setup'
-}
-
 export default function App() {
   if (isSetupRoute()) return <SetupView />
   if (isSettingsRoute()) return <SettingsView />
-  if (isCalendarRoute()) {
-    return <CalendarView />
-  }
-  return <PopoverView />
-}
 
-function PopoverView() {
-  const { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
+  const [currentPage, setCurrentPage] = useState<Page>('timer')
   const [menuOpen, setMenuOpen] = useState(false)
-  const [view, setView] = useState<'main' | 'attendance'>('main')
   const menuRef = useRef<HTMLDivElement>(null)
-  const [activeTimerName, setActiveTimerName] = useState('')
-  const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
-  const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
+
+  // 今日のセッション（全タブで共有）
   const [todaySessions, setTodaySessions] = useState<Session[]>([])
   const [today, setToday] = useState(() => formatLocalDate(Date.now()))
   const [yearMonth, setYearMonth] = useState(() => formatLocalDate(Date.now()).slice(0, 7))
-  const [midnightSession, setMidnightSession] = useState<Session | null>(null)
 
-  // ウィンドウがフォーカスされた時に日付を更新（深夜0時を跨いだ場合のリセット）
   useEffect(() => {
     const handleFocus = () => {
       setToday(formatLocalDate(Date.now()))
@@ -57,33 +45,95 @@ function PopoverView() {
     return () => window.removeEventListener('focus', handleFocus)
   }, [])
 
-  // メニューが開いているとき、外側クリックで閉じる
-  useEffect(() => {
-    if (!menuOpen) return
-    const handler = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [menuOpen])
-
-  // 今日のセッションを読み込み
   useEffect(() => {
     window.electronAPI.getSessions(yearMonth).then(sessions => {
       setTodaySessions(sessions.filter(s => s.date === today))
     })
   }, [today, yearMonth])
 
-  // タイマー稼働状態に合わせてウィンドウサイズを変更
   useEffect(() => {
-    if (isRunning) {
-      window.electronAPI.resizeWindow(580, 420)
-    } else {
-      window.electronAPI.resizeWindow(320, 520)
+    if (!menuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
     }
-  }, [isRunning])
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
+
+  return (
+    <div className={styles.app}>
+      {/* ヘッダー */}
+      <header className={styles.header}>
+        <span className={styles.logo}>Juice</span>
+        <div className={styles.headerActions}>
+          <div className={styles.menuWrapper} ref={menuRef}>
+            <button className={styles.menuButton} onClick={() => setMenuOpen(p => !p)}>
+              <Menu width={16} height={16} />
+            </button>
+            {menuOpen && (
+              <div className={styles.menuPopup}>
+                <button
+                  className={styles.menuItem}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    window.electronAPI.openUrl('https://attendance.jsl.co.jp/')
+                  }}
+                >
+                  JSL <OpenNewWindow width={12} height={12} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ページコンテンツ */}
+      <main className={styles.content}>
+        <div className={styles.page} style={{ display: currentPage === 'timer' ? 'flex' : 'none' }}>
+          <TimerPage todaySessions={todaySessions} setTodaySessions={setTodaySessions} today={today} />
+        </div>
+        {currentPage === 'calendar' && <CalendarPage />}
+        {currentPage === 'attendance' && <AttendancePage sessions={todaySessions} />}
+      </main>
+
+      {/* ボトムナビゲーション */}
+      <nav className={styles.tabBar}>
+        <button
+          className={`${styles.tabItem} ${currentPage === 'timer' ? styles.tabActive : ''}`}
+          onClick={() => setCurrentPage('timer')}
+        >
+          <Timer width={18} height={18} />
+          <span className={styles.tabLabel}>タイマー</span>
+        </button>
+        <button
+          className={`${styles.tabItem} ${currentPage === 'calendar' ? styles.tabActive : ''}`}
+          onClick={() => setCurrentPage('calendar')}
+        >
+          <Calendar width={18} height={18} />
+          <span className={styles.tabLabel}>カレンダー</span>
+        </button>
+        <button
+          className={`${styles.tabItem} ${currentPage === 'attendance' ? styles.tabActive : ''}`}
+          onClick={() => setCurrentPage('attendance')}
+        >
+          <SendDiagonal width={18} height={18} />
+          <span className={styles.tabLabel}>勤怠</span>
+        </button>
+      </nav>
+    </div>
+  )
+}
+
+function TimerPage({ todaySessions, setTodaySessions, today }: {
+  todaySessions: Session[]
+  setTodaySessions: React.Dispatch<React.SetStateAction<Session[]>>
+  today: string
+}) {
+  const { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
+  const [activeTimerName, setActiveTimerName] = useState('')
+  const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
+  const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
+  const [midnightSession, setMidnightSession] = useState<Session | null>(null)
 
   const handleStart = (name: string) => {
     setActiveTimerName(name)
@@ -167,95 +217,25 @@ function PopoverView() {
     setTodaySessions(prev => prev.filter(s => s.id !== sessionId))
   }
 
-  const handleOpenCalendar = () => {
-    setMenuOpen(false)
-    window.electronAPI.openCalendar()
-    window.electronAPI.hideWindow()
-  }
-
-  const handleOpenAttendance = () => {
-    setMenuOpen(false)
-    window.electronAPI.openUrl('https://attendance.jsl.co.jp/')
-  }
-
-  const handleClose = () => {
-    window.electronAPI.hideWindow()
-  }
-
   return (
-    <div className={styles.popover}>
-      {/* ヘッダー */}
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <button className={styles.closeButton} onClick={handleClose}>×</button>
-          <span className={styles.logo}>🧃 Juice</span>
-        </div>
-        <div className={styles.headerActions}>
-          <div className={styles.menuWrapper} ref={menuRef}>
-            <button
-              className={styles.menuButton}
-              onClick={() => setMenuOpen(prev => !prev)}
-            >
-              ☰
-            </button>
-            {menuOpen && (
-              <div className={styles.menuPopup}>
-                <button className={styles.menuItem} onClick={handleOpenAttendance}>
-                  JSL ↗
-                </button>
-                <button className={styles.menuItem} onClick={handleOpenCalendar}>
-                  カレンダー ↗
-                </button>
-                <button
-                  className={styles.menuItem}
-                  onClick={() => { setMenuOpen(false); setView('attendance') }}
-                >
-                  ジュースを提供する
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
+    <div className={styles.timerPage}>
       {midnightSession && (
         <div className={styles.midnightBanner}>
           <span>「{midnightSession.name}」を {midnightSession.date} として保存しました</span>
-          <button onClick={() => setMidnightSession(null)}>✕</button>
+          <button onClick={() => setMidnightSession(null)}><Xmark width={14} height={14} /></button>
         </div>
       )}
 
       {isRunning ? (
-        /* 稼働時: 横並びレイアウト */
+        /* 稼働時: ActiveTimerのみ */
         <div className={styles.runningLayout}>
-          <div className={styles.leftPanel}>
-            <ActiveTimer
-              name={activeTimerName}
-              elapsedSeconds={elapsedSeconds}
-              color={activeColor}
-              initialProjectCode={activeTimerProjectCode}
-              initialWorkCategory={activeTimerWorkCategory}
-              onStop={handleStop}
-            />
-          </div>
-          <div className={styles.rightPanel}>
-            <SessionList
-              sessions={todaySessions}
-              isRunning={isRunning}
-              onUpdate={handleUpdate}
-              onStartMore={handleStartMore}
-              onDelete={handleDelete}
-              onAdjustStartTime={handleAdjustStartTime}
-            onAdd={handleAdd}
-            />
-          </div>
-        </div>
-      ) : view === 'attendance' ? (
-        /* 勤怠報告画面 */
-        <div className={styles.idleContent}>
-          <AttendanceReport
-            sessions={todaySessions}
-            onBack={() => setView('main')}
+          <ActiveTimer
+            name={activeTimerName}
+            elapsedSeconds={elapsedSeconds}
+            color={activeColor}
+            initialProjectCode={activeTimerProjectCode}
+            initialWorkCategory={activeTimerWorkCategory}
+            onStop={handleStop}
           />
         </div>
       ) : (
@@ -277,7 +257,7 @@ function PopoverView() {
   )
 }
 
-function CalendarView() {
+function CalendarPage() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -321,7 +301,14 @@ function CalendarView() {
 
   return (
     <div className={styles.calendarLayout}>
-      <div className={styles.calendarLeft}>
+      {selectedDate ? (
+        <DayDetail
+          date={selectedDate}
+          sessions={selectedSessions}
+          onUpdate={handleUpdateSession}
+          onBack={() => setSelectedDate(null)}
+        />
+      ) : (
         <MonthView
           year={year}
           month={month}
@@ -331,10 +318,15 @@ function CalendarView() {
           onPrevMonth={prevMonth}
           onNextMonth={nextMonth}
         />
-      </div>
-      <div className={styles.calendarRight}>
-        <DayDetail date={selectedDate} sessions={selectedSessions} onUpdate={handleUpdateSession} />
-      </div>
+      )}
+    </div>
+  )
+}
+
+function AttendancePage({ sessions }: { sessions: Session[] }) {
+  return (
+    <div className={styles.attendanceContent}>
+      <AttendanceReport sessions={sessions} />
     </div>
   )
 }

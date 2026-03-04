@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.web.json"
   },
   "dependencies": {
+    "iconoir-react": "^7.11.0",
     "preact": "^10.28.4"
   },
   "devDependencies": {

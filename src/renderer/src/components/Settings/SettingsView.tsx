@@ -1,12 +1,13 @@
 import { useState, useEffect, type ChangeEvent } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
 import styles from './SettingsView.module.css'
+import { Check } from 'iconoir-react'
 
 type Section = 'theme' | 'notification' | 'account'
 
 export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
-  const [activeThemeId, setActiveThemeId] = useState('orange')
+  const [activeThemeId, setActiveThemeId] = useState('rose')
   const [idleEnabled, setIdleEnabled] = useState(false)
   const [idleMinutes, setIdleMinutes] = useState(60)
   const [elapsedEnabled, setElapsedEnabled] = useState(false)
@@ -106,7 +107,7 @@ export function SettingsView() {
                     {theme.name}
                   </span>
                   {activeThemeId === theme.id && (
-                    <span className={styles.check} style={{ color: theme.accent }}>✓</span>
+                    <span className={styles.check} style={{ color: theme.accent }}><Check width={14} height={14} /></span>
                   )}
                 </button>
               ))}
@@ -128,7 +129,7 @@ export function SettingsView() {
                     {theme.name}
                   </span>
                   {activeThemeId === theme.id && (
-                    <span className={styles.check} style={{ color: theme.accent }}>✓</span>
+                    <span className={styles.check} style={{ color: theme.accent }}><Check width={14} height={14} /></span>
                   )}
                 </button>
               ))}

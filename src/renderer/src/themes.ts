@@ -3,24 +3,33 @@ export interface ThemeMeta {
   name: string
   bg: string
   accent: string
+  accentSecondary?: string
   textPrimary: string
   dark?: boolean
 }
 
 export const THEMES: ThemeMeta[] = [
-  { id: 'orange', name: 'Orange',  bg: '#FFFDF5', accent: '#FF9500', textPrimary: '#5C3D00' },
-  { id: 'lemon',  name: 'Lemon',   bg: '#FFFFF0', accent: '#E8C800', textPrimary: '#5C5000' },
-  { id: 'grape',  name: 'Grape',   bg: '#F8F0FF', accent: '#9B59B6', textPrimary: '#3D1F56' },
-  { id: 'melon',  name: 'Melon',   bg: '#F0FFF4', accent: '#27AE60', textPrimary: '#1A3D2B' },
-  { id: 'peach',  name: 'Peach',   bg: '#FFF5F0', accent: '#FF7675', textPrimary: '#5C2020' },
-  { id: 'berry',  name: 'Berry',   bg: '#FFF0F5', accent: '#E84393', textPrimary: '#4A1A2E' },
+  // 赤系
+  { id: 'rose',    name: 'Rose',    bg: '#FFF5F5', accent: '#E8546C', accentSecondary: '#D4405A', textPrimary: '#4A1520' },
+  { id: 'coral',   name: 'Coral',   bg: '#FFF4F0', accent: '#FF6B4A', accentSecondary: '#E8523A', textPrimary: '#4A1A10' },
+  // 青系
+  { id: 'sky',     name: 'Sky',     bg: '#F0F7FF', accent: '#4A9FE8', accentSecondary: '#3580D0', textPrimary: '#102840' },
+  { id: 'ocean',   name: 'Ocean',   bg: '#F0F4FF', accent: '#5468E8', accentSecondary: '#4050D0', textPrimary: '#151840' },
+  // 黄色系
+  { id: 'lemon',   name: 'Lemon',   bg: '#FFFEF0', accent: '#E8C820', accentSecondary: '#D0A800', textPrimary: '#403800' },
+  { id: 'honey',   name: 'Honey',   bg: '#FFFBF0', accent: '#E8A020', accentSecondary: '#D08800', textPrimary: '#402800' },
 ]
 
 export const DARK_THEMES: ThemeMeta[] = [
-  { id: 'cocoa',      name: 'Cocoa',      bg: '#2C2018', accent: '#FF9500', textPrimary: '#FFF0E2', dark: true },
-  { id: 'blackberry', name: 'Blackberry', bg: '#261C30', accent: '#B06CE8', textPrimary: '#F2EAFF', dark: true },
-  { id: 'olive',      name: 'Olive',      bg: '#1A2820', accent: '#40C870', textPrimary: '#E8F8EC', dark: true },
-  { id: 'plum',       name: 'Plum',       bg: '#2A1C28', accent: '#E84393', textPrimary: '#FCEAF5', dark: true },
+  // 赤系
+  { id: 'crimson',  name: 'Crimson',  bg: '#1E1012', accent: '#E8546C', accentSecondary: '#C84058', textPrimary: '#FFE8EC', dark: true },
+  { id: 'ember',    name: 'Ember',    bg: '#1E1410', accent: '#FF6B4A', accentSecondary: '#E85838', textPrimary: '#FFEAE4', dark: true },
+  // 青系
+  { id: 'night',    name: 'Night',    bg: '#0E1620', accent: '#4A9FE8', accentSecondary: '#3880D0', textPrimary: '#E4F0FF', dark: true },
+  { id: 'deep',     name: 'Deep',     bg: '#10121E', accent: '#5468E8', accentSecondary: '#4858D0', textPrimary: '#E8ECFF', dark: true },
+  // 黄色系
+  { id: 'midnight', name: 'Midnight', bg: '#1A1810', accent: '#E8C820', accentSecondary: '#C8A800', textPrimary: '#FFF8E0', dark: true },
+  { id: 'amber',    name: 'Amber',    bg: '#1E1810', accent: '#E8A020', accentSecondary: '#C88800', textPrimary: '#FFF4E0', dark: true },
 ]
 
 export const ALL_THEMES: ThemeMeta[] = [...THEMES, ...DARK_THEMES]

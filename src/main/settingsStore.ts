@@ -12,7 +12,7 @@ interface Settings {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  themeId: 'orange',
+  themeId: 'rose',
   idleNotificationEnabled: false,
   idleNotificationMinutes: 60,
   elapsedNotificationEnabled: false,
@@ -26,14 +26,26 @@ export class SettingsStore {
 
   private migrateThemeId(id: string): string {
     const map: Record<string, string> = {
-      juice: 'orange',
-      midnight: 'grape',
-      ocean: 'melon',
-      forest: 'melon',
-      sakura: 'peach',
-      lavender: 'grape',
-      charcoal: 'berry',
-      sunset: 'orange',
+      // 旧テーマ → 新テーマ
+      orange: 'honey',
+      lemon: 'lemon',
+      grape: 'ocean',
+      melon: 'sky',
+      peach: 'coral',
+      berry: 'rose',
+      cocoa: 'amber',
+      blackberry: 'deep',
+      olive: 'night',
+      plum: 'crimson',
+      // 旧旧テーマ
+      juice: 'honey',
+      midnight: 'deep',
+      ocean: 'sky',
+      forest: 'sky',
+      sakura: 'coral',
+      lavender: 'ocean',
+      charcoal: 'crimson',
+      sunset: 'honey',
     }
     return map[id] ?? id
   }

@@ -24,31 +24,24 @@ describe('buildAttendanceText', () => {
 
   it('複数タスクを登場順に並べる', () => {
     const sessions = [
-      makeSession({ id: 'a', taskId: 't1', name: '社内MTG', projectCode: 'ZZ', workCategory: '打合せ',
-        times: [{ startTime: '2026-02-26T10:00:00', endTime: '2026-02-26T13:00:00' }] }),
-      makeSession({ id: 'b', taskId: 't2', name: '1on1', projectCode: 'ZZ', workCategory: '打合せ',
-        times: [{ startTime: '2026-02-26T14:00:00', endTime: '2026-02-26T15:00:00' }] }),
+      makeSession({ id: 'a', taskId: 't1', name: '社内MTG', projectCode: 'ZZ', workCategory: '打合せ', totalTime: 180 }),
+      makeSession({ id: 'b', taskId: 't2', name: '1on1', projectCode: 'ZZ', workCategory: '打合せ', totalTime: 60 }),
     ]
     const result = buildAttendanceText(sessions, '08:37', '18:40', 60)
     expect(result).toBe('勤怠\n08:37 18:40 60\nZZ 社内MTG 打合せ 180\nZZ 1on1 打合せ 60')
   })
 
-  it('times配列に複数インターバルがある場合は合算する', () => {
+  it('totalTimeが正しく反映される', () => {
     const sessions = [
-      makeSession({
-        times: [
-          { startTime: '2026-02-26T10:00:00', endTime: '2026-02-26T11:00:00' },
-          { startTime: '2026-02-26T14:00:00', endTime: '2026-02-26T15:00:00' },
-        ],
-      }),
+      makeSession({ totalTime: 120 }),
     ]
     const result = buildAttendanceText(sessions, '08:37', '18:40', 60)
     expect(result).toBe('勤怠\n08:37 18:40 60\nZZ テスト作業 設計 120')
   })
 
-  it('endTimeがnullのインターバルはスキップする', () => {
+  it('totalTimeが0のセッションはスキップする', () => {
     const sessions = [
-      makeSession({ times: [{ startTime: '2026-02-26T10:00:00', endTime: null }] }),
+      makeSession({ totalTime: 0 }),
     ]
     const result = buildAttendanceText(sessions, '08:37', '18:40', 60)
     expect(result).toBe('勤怠\n08:37 18:40 60')

@@ -18,34 +18,40 @@ describe('SettingsStore', () => {
     await rm(testDir, { recursive: true, force: true })
   })
 
-  it('設定ファイルが存在しない場合はデフォルトテーマ "orange" を返す', async () => {
+  it('設定ファイルが存在しない場合はデフォルトテーマ "rose" を返す', async () => {
     const themeId = await store.getTheme()
-    expect(themeId).toBe('orange')
+    expect(themeId).toBe('rose')
   })
 
   it('テーマを保存して取得できる', async () => {
-    await store.setTheme('grape')
+    await store.setTheme('sky')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('grape')
+    expect(themeId).toBe('sky')
   })
 
   it('テーマを変更できる', async () => {
-    await store.setTheme('melon')
-    await store.setTheme('peach')
+    await store.setTheme('lemon')
+    await store.setTheme('coral')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('peach')
+    expect(themeId).toBe('coral')
   })
 
-  it('旧テーマIDが新しいフルーツテーマIDにマイグレーションされる', async () => {
+  it('旧テーマIDが新テーマIDにマイグレーションされる', async () => {
+    await store.setTheme('orange')
+    const themeId = await store.getTheme()
+    expect(themeId).toBe('honey')
+  })
+
+  it('旧旧テーマIDもマイグレーションされる', async () => {
     await store.setTheme('midnight')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('grape')
+    expect(themeId).toBe('deep')
   })
 
-  it('未知のテーマIDはそのまま返される', async () => {
-    await store.setTheme('berry')
+  it('新テーマIDはそのまま返される', async () => {
+    await store.setTheme('crimson')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('berry')
+    expect(themeId).toBe('crimson')
   })
 
   it('経過時間通知設定のデフォルト値が返る', async () => {

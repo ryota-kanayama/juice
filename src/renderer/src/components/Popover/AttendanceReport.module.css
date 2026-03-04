@@ -3,39 +3,12 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: 0 16px 16px;
-}
-
-.backHeader {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0 8px;
-  border-bottom: 1px solid var(--border-light);
-  margin: 0 -16px 12px;
-  padding-left: 16px;
-}
-
-.backButton {
-  font-size: 16px;
-  color: var(--text-secondary);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  line-height: 1;
-}
-
-.backButton:hover {
-  color: var(--text-primary);
-  background: var(--border-light);
-}
-
-.title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
+  padding: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
 }
 
 .breakRow {
@@ -55,11 +28,14 @@
   font-size: 13px;
   text-align: right;
   padding: 3px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   outline: none;
   color: var(--text-primary);
+  transition: var(--transition-smooth);
 }
 
 .breakInput:focus {
@@ -79,8 +55,11 @@
   font-size: 12px;
   line-height: 1.7;
   color: var(--text-primary);
-  background: var(--bg-tag);
-  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   white-space: pre-wrap;
   overflow-y: auto;
@@ -107,34 +86,36 @@
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: var(--transition-smooth);
   color: #fff;
 }
 
 .copyButton {
-  background: var(--accent);
+  background: var(--gradient-accent);
+  box-shadow: 0 4px 12px var(--accent-light);
 }
 
 .copyButton:hover {
-  background: var(--accent-hover);
-  transform: scale(0.97);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--accent-light);
 }
 
 .copied {
-  background: #26de81;
+  background: linear-gradient(135deg, #26de81, #20c870);
 }
 
 .copied:hover {
-  background: #20c870;
+  background: linear-gradient(135deg, #20c870, #1ab865);
 }
 
 .sendButton {
-  background: #3b82f6;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .sendButton:hover {
-  background: #2563eb;
-  transform: scale(0.97);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
 }
 
 .sendButton:disabled {
@@ -144,17 +125,17 @@
 }
 
 .sent {
-  background: #26de81;
+  background: linear-gradient(135deg, #26de81, #20c870);
 }
 
 .sent:hover {
-  background: #20c870;
+  background: linear-gradient(135deg, #20c870, #1ab865);
 }
 
 .sendError {
-  background: #ef4444;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
 }
 
 .sendError:hover {
-  background: #dc2626;
+  background: linear-gradient(135deg, #dc2626, #c41e1e);
 }

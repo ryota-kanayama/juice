@@ -2,7 +2,12 @@
   padding: 16px;
   height: 100%;
   overflow-y: auto;
+  scrollbar-width: none;
   background: transparent;
+}
+
+.container::-webkit-scrollbar {
+  display: none;
 }
 
 .placeholder {
@@ -12,11 +17,34 @@
   text-align: center;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-smooth);
+}
+
+.backButton:hover {
+  color: var(--text-primary);
+  background: var(--glass-bg);
+}
+
 .date {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 12px;
+  margin: 0;
 }
 
 .empty {
@@ -31,13 +59,26 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  transition: var(--transition-smooth);
+}
+
+.item:hover {
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glass);
 }
 
 .dot {
@@ -46,6 +87,7 @@
   border-radius: 50%;
   margin-top: 3px;
   flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
 }
 
 .info {
@@ -70,9 +112,10 @@
 .metaTag {
   font-size: 11px;
   color: var(--text-muted);
-  background: var(--bg-tag);
-  border-radius: var(--radius-sm);
-  padding: 0 6px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 99px;
+  padding: 0 7px;
   line-height: 1.6;
 }
 
@@ -119,8 +162,12 @@
 
 .total {
   margin-top: 16px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-light);
+  padding: 10px 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   font-size: 13px;
   color: var(--text-secondary);
   text-align: right;
@@ -152,8 +199,14 @@
   padding: 1px 6px;
   width: 100%;
   outline: none;
-  background: var(--bg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   margin: 0;
+}
+
+.nameInput:focus {
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 .confirmButton,
@@ -173,9 +226,11 @@
 .contextMenu {
   position: fixed;
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-elevated);
   z-index: 1000;
   min-width: 120px;
   padding: 4px 0;
@@ -191,9 +246,9 @@
   font-size: 13px;
   color: var(--text-primary);
   cursor: pointer;
+  transition: var(--transition-smooth);
 }
 
 .contextMenuItemNormal:hover {
   background: var(--bg-hover);
 }
-

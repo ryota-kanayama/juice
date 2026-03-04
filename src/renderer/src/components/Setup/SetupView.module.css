@@ -4,7 +4,7 @@
   width: 100%;
   height: 100vh;
   box-sizing: border-box;
-  background: var(--bg, #fffbf7);
+  background: var(--bg);
   padding: 24px 24px 20px;
   overflow-y: auto;
   display: flex;
@@ -43,14 +43,14 @@
 .welcomeTitle {
   font-size: 22px;
   font-weight: 700;
-  color: var(--text-primary, #3d2b1f);
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 
 .welcomeDescription {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--text-secondary, #a08060);
+  color: var(--text-secondary);
   margin: 0;
   max-width: 280px;
 }
@@ -70,13 +70,13 @@
 .title {
   font-size: 18px;
   font-weight: 700;
-  color: var(--text-primary, #3d2b1f);
+  color: var(--text-primary);
   margin: 0 0 4px;
 }
 
 .subtitle {
   font-size: 12px;
-  color: var(--text-secondary, #a08060);
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -90,16 +90,19 @@
   box-sizing: border-box;
   padding: 8px 10px;
   font-size: 13px;
-  border: 1px solid var(--border-light, #e8d5c0);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  background: var(--bg, #fffbf7);
-  color: var(--text-primary, #3d2b1f);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text-primary);
   outline: none;
+  transition: var(--transition-smooth);
 }
 
 .input:focus {
-  border-color: var(--accent, #FF9500);
-  box-shadow: 0 0 0 3px var(--accent-light, #fff5e6);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 /* ===== Theme grid ===== */
@@ -111,24 +114,29 @@
 
 .card {
   position: relative;
-  border: 2px solid transparent;
-  border-radius: var(--radius-md);
+  border: 2px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   padding: 10px 8px 6px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: border-color 0.15s, transform 0.1s;
+  transition: var(--transition-smooth);
   text-align: left;
-  box-shadow: var(--shadow-soft);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-glass);
 }
 
 .card:hover {
-  transform: scale(0.98);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
 }
 
 .active {
-  border-color: var(--accent, #FF9500);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-light);
 }
 
 .dots {
@@ -141,6 +149,7 @@
   height: 10px;
   border-radius: 50%;
   display: block;
+  box-shadow: 0 0 6px currentColor;
 }
 
 .label {
@@ -175,12 +184,13 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--border-light, #e8d5c0);
-  transition: background 0.2s;
+  background: var(--glass-border);
+  transition: var(--transition-smooth);
 }
 
 .stepDotActive {
-  background: var(--accent, #FF9500);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-light);
 }
 
 .buttonRow {
@@ -192,16 +202,18 @@
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
-  border: none;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  background: transparent;
-  color: var(--text-secondary, #a08060);
-  transition: all 0.15s ease;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text-secondary);
+  transition: var(--transition-smooth);
 }
 
 .backButton:hover {
-  background: var(--border-light, #e8d5c0);
+  background: var(--bg-hover);
 }
 
 .nextButton {
@@ -212,14 +224,15 @@
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  background: var(--accent, #FF9500);
+  background: var(--gradient-accent);
   color: #fff;
-  transition: all 0.15s ease;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px var(--accent-light);
 }
 
 .nextButton:hover {
-  background: var(--accent-hover, #e68600);
-  transform: scale(0.98);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--accent-light);
 }
 
 .nextButton:disabled {

@@ -1,4 +1,5 @@
 import styles from './MonthView.module.css'
+import { NavArrowLeft, NavArrowRight } from 'iconoir-react'
 
 interface Props {
   year: number
@@ -30,9 +31,9 @@ export function MonthView({
   return (
     <div className={styles.container}>
       <div className={styles.navigation}>
-        <button onClick={onPrevMonth} aria-label="←">←</button>
+        <button onClick={onPrevMonth} aria-label="前月"><NavArrowLeft width={18} height={18} /></button>
         <span className={styles.title}>{year}年 {month}月</span>
-        <button onClick={onNextMonth} aria-label="→">→</button>
+        <button onClick={onNextMonth} aria-label="次月"><NavArrowRight width={18} height={18} /></button>
       </div>
 
       <div className={styles.grid} role="grid">

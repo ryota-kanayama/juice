@@ -5,14 +5,16 @@ import styles from './DayDetail.module.css'
 import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
+import { Check, Xmark, EditPencil } from 'iconoir-react'
 
 interface Props {
   date: string | null
   sessions: Session[]
   onUpdate?: (session: Session) => Promise<void>
+  onBack?: () => void
 }
 
-export function DayDetail({ date, sessions, onUpdate }: Props) {
+export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingDurationId, setEditingDurationId] = useState<string | null>(null)
@@ -78,7 +80,12 @@ export function DayDetail({ date, sessions, onUpdate }: Props) {
 
   return (
     <div className={styles.container}>
-      <h3 className={styles.date}>{date}</h3>
+      <div className={styles.header}>
+        {onBack && (
+          <button className={styles.backButton} onClick={onBack} aria-label="戻る">←</button>
+        )}
+        <h3 className={styles.date}>{date}</h3>
+      </div>
       {sessions.length === 0 ? (
         <p className={styles.empty}>この日はジュースを注いでいません</p>
       ) : (
@@ -157,20 +164,20 @@ export function DayDetail({ date, sessions, onUpdate }: Props) {
                       onClick={handleEditCommit}
                       onMouseDown={e => e.preventDefault()}
                       aria-label="保存"
-                    >✓</button>
+                    ><Check width={14} height={14} /></button>
                     <button
                       className={styles.cancelButton}
                       onClick={handleEditCancel}
                       onMouseDown={e => e.preventDefault()}
                       aria-label="キャンセル"
-                    >✕</button>
+                    ><Xmark width={14} height={14} /></button>
                   </>
                 ) : (
                   <button
                     className={styles.editButton}
                     onClick={() => handleEditStart(session)}
                     aria-label="名前を編集"
-                  >✏️</button>
+                  ><EditPencil width={14} height={14} /></button>
                 )}
               </li>
             ))}
