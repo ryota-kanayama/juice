@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useState, useEffect, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '../../types/session'
 import { calcSessionMinutes, formatInterval, formatLocalDateTime, sortSessionsByStart } from '../../../../shared/sessionUtils'
 import styles from './SessionList.module.css'
@@ -16,6 +16,7 @@ interface AddParams {
 
 interface Props {
   sessions: Session[]
+  today?: string
   isRunning?: boolean
   onStartMore?: (session: Session) => void
   onUpdate?: (session: Session) => Promise<void>
@@ -33,20 +34,26 @@ function formatTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
+export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingProjectCode, setEditingProjectCode] = useState('')
   const [editingWorkCategory, setEditingWorkCategory] = useState('')
   const [editingDuration, setEditingDuration] = useState('')
 
-  const todayKey = getTodayKey()
+  const todayKey = today ?? getTodayKey()
   const [workStart, setWorkStart] = useState<string | null>(
     () => localStorage.getItem(`workStart.${todayKey}`)
   )
   const [workEnd, setWorkEnd] = useState<string | null>(
     () => localStorage.getItem(`workEnd.${todayKey}`)
   )
+
+  // 日付が変わったら workStart/workEnd をリセット
+  useEffect(() => {
+    setWorkStart(localStorage.getItem(`workStart.${todayKey}`))
+    setWorkEnd(localStorage.getItem(`workEnd.${todayKey}`))
+  }, [todayKey])
 
   const [timePickerMode, setTimePickerMode] = useState<'start' | 'end' | null>(null)
   const [timePickerValue, setTimePickerValue] = useState('')
@@ -296,9 +303,6 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
 
       <div className={styles.total}>
         <div className={styles.workTimeRow}>
-          <span className={styles.workTime}>
-            {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
-          </span>
           {!workEnd && (
             <button
               className={workStart ? styles.endButton : styles.startButton}
@@ -307,6 +311,9 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
               {workStart ? '終了' : '開始'}
             </button>
           )}
+          <span className={styles.workTime}>
+            {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
+          </span>
         </div>
         {sessions.length > 0 && (
           <span>今日注いだ時間: <strong>{totalMinutes}分</strong></span>

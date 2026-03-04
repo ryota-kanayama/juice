@@ -305,9 +305,9 @@ function createSetupWindow(): void {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createEmpty()
+  const iconPath = join(__dirname, '../../resources/icon.png')
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 22, height: 22 })
   tray = new Tray(icon)
-  tray.setTitle('🧃')
   tray.setToolTip('Juice')
 
   const contextMenu = Menu.buildFromTemplate([

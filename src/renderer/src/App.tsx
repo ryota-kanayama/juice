@@ -244,6 +244,7 @@ function TimerPage({ todaySessions, setTodaySessions, today }: {
           <TimerForm onStart={handleStart} />
           <SessionList
             sessions={todaySessions}
+            today={today}
             isRunning={isRunning}
             onUpdate={handleUpdate}
             onStartMore={handleStartMore}
