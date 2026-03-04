@@ -2,7 +2,12 @@
   padding: 16px;
   height: 100%;
   overflow-y: auto;
+  scrollbar-width: none;
   background: transparent;
+}
+
+.container::-webkit-scrollbar {
+  display: none;
 }
 
 .placeholder {
@@ -12,11 +17,34 @@
   text-align: center;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-smooth);
+}
+
+.backButton:hover {
+  color: var(--text-primary);
+  background: var(--glass-bg);
+}
+
 .date {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 12px;
+  margin: 0;
 }
 
 .empty {

@@ -7,7 +7,7 @@ type Section = 'theme' | 'notification' | 'account'
 
 export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
-  const [activeThemeId, setActiveThemeId] = useState('orange')
+  const [activeThemeId, setActiveThemeId] = useState('rose')
   const [idleEnabled, setIdleEnabled] = useState(false)
   const [idleMinutes, setIdleMinutes] = useState(60)
   const [elapsedEnabled, setElapsedEnabled] = useState(false)

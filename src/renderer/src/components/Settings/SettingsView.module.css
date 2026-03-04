@@ -2,10 +2,10 @@
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   width: 100%;
-  flex: 1;
-  min-height: 100vh;
+  height: 100vh;
   box-sizing: border-box;
   display: flex;
+  overflow: hidden;
 }
 
 /* ===== Sidebar ===== */
@@ -52,7 +52,12 @@
   flex: 1;
   padding: 20px 12px;
   overflow-y: auto;
+  scrollbar-width: none;
   background: var(--bg);
+}
+
+.content::-webkit-scrollbar {
+  display: none;
 }
 
 .heading {

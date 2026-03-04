@@ -7,7 +7,7 @@ const TOTAL_STEPS = 3
 export function SetupView() {
   const [step, setStep] = useState(1)
   const [userName, setUserName] = useState('')
-  const [activeThemeId, setActiveThemeId] = useState('orange')
+  const [activeThemeId, setActiveThemeId] = useState('rose')
 
   useEffect(() => {
     window.electronAPI.getTheme().then(setActiveThemeId)

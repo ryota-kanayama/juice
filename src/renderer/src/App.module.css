@@ -233,18 +233,9 @@
 /* ====== カレンダービュー ====== */
 .calendarLayout {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  font-family: var(--font-family);
-}
-
-.calendarLeft {
-  width: 320px;
-  flex-shrink: 0;
-  border-right: 1px solid var(--glass-border);
-}
-
-.calendarRight {
-  flex: 1;
   overflow: hidden;
+  font-family: var(--font-family);
 }

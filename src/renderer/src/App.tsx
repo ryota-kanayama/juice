@@ -31,6 +31,26 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  // 今日のセッション（全タブで共有）
+  const [todaySessions, setTodaySessions] = useState<Session[]>([])
+  const [today, setToday] = useState(() => formatLocalDate(Date.now()))
+  const [yearMonth, setYearMonth] = useState(() => formatLocalDate(Date.now()).slice(0, 7))
+
+  useEffect(() => {
+    const handleFocus = () => {
+      setToday(formatLocalDate(Date.now()))
+      setYearMonth(formatLocalDate(Date.now()).slice(0, 7))
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
+
+  useEffect(() => {
+    window.electronAPI.getSessions(yearMonth).then(sessions => {
+      setTodaySessions(sessions.filter(s => s.date === today))
+    })
+  }, [today, yearMonth])
+
   useEffect(() => {
     if (!menuOpen) return
     const handler = (e: MouseEvent) => {
@@ -70,10 +90,10 @@ export default function App() {
       {/* ページコンテンツ */}
       <main className={styles.content}>
         <div className={styles.page} style={{ display: currentPage === 'timer' ? 'flex' : 'none' }}>
-          <TimerPage />
+          <TimerPage todaySessions={todaySessions} setTodaySessions={setTodaySessions} today={today} />
         </div>
         {currentPage === 'calendar' && <CalendarPage />}
-        {currentPage === 'attendance' && <AttendancePage />}
+        {currentPage === 'attendance' && <AttendancePage sessions={todaySessions} />}
       </main>
 
       {/* ボトムナビゲーション */}
@@ -104,32 +124,16 @@ export default function App() {
   )
 }
 
-function TimerPage() {
+function TimerPage({ todaySessions, setTodaySessions, today }: {
+  todaySessions: Session[]
+  setTodaySessions: React.Dispatch<React.SetStateAction<Session[]>>
+  today: string
+}) {
   const { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
   const [activeTimerName, setActiveTimerName] = useState('')
   const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
   const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
-  const [todaySessions, setTodaySessions] = useState<Session[]>([])
-  const [today, setToday] = useState(() => formatLocalDate(Date.now()))
-  const [yearMonth, setYearMonth] = useState(() => formatLocalDate(Date.now()).slice(0, 7))
   const [midnightSession, setMidnightSession] = useState<Session | null>(null)
-
-  // ウィンドウがフォーカスされた時に日付を更新（深夜0時を跨いだ場合のリセット）
-  useEffect(() => {
-    const handleFocus = () => {
-      setToday(formatLocalDate(Date.now()))
-      setYearMonth(formatLocalDate(Date.now()).slice(0, 7))
-    }
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [])
-
-  // 今日のセッションを読み込み
-  useEffect(() => {
-    window.electronAPI.getSessions(yearMonth).then(sessions => {
-      setTodaySessions(sessions.filter(s => s.date === today))
-    })
-  }, [today, yearMonth])
 
   const handleStart = (name: string) => {
     setActiveTimerName(name)
@@ -297,7 +301,14 @@ function CalendarPage() {
 
   return (
     <div className={styles.calendarLayout}>
-      <div className={styles.calendarLeft}>
+      {selectedDate ? (
+        <DayDetail
+          date={selectedDate}
+          sessions={selectedSessions}
+          onUpdate={handleUpdateSession}
+          onBack={() => setSelectedDate(null)}
+        />
+      ) : (
         <MonthView
           year={year}
           month={month}
@@ -307,28 +318,15 @@ function CalendarPage() {
           onPrevMonth={prevMonth}
           onNextMonth={nextMonth}
         />
-      </div>
-      <div className={styles.calendarRight}>
-        <DayDetail date={selectedDate} sessions={selectedSessions} onUpdate={handleUpdateSession} />
-      </div>
+      )}
     </div>
   )
 }
 
-function AttendancePage() {
-  const [todaySessions, setTodaySessions] = useState<Session[]>([])
-  const today = formatLocalDate(Date.now())
-  const yearMonth = today.slice(0, 7)
-
-  useEffect(() => {
-    window.electronAPI.getSessions(yearMonth).then(sessions => {
-      setTodaySessions(sessions.filter(s => s.date === today))
-    })
-  }, [today, yearMonth])
-
+function AttendancePage({ sessions }: { sessions: Session[] }) {
   return (
     <div className={styles.attendanceContent}>
-      <AttendanceReport sessions={todaySessions} />
+      <AttendanceReport sessions={sessions} />
     </div>
   )
 }

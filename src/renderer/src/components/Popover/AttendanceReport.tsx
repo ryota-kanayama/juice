@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { formatLocalDate } from '../../../../shared/sessionUtils'
+import { formatLocalDate, calcSessionMinutes } from '../../../../shared/sessionUtils'
 import type { Session } from '../../types/session'
 import styles from './AttendanceReport.module.css'
 import { Check, Copy, SendDiagonal } from 'iconoir-react'
@@ -14,25 +14,23 @@ export function buildAttendanceText(
 
   for (const s of sessions) {
     const key = s.taskId ?? s.id
-    for (const t of s.times) {
-      if (!t.endTime) continue
-      const minutes = Math.round((new Date(t.endTime).getTime() - new Date(t.startTime).getTime()) / 60000)
-      const existing = map.get(key)
-      if (existing) {
-        existing.totalMinutes += minutes
-      } else {
-        map.set(key, {
-          name: s.name,
-          projectCode: s.projectCode ?? '',
-          workCategory: s.workCategory ?? '',
-          totalMinutes: minutes,
-        })
-      }
+    const minutes = calcSessionMinutes(s)
+    const existing = map.get(key)
+    if (existing) {
+      existing.totalMinutes += minutes
+    } else {
+      map.set(key, {
+        name: s.name,
+        projectCode: s.projectCode ?? '',
+        workCategory: s.workCategory ?? '',
+        totalMinutes: minutes,
+      })
     }
   }
 
   const timeLine = `${workStart ?? ''} ${workEnd ?? ''} ${breakMinutes}`
   const taskLines = Array.from(map.values())
+    .filter(g => g.totalMinutes > 0)
     .map(g => `${g.projectCode} ${g.name} ${g.workCategory} ${g.totalMinutes}`)
 
   return ['勤怠', timeLine, ...taskLines].join('\n')
