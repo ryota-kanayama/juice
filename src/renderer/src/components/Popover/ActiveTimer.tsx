@@ -10,9 +10,9 @@ interface Props {
   onStop: (projectCode: string, workCategory: string) => void
 }
 
-// 60分で満杯（最大100%）
+// 15分で満杯（最大100%）
 function juiceLevel(seconds: number): number {
-  return Math.min((seconds / 3600) * 100, 100)
+  return Math.min((seconds / 900) * 100, 100)
 }
 
 export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, initialWorkCategory, onStop }: Props) {
@@ -27,37 +27,32 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
         <p className={styles.name}>{name}</p>
         <p className={styles.pouring}>ジュースを注いでいます</p>
 
-        {/* ジュースアニメーション */}
-        <div className={styles.juiceScene} aria-hidden="true">
-          {/* ボトル */}
-          <div className={styles.bottle}>
-            <div className={styles.bottleCap} style={{ background: color }} />
-            <div className={styles.bottleBody} style={{ background: color }}>
-              <div className={styles.bottleShine} />
-              <div className={styles.bottleLabel} />
-            </div>
-            <div className={styles.bottleShoulder} style={{ background: color }} />
-            <div className={styles.bottleNeck} style={{ background: color }} />
-          </div>
-
-          {/* 注ぎストリーム */}
-          <div className={styles.pourStream} style={{ background: color }} />
-
-          {/* 飛び散る雫 */}
-          <div className={styles.drop1} style={{ background: color }} />
-          <div className={styles.drop2} style={{ background: color }} />
-
-          {/* グラス */}
-          <div className={styles.glass}>
-            <div
-              className={styles.juiceLevel}
+        {/* 円形波アニメーション */}
+        <div className={styles.circleContainer} aria-hidden="true">
+          <div className={styles.circle} style={{ borderColor: color }}>
+            {/* 泡 — 線のみの円 */}
+            <svg className={styles.bubbleSvg} viewBox="0 0 120 120" style={{ clipPath: `inset(calc(${100 - level}% + 20px) 0 0 0)` }}>
+              <circle className={styles.bubble1} cx="35" cy="0" r="4" fill="none" stroke={color} strokeWidth="1.5" />
+              <circle className={styles.bubble2} cx="75" cy="0" r="3" fill="none" stroke={color} strokeWidth="1.5" />
+              <circle className={styles.bubble3} cx="55" cy="0" r="2.5" fill="none" stroke={color} strokeWidth="1" />
+            </svg>
+            {/* 波線 */}
+            <svg
+              className={styles.waveSvg}
               data-testid="juice-level"
-              style={{ height: `${level}%`, background: color }}
+              style={{ top: `${100 - level}%` }}
+              viewBox="0 0 900 20"
+              preserveAspectRatio="none"
             >
-              <div className={styles.bubble1} />
-              <div className={styles.bubble2} />
-            </div>
-            <span className={styles.glassElapsed}>
+              <path
+                className={styles.wavePath}
+                d="M0,10 q150,10 300,0 t300,0 q150,10 300,0"
+                fill="none"
+                stroke={color}
+                strokeWidth="2"
+              />
+            </svg>
+            <span className={styles.circleElapsed}>
               {Math.floor(elapsedSeconds / 60)}分経過
             </span>
           </div>

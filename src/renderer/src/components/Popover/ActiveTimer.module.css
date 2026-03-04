@@ -36,273 +36,81 @@
   letter-spacing: 0.05em;
 }
 
-/* ========= ジュースシーン ========= */
-.juiceScene {
+/* ========= 円形波アニメーション ========= */
+.circleContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.circle {
   position: relative;
   width: 120px;
-  height: 190px;
-  transform: scale(0.75);
-  transform-origin: center center;
-  margin: -20px 0;
-}
-
-/* ── ボトル ── */
-.bottle {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 34px;
-  transform: rotate(38deg);
-  transform-origin: top center;
-  animation: bottle-tilt 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-@keyframes bottle-tilt {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(38deg); }
-}
-
-.bottleCap {
-  width: 22px;
-  height: 6px;
-  border-radius: 3px 3px 1px 1px;
-  opacity: 0.65;
-}
-
-.bottleBody {
-  position: relative;
-  width: 34px;
-  height: 36px;
-  border-radius: 4px 4px 5px 5px;
-  overflow: hidden;
-}
-
-.bottleShine {
-  position: absolute;
-  left: 14%;
-  top: 8%;
-  width: 24%;
-  height: 60%;
-  background: rgba(255, 255, 255, 0.45);
+  height: 120px;
   border-radius: 50%;
-  pointer-events: none;
-}
-
-.bottleLabel {
-  position: absolute;
-  left: 8%;
-  top: 36%;
-  width: 84%;
-  height: 30%;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 2px;
-  pointer-events: none;
-}
-
-.bottleShoulder {
-  width: 22px;
-  height: 6px;
-  border-radius: 2px;
-  opacity: 0.88;
-}
-
-.bottleNeck {
-  width: 14px;
-  height: 20px;
-  border-radius: 2px 2px 4px 4px;
-  opacity: 0.85;
-}
-
-/* ── 注ぎストリーム ── */
-.pourStream {
-  position: absolute;
-  top: 54px;
-  left: 47px;
-  width: 7px;
-  height: 48px;
-  border-radius: 3px 5px 5px 3px;
-  transform: rotate(16deg);
-  transform-origin: top center;
-  opacity: 0.7;
-  animation: flow 1s ease-in-out infinite;
-}
-
-.pourStream::before {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 50%;
-  width: 3px;
-  margin-left: -1.5px;
-  height: 75%;
-  background: inherit;
-  border-radius: 2px;
-  opacity: 0.35;
-  filter: brightness(1.3);
-  animation: flow-inner 0.7s ease-in-out infinite;
-}
-
-@keyframes flow {
-  0%, 100% {
-    height: 28px;
-    width: 6px;
-    opacity: 0.5;
-    border-radius: 3px 5px 5px 3px;
-  }
-  50% {
-    height: 38px;
-    width: 9px;
-    opacity: 0.85;
-    border-radius: 5px 3px 4px 6px;
-  }
-}
-
-@keyframes flow-inner {
-  0%, 100% { opacity: 0.25; }
-  50%      { opacity: 0.5; }
-}
-
-/* ── 飛び散る雫 ── */
-.drop1 {
-  position: absolute;
-  top: 106px;
-  left: 50px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  opacity: 0;
-  animation: splash-left 1.2s ease-out 0.1s infinite;
-}
-
-.drop2 {
-  position: absolute;
-  top: 106px;
-  left: 62px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  opacity: 0;
-  animation: splash-right 1.2s ease-out 0.5s infinite;
-}
-
-@keyframes splash-left {
-  0%   { transform: translate(0, 0) scale(1);   opacity: 0; }
-  15%  { opacity: 0.7; }
-  100% { transform: translate(-8px, -12px) scale(0.4); opacity: 0; }
-}
-
-@keyframes splash-right {
-  0%   { transform: translate(0, 0) scale(1);   opacity: 0; }
-  15%  { opacity: 0.6; }
-  100% { transform: translate(6px, -10px) scale(0.3); opacity: 0; }
-}
-
-/* ── グラス ── */
-.glass {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 62px;
-  height: 80px;
   border: 2px solid var(--glass-border);
-  border-top: 2.5px solid var(--glass-border);
-  border-radius: 5px 5px 20px 20px;
   overflow: hidden;
-  display: flex;
-  align-items: flex-end;
-  background: var(--glass-bg);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
-.glassElapsed {
+/* ── 泡 ── */
+.bubbleSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.bubble1 {
+  animation: bubble-rise 3.2s ease-in infinite;
+}
+
+.bubble2 {
+  animation: bubble-rise 2.8s ease-in 1.2s infinite;
+}
+
+.bubble3 {
+  animation: bubble-rise 3.6s ease-in 0.5s infinite;
+}
+
+@keyframes bubble-rise {
+  0%   { transform: translateY(120px); opacity: 0; }
+  10%  { opacity: 0.7; }
+  90%  { opacity: 0.4; }
+  100% { transform: translateY(0px); opacity: 0; }
+}
+
+/* ── 波線 ── */
+.waveSvg {
+  position: absolute;
+  left: 0;
+  width: 300%;
+  height: 20px;
+  transition: top 1s linear;
+  animation: wave-shift 4s linear infinite;
+}
+
+.wavePath {
+  vector-effect: non-scaling-stroke;
+}
+
+@keyframes wave-shift {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-66.66%); }
+}
+
+.circleElapsed {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  z-index: 2;
+  color: var(--text-primary);
   pointer-events: none;
   line-height: 1.2;
-}
-
-.glass::before {
-  content: '';
-  position: absolute;
-  top: 12%;
-  left: 10%;
-  width: 22%;
-  height: 36%;
-  background: rgba(255, 255, 255, 0.22);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* ── ジュースレベル ── */
-.juiceLevel {
-  position: relative;
-  width: 100%;
-  transition: height 1s linear;
-  border-radius: 0 0 18px 18px;
-  opacity: 0.82;
-  overflow: hidden;
-}
-
-.juiceLevel::after {
-  content: '';
-  position: absolute;
-  top: -5px;
-  left: -10%;
-  width: 120%;
-  height: 10px;
-  background: inherit;
-  border-radius: 50%;
-  opacity: 0.5;
-  animation: surface-wave 2.2s ease-in-out infinite;
-}
-
-@keyframes surface-wave {
-  0%, 100% { transform: translateX(0) scaleY(1); }
-  50%      { transform: translateX(-4px) scaleY(0.5); }
-}
-
-/* ── 泡 ── */
-.bubble1,
-.bubble2 {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
-  pointer-events: none;
-}
-
-.bubble1 {
-  width: 4px;
-  height: 4px;
-  bottom: 15%;
-  left: 28%;
-  animation: rise 2.8s ease-in infinite;
-}
-
-.bubble2 {
-  width: 3px;
-  height: 3px;
-  bottom: 8%;
-  left: 62%;
-  animation: rise 2.8s ease-in 1.2s infinite;
-}
-
-@keyframes rise {
-  0%   { transform: translateY(0);     opacity: 0.55; }
-  100% { transform: translateY(-28px); opacity: 0; }
 }
 
 /* ====== コントロールセクション ====== */

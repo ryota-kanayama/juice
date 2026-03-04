@@ -3,10 +3,9 @@ import type { Session } from '../../types/session'
 import { calcSessionMinutes, formatInterval, formatLocalDateTime, sortSessionsByStart } from '../../../../shared/sessionUtils'
 import styles from './SessionList.module.css'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
-import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
-import { Check, Xmark, Play, EditPencil } from 'iconoir-react'
+import { Check, Xmark, Play, EditPencil, Trash, Timer } from 'iconoir-react'
 
 interface AddParams {
   name: string
@@ -39,6 +38,7 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
   const [editingName, setEditingName] = useState('')
   const [editingProjectCode, setEditingProjectCode] = useState('')
   const [editingWorkCategory, setEditingWorkCategory] = useState('')
+  const [editingDuration, setEditingDuration] = useState('')
 
   const todayKey = getTodayKey()
   const [workStart, setWorkStart] = useState<string | null>(
@@ -52,8 +52,6 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
   const [timePickerValue, setTimePickerValue] = useState('')
   const [addDialog, setAddDialog] = useState<AddParams | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-  const [editingDurationId, setEditingDurationId] = useState<string | null>(null)
-  const [editingDurationValue, setEditingDurationValue] = useState('')
 
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
   const { expandedId, setExpandedId } = useExpandedItem()
@@ -94,22 +92,48 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
   const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
 
   const handleEditStart = (session: Session) => {
+    const lastInterval = session.times[session.times.length - 1]
+    const runningMs = lastInterval && !lastInterval.endTime
+      ? Date.now() - new Date(lastInterval.startTime).getTime()
+      : 0
     setEditingKey(session.id)
     setEditingName(session.name)
     setEditingProjectCode(session.projectCode)
     setEditingWorkCategory(session.workCategory)
+    setEditingDuration(String(calcSessionMinutes(session) + Math.round(runningMs / 60000)))
   }
 
   const handleEditCommit = async () => {
     if (!editingKey || !editingName.trim()) { setEditingKey(null); return }
     const session = sessions.find(s => s.id === editingKey)
     if (!session || !onUpdate) { setEditingKey(null); return }
-    const updated: Session = {
+    let updated: Session = {
       ...session,
       name: editingName.trim(),
       projectCode: editingProjectCode.trim(),
       workCategory: editingWorkCategory.trim(),
     }
+
+    const newTotal = parseInt(editingDuration, 10)
+    if (!isNaN(newTotal) && newTotal >= 1 && session.times.length > 0) {
+      const lastInterval = session.times[session.times.length - 1]
+      if (!lastInterval.endTime) {
+        const desiredElapsed = Math.max(1, newTotal - session.totalTime)
+        const newStartMs = Date.now() - desiredElapsed * 60000
+        updated = { ...updated, times: session.times.map(t =>
+          t === lastInterval ? { ...t, startTime: formatLocalDateTime(newStartMs) } : t
+        ) }
+        setEditingKey(null)
+        try {
+          await onUpdate(updated)
+          onAdjustStartTime?.(newStartMs)
+        } catch { /* IPC errors are logged by main process */ }
+        return
+      } else {
+        updated = { ...updated, totalTime: newTotal }
+      }
+    }
+
     setEditingKey(null)
     try { await onUpdate(updated) } catch { /* IPC errors are logged by main process */ }
   }
@@ -119,33 +143,6 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
     setEditingName('')
     setEditingProjectCode('')
     setEditingWorkCategory('')
-  }
-
-  const handleDurationEditConfirm = async () => {
-    if (!editingDurationId || !onUpdate) { setEditingDurationId(null); return }
-    const session = sessions.find(s => s.id === editingDurationId)
-    if (!session || session.times.length === 0) { setEditingDurationId(null); return }
-
-    const newTotal = parseInt(editingDurationValue, 10)
-    if (isNaN(newTotal) || newTotal < 1) { setEditingDurationId(null); return }
-
-    const lastInterval = session.times[session.times.length - 1]
-
-    if (!lastInterval.endTime) {
-      const desiredElapsed = Math.max(1, newTotal - session.totalTime)
-      const newStartMs = Date.now() - desiredElapsed * 60000
-      const updatedTimes = session.times.map(t =>
-        t === lastInterval ? { ...t, startTime: formatLocalDateTime(newStartMs) } : t
-      )
-      setEditingDurationId(null)
-      try {
-        await onUpdate({ ...session, times: updatedTimes })
-        onAdjustStartTime?.(newStartMs)
-      } catch { /* IPC errors are logged by main process */ }
-    } else {
-      setEditingDurationId(null)
-      try { await onUpdate({ ...session, totalTime: newTotal }) } catch { /* IPC errors are logged by main process */ }
-    }
   }
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -186,7 +183,6 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
           </div>
         </div>
       )}
-      <div className={styles.divider} />
 
       {sessions.length === 0 ? (
         <p className={styles.empty}>まだジュースを注いでいません</p>
@@ -196,7 +192,7 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
             <li
               key={session.id}
               data-session-item
-              className={styles.item}
+              className={`${styles.item} ${expandedId === session.id ? styles.itemExpanded : ''}`}
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('button, input')) return
                 setExpandedId(prev => prev === session.id ? null : session.id)
@@ -267,7 +263,19 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
                   </ul>
                 )}
               </div>
-              <span className={styles.duration}>{calcSessionMinutes(session)}分</span>
+              {editingKey === session.id ? (
+                <input
+                  className={styles.durationInput}
+                  value={editingDuration}
+                  onChange={e => setEditingDuration(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  aria-label="合計時間（分）"
+                  type="number"
+                  min="1"
+                />
+              ) : (
+                <span className={styles.duration}>{calcSessionMinutes(session)}分</span>
+              )}
               {editingKey === session.id ? (
                 <>
                   <button className={styles.confirmButton} onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
@@ -278,7 +286,7 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
                   {!isRunning && onStartMore && (
                     <button className={styles.moreButton} onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
                   )}
-                  <button className={styles.editButton} onClick={() => handleEditStart(session)} aria-label="名前を編集"><EditPencil width={14} height={14} /></button>
+                  <button className={styles.editButton} onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
                 </>
               )}
             </li>
@@ -313,29 +321,10 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button className={styles.contextMenuItemNormal} onMouseDown={e => e.preventDefault()} onClick={openAddDialog}>
-            タイマーを追加
+            <Timer width={14} height={14} /> 追加
           </button>
           {contextMenu.sessionId !== '' && (
             <>
-              {(sessions.find(s => s.id === contextMenu.sessionId)?.times.length ?? 0) > 0 && (
-                <button
-                  className={styles.contextMenuItemNormal}
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => {
-                    const session = sessions.find(s => s.id === contextMenu.sessionId)
-                    if (!session) { setContextMenu(null); return }
-                    const lastInterval = session.times[session.times.length - 1]
-                    const runningMs = lastInterval && !lastInterval.endTime
-                      ? Date.now() - new Date(lastInterval.startTime).getTime()
-                      : 0
-                    setEditingDurationValue(String(calcSessionMinutes(session) + Math.round(runningMs / 60000)))
-                    setEditingDurationId(session.id)
-                    setContextMenu(null)
-                  }}
-                >
-                  合計時間を編集
-                </button>
-              )}
               <button
                 className={styles.contextMenuItem}
                 onMouseDown={e => e.preventDefault()}
@@ -345,20 +334,11 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
                   setPendingDeleteId(id)
                 }}
               >
-                流す
+                <Trash width={14} height={14} /> 流す
               </button>
             </>
           )}
         </div>
-      )}
-
-      {editingDurationId && (
-        <DurationEditDialog
-          value={editingDurationValue}
-          onChange={setEditingDurationValue}
-          onConfirm={handleDurationEditConfirm}
-          onClose={() => setEditingDurationId(null)}
-        />
       )}
 
       {addDialog && (

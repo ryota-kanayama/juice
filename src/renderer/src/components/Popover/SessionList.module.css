@@ -282,7 +282,7 @@
 /* ====== セッションリスト ====== */
 .list {
   list-style: none;
-  padding: 0;
+  padding: 1px 0;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -313,6 +313,12 @@
   background: var(--bg-hover);
   border-color: var(--border);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.itemExpanded {
+  background: var(--bg-hover);
+  border-color: var(--border);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -383,14 +389,35 @@
   flex-shrink: 0;
 }
 
+.durationInput {
+  width: 48px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: right;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  outline: none;
+  background: var(--glass-bg);
+  flex-shrink: 0;
+  -moz-appearance: textfield;
+}
+
+.durationInput::-webkit-inner-spin-button,
+.durationInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* ====== 合計フッター（グラスカード） ====== */
 .total {
   margin-top: 8px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text-secondary);
   flex-shrink: 0;
   display: flex;
@@ -532,7 +559,9 @@
 }
 
 .contextMenuItemNormal {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   text-align: left;
   background: none;
@@ -549,7 +578,9 @@
 }
 
 .contextMenuItem {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   text-align: left;
   background: none;

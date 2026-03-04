@@ -41,12 +41,11 @@ describe('ActiveTimer', () => {
     expect(screen.getByRole('textbox', { name: '作業区分' })).toHaveValue('設計')
   })
 
-  it('elapsedSecondsが3600の時、グラスが満杯（100%）になる', () => {
+  it('elapsedSecondsが900の時、波が最上部（top: 0%）になる', () => {
     const { container } = render(
-      <ActiveTimer name="テスト" elapsedSeconds={3600} color="#FF9500" onStop={vi.fn()} />
+      <ActiveTimer name="テスト" elapsedSeconds={900} color="#FF9500" onStop={vi.fn()} />
     )
-    // juice level要素の style を確認
     const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel).toHaveStyle({ height: '100%' })
+    expect(juiceLevel).toHaveStyle({ top: '0%' })
   })
 })
