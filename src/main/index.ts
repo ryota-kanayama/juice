@@ -38,6 +38,66 @@ let timerStartTime: Date | null = null
 let elapsedCheckInterval: ReturnType<typeof setInterval> | null = null
 let elapsedNotifyCount: number = 0
 
+async function sendWhiteboardLeave(): Promise<void> {
+  const { enabled, email } = await settingsStore.getWhiteboardSettings()
+  if (!enabled || !email) return
+
+  const apiUrl = import.meta.env.MAIN_VITE_WHITEBOARD_API_URL
+  const apiKey = import.meta.env.MAIN_VITE_WHITEBOARD_API_KEY
+  if (!apiUrl || !apiKey) return
+
+  const { net } = await import('electron')
+
+  // 1. POST /api/magnet (退勤: magnet_id=3)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${apiUrl}/api/magnet?apiKey=${apiKey}`,
+      })
+      request.setHeader('Content-Type', 'application/json')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+          else reject(new Error(`magnet API error: ${response.statusCode} ${body}`))
+        })
+      })
+      request.on('error', reject)
+      request.write(JSON.stringify({ magnet_id: 3, email }))
+      request.end()
+    })
+  } catch (err) {
+    console.error('Whiteboard magnet API failed:', err)
+    return
+  }
+
+  // 2. POST /api/attendance (退勤: come_to_the_office=false)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${apiUrl}/api/attendance?apiKey=${apiKey}`,
+      })
+      request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+          else reject(new Error(`attendance API error: ${response.statusCode} ${body}`))
+        })
+      })
+      request.on('error', reject)
+      request.write(`come_to_the_office=false&email=${encodeURIComponent(email)}`)
+      request.end()
+    })
+  } catch (err) {
+    console.error('Whiteboard attendance API failed:', err)
+  }
+}
+
 function createPopoverWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 320,
@@ -348,7 +408,7 @@ app.whenReady().then(async () => {
     }
     const { net } = await import('electron')
     const formBody = `user_name=${encodeURIComponent(userName)}&text=${encodeURIComponent(text)}`
-    return new Promise<{ ok: boolean; status: number; body: string }>((resolve) => {
+    const result = await new Promise<{ ok: boolean; status: number; body: string }>((resolve) => {
       const request = net.request({
         method: 'POST',
         url: `${import.meta.env.MAIN_VITE_ATTENDANCE_API_URL}?key=${import.meta.env.MAIN_VITE_ATTENDANCE_API_KEY}`,
@@ -368,6 +428,11 @@ app.whenReady().then(async () => {
       request.write(formBody)
       request.end()
     })
+    // 勤怠APIが成功した場合のみホワイトボードを退勤に更新
+    if (result.ok) {
+      sendWhiteboardLeave().catch(err => console.error('Whiteboard leave failed:', err))
+    }
+    return result
   })
 
   ipcMain.handle('timer:started', () => {
@@ -404,6 +469,14 @@ app.whenReady().then(async () => {
     if (timerStartTime) {
       startElapsedCheck()
     }
+  })
+
+  ipcMain.handle('settings:getWhiteboardSettings', async () => {
+    return settingsStore.getWhiteboardSettings()
+  })
+
+  ipcMain.handle('settings:setWhiteboardSettings', async (_, { enabled, email }: { enabled: boolean; email: string }) => {
+    await settingsStore.setWhiteboardSettings(enabled, email)
   })
 
   ipcMain.handle('setup:complete', async () => {

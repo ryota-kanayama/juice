@@ -13,6 +13,8 @@ export function SettingsView() {
   const [elapsedEnabled, setElapsedEnabled] = useState(false)
   const [elapsedMinutes, setElapsedMinutes] = useState(30)
   const [userName, setUserName] = useState('')
+  const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
+  const [whiteboardEmail, setWhiteboardEmail] = useState('')
 
   useEffect(() => {
     window.electronAPI.getTheme().then(setActiveThemeId)
@@ -26,6 +28,10 @@ export function SettingsView() {
       setElapsedMinutes(minutes)
     })
     window.electronAPI.getUserName().then(setUserName)
+    window.electronAPI.getWhiteboardSettings().then(({ enabled, email }) => {
+      setWhiteboardEnabled(enabled)
+      setWhiteboardEmail(email)
+    })
   }, [])
 
   const handleSelect = (themeId: string) => {
@@ -60,11 +66,21 @@ export function SettingsView() {
   }
 
   const handleUserNameChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setUserName(e.target.value)
+    const value = e.target.value
+    setUserName(value)
+    window.electronAPI.setUserName(value.trim())
   }
 
-  const handleUserNameBlur = () => {
-    window.electronAPI.setUserName(userName.trim())
+  const handleWhiteboardToggle = (e: ChangeEvent<HTMLInputElement>) => {
+    const enabled = e.target.checked
+    setWhiteboardEnabled(enabled)
+    window.electronAPI.setWhiteboardSettings(enabled, whiteboardEmail)
+  }
+
+  const handleWhiteboardEmailChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const email = e.target.value
+    setWhiteboardEmail(email)
+    window.electronAPI.setWhiteboardSettings(whiteboardEnabled, email.trim())
   }
 
   const navItems: { id: Section; label: string }[] = [
@@ -148,11 +164,37 @@ export function SettingsView() {
                   className={styles.userNameInput}
                   value={userName}
                   onChange={handleUserNameChange}
-                  onBlur={handleUserNameBlur}
                   placeholder="Slack ユーザー名"
                 />
               </label>
             </div>
+
+            <h2 className={styles.heading} style={{ marginTop: '1.5rem' }}>ホワイトボード連携</h2>
+            <div className={styles.idleRow}>
+              <label className={styles.idleLabel}>
+                <input
+                  type="checkbox"
+                  checked={whiteboardEnabled}
+                  onChange={handleWhiteboardToggle}
+                  className={styles.idleCheckbox}
+                />
+                タイマー開始時に出勤 / 勤怠送信時に退勤
+              </label>
+            </div>
+            {whiteboardEnabled && (
+              <div className={styles.idleRow}>
+                <label className={styles.idleLabel}>
+                  メールアドレス
+                  <input
+                    type="email"
+                    className={styles.userNameInput}
+                    value={whiteboardEmail}
+                    onChange={handleWhiteboardEmailChange}
+                    placeholder="example@jsl.co.jp"
+                  />
+                </label>
+              </div>
+            )}
           </>
         )}
 

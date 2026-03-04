@@ -9,6 +9,8 @@ interface Settings {
   elapsedNotificationMinutes: number
   userName: string
   setupCompleted: boolean
+  whiteboardEnabled: boolean
+  whiteboardEmail: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -19,6 +21,8 @@ const DEFAULT_SETTINGS: Settings = {
   elapsedNotificationMinutes: 30,
   userName: '',
   setupCompleted: false,
+  whiteboardEnabled: false,
+  whiteboardEmail: '',
 }
 
 export class SettingsStore {
@@ -125,5 +129,18 @@ export class SettingsStore {
   async completeSetup(): Promise<void> {
     const s = await this.readAll()
     await this.writeAll({ ...s, setupCompleted: true })
+  }
+
+  async getWhiteboardSettings(): Promise<{ enabled: boolean; email: string }> {
+    const s = await this.readAll()
+    return {
+      enabled: s.whiteboardEnabled,
+      email: s.whiteboardEmail,
+    }
+  }
+
+  async setWhiteboardSettings(enabled: boolean, email: string): Promise<void> {
+    const s = await this.readAll()
+    await this.writeAll({ ...s, whiteboardEnabled: enabled, whiteboardEmail: email })
   }
 }

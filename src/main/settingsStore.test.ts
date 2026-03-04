@@ -71,4 +71,15 @@ describe('SettingsStore', () => {
     const settings = await store.getElapsedSettings()
     expect(settings).toEqual({ enabled: false, minutes: 15 })
   })
+
+  it('ホワイトボード設定のデフォルト値が返る', async () => {
+    const settings = await store.getWhiteboardSettings()
+    expect(settings).toEqual({ enabled: false, email: '' })
+  })
+
+  it('ホワイトボード設定を保存して取得できる', async () => {
+    await store.setWhiteboardSettings(true, 'test@jsl.co.jp')
+    const settings = await store.getWhiteboardSettings()
+    expect(settings).toEqual({ enabled: true, email: 'test@jsl.co.jp' })
+  })
 })

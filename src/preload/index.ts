@@ -45,6 +45,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('settings:setUserName', userName),
   sendAttendance: (text: string) =>
     ipcRenderer.invoke('attendance:send', text),
+  getWhiteboardSettings: () =>
+    ipcRenderer.invoke('settings:getWhiteboardSettings'),
+  setWhiteboardSettings: (enabled: boolean, email: string) =>
+    ipcRenderer.invoke('settings:setWhiteboardSettings', { enabled, email }),
   completeSetup: () =>
     ipcRenderer.invoke('setup:complete'),
 })
