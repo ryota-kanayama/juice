@@ -27,5 +27,6 @@ export interface ElectronAPI {
   sendAttendance: (text: string) => Promise<{ ok: boolean; status: number; body: string }>
   getWhiteboardSettings: () => Promise<{ enabled: boolean; email: string }>
   setWhiteboardSettings: (enabled: boolean, email: string) => Promise<void>
+  teleworkStart: () => Promise<void>
   completeSetup: () => Promise<void>
 }

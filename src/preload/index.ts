@@ -49,6 +49,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('settings:getWhiteboardSettings'),
   setWhiteboardSettings: (enabled: boolean, email: string) =>
     ipcRenderer.invoke('settings:setWhiteboardSettings', { enabled, email }),
+  teleworkStart: () =>
+    ipcRenderer.invoke('whiteboard:teleworkStart'),
   completeSetup: () =>
     ipcRenderer.invoke('setup:complete'),
 })

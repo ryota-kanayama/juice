@@ -98,6 +98,66 @@ async function sendWhiteboardLeave(): Promise<void> {
   }
 }
 
+async function sendWhiteboardTeleworkStart(): Promise<void> {
+  const { enabled, email } = await settingsStore.getWhiteboardSettings()
+  if (!enabled || !email) return
+
+  const apiUrl = import.meta.env.MAIN_VITE_WHITEBOARD_API_URL
+  const apiKey = import.meta.env.MAIN_VITE_WHITEBOARD_API_KEY
+  if (!apiUrl || !apiKey) return
+
+  const { net } = await import('electron')
+
+  // 1. POST /api/magnet (テレワーク: magnet_id=2)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${apiUrl}/api/magnet?apiKey=${apiKey}`,
+      })
+      request.setHeader('Content-Type', 'application/json')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+          else reject(new Error(`magnet API error: ${response.statusCode} ${body}`))
+        })
+      })
+      request.on('error', reject)
+      request.write(JSON.stringify({ magnet_id: 2, email }))
+      request.end()
+    })
+  } catch (err) {
+    console.error('Whiteboard telework magnet API failed:', err)
+    return
+  }
+
+  // 2. POST /api/attendance (テレワーク開始: come_to_the_office=true)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${apiUrl}/api/attendance?apiKey=${apiKey}`,
+      })
+      request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+          else reject(new Error(`attendance API error: ${response.statusCode} ${body}`))
+        })
+      })
+      request.on('error', reject)
+      request.write(`come_to_the_office=true&email=${encodeURIComponent(email)}`)
+      request.end()
+    })
+  } catch (err) {
+    console.error('Whiteboard telework attendance API failed:', err)
+  }
+}
+
 function createPopoverWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 320,
@@ -477,6 +537,10 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('settings:setWhiteboardSettings', async (_, { enabled, email }: { enabled: boolean; email: string }) => {
     await settingsStore.setWhiteboardSettings(enabled, email)
+  })
+
+  ipcMain.handle('whiteboard:teleworkStart', async () => {
+    await sendWhiteboardTeleworkStart()
   })
 
   ipcMain.handle('setup:complete', async () => {

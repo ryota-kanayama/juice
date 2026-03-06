@@ -153,6 +153,27 @@
   box-shadow: 0 0 0 3px var(--accent-light);
 }
 
+/* ====== テレワークチェックボックス ====== */
+.teleworkLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.teleworkCheckbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.teleworkText {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
 .timePickerActions {
   display: flex;
   gap: 8px;

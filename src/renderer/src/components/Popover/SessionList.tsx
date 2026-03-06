@@ -30,6 +30,10 @@ function getTodayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function getTeleworkKey(): string {
+  return `telework.${getTodayKey()}`
+}
+
 function formatTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
@@ -54,6 +58,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     setWorkStart(localStorage.getItem(`workStart.${todayKey}`))
     setWorkEnd(localStorage.getItem(`workEnd.${todayKey}`))
   }, [todayKey])
+
+  const [telework, setTelework] = useState(() => localStorage.getItem(getTeleworkKey()) === 'true')
 
   const [timePickerMode, setTimePickerMode] = useState<'start' | 'end' | null>(null)
   const [timePickerValue, setTimePickerValue] = useState('')
@@ -88,6 +94,9 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     if (timePickerMode === 'start') {
       localStorage.setItem(`workStart.${todayKey}`, timePickerValue)
       setWorkStart(timePickerValue)
+      if (telework) {
+        window.electronAPI.teleworkStart()
+      }
     } else if (timePickerMode === 'end') {
       localStorage.setItem(`workEnd.${todayKey}`, timePickerValue)
       setWorkEnd(timePickerValue)
@@ -183,6 +192,21 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 if (e.key === 'Escape') setTimePickerMode(null)
               }}
             />
+            {timePickerMode === 'start' && (
+              <label className={styles.teleworkLabel}>
+                <input
+                  type="checkbox"
+                  className={styles.teleworkCheckbox}
+                  checked={telework}
+                  onChange={e => {
+                    const checked = e.target.checked
+                    setTelework(checked)
+                    localStorage.setItem(getTeleworkKey(), String(checked))
+                  }}
+                />
+                <span className={styles.teleworkText}>テレワーク</span>
+              </label>
+            )}
             <div className={styles.timePickerActions}>
               <button className={styles.timePickerCancel} onClick={() => setTimePickerMode(null)}>キャンセル</button>
               <button className={styles.timePickerConfirm} onClick={handleTimePickerConfirm}>確定</button>
