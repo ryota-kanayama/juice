@@ -51,6 +51,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('settings:setWhiteboardSettings', { enabled, email }),
   teleworkStart: () =>
     ipcRenderer.invoke('whiteboard:teleworkStart'),
+  getSlackSettings: () =>
+    ipcRenderer.invoke('settings:getSlackSettings'),
+  setSlackSettings: (projectCode: string, projectName: string) =>
+    ipcRenderer.invoke('settings:setSlackSettings', { projectCode, projectName }),
   completeSetup: () =>
     ipcRenderer.invoke('setup:complete'),
 })

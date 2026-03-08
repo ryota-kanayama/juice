@@ -15,6 +15,8 @@ export function SettingsView() {
   const [userName, setUserName] = useState('')
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
   const [whiteboardEmail, setWhiteboardEmail] = useState('')
+  const [slackProjectCode, setSlackProjectCode] = useState('')
+  const [slackProjectName, setSlackProjectName] = useState('')
 
   useEffect(() => {
     window.electronAPI.getTheme().then(setActiveThemeId)
@@ -31,6 +33,10 @@ export function SettingsView() {
     window.electronAPI.getWhiteboardSettings().then(({ enabled, email }) => {
       setWhiteboardEnabled(enabled)
       setWhiteboardEmail(email)
+    })
+    window.electronAPI.getSlackSettings().then(({ projectCode, projectName }) => {
+      setSlackProjectCode(projectCode)
+      setSlackProjectName(projectName)
     })
   }, [])
 
@@ -81,6 +87,18 @@ export function SettingsView() {
     const email = e.target.value
     setWhiteboardEmail(email)
     window.electronAPI.setWhiteboardSettings(whiteboardEnabled, email.trim())
+  }
+
+  const handleSlackProjectCodeChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSlackProjectCode(value)
+    window.electronAPI.setSlackSettings(value.trim(), slackProjectName)
+  }
+
+  const handleSlackProjectNameChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setSlackProjectName(value)
+    window.electronAPI.setSlackSettings(slackProjectCode, value.trim())
   }
 
   const navItems: { id: Section; label: string }[] = [
@@ -195,6 +213,32 @@ export function SettingsView() {
                 </label>
               </div>
             )}
+
+            <h2 className={styles.heading} style={{ marginTop: '1.5rem' }}>Slack連携</h2>
+            <div className={styles.idleRow}>
+              <label className={styles.idleLabel}>
+                PJコード
+                <input
+                  type="text"
+                  className={styles.userNameInput}
+                  value={slackProjectCode}
+                  onChange={handleSlackProjectCodeChange}
+                  placeholder="PJコード"
+                />
+              </label>
+            </div>
+            <div className={styles.idleRow}>
+              <label className={styles.idleLabel}>
+                プロジェクト名
+                <input
+                  type="text"
+                  className={styles.userNameInput}
+                  value={slackProjectName}
+                  onChange={handleSlackProjectNameChange}
+                  placeholder="プロジェクト名"
+                />
+              </label>
+            </div>
           </>
         )}
 

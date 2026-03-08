@@ -38,6 +38,46 @@ let timerStartTime: Date | null = null
 let elapsedCheckInterval: ReturnType<typeof setInterval> | null = null
 let elapsedNotifyCount: number = 0
 
+async function sendSlackMessage(text: string): Promise<void> {
+  const token = import.meta.env.MAIN_VITE_SLACK_BOT_TOKEN
+  const channel = import.meta.env.MAIN_VITE_SLACK_CHANNEL_ID
+  if (!token || !channel) return
+
+  const { net } = await import('electron')
+
+  await new Promise<void>((resolve, reject) => {
+    const request = net.request({
+      method: 'POST',
+      url: 'https://slack.com/api/chat.postMessage',
+    })
+    request.setHeader('Content-Type', 'application/json; charset=utf-8')
+    request.setHeader('Authorization', `Bearer ${token}`)
+    request.on('response', (response) => {
+      let body = ''
+      response.on('data', (chunk) => { body += chunk.toString() })
+      response.on('end', () => {
+        if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+        else reject(new Error(`Slack API error: ${response.statusCode} ${body}`))
+      })
+    })
+    request.on('error', reject)
+    request.write(JSON.stringify({ channel, text }))
+    request.end()
+  })
+}
+
+async function sendSlackTeleworkStart(): Promise<void> {
+  const { projectCode, projectName } = await settingsStore.getSlackSettings()
+  const text = `テレワークを開始します\n${projectCode} ${projectName}`
+  await sendSlackMessage(text)
+}
+
+async function sendSlackTeleworkEnd(): Promise<void> {
+  const { projectCode, projectName } = await settingsStore.getSlackSettings()
+  const text = `テレワークを終了します\n${projectCode} ${projectName}`
+  await sendSlackMessage(text)
+}
+
 async function sendWhiteboardLeave(): Promise<void> {
   const { enabled, email } = await settingsStore.getWhiteboardSettings()
   if (!enabled || !email) return
@@ -193,7 +233,7 @@ function createPopoverWindow(): BrowserWindow {
   })
 
   if (process.env['NODE_ENV'] === 'development') {
-    win.loadURL('http://localhost:5173/')
+    win.loadURL('http://localhost:5174/')
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -233,7 +273,7 @@ function createSettingsWindow(): void {
   })
 
   if (process.env['NODE_ENV'] === 'development') {
-    settingsWindow.loadURL('http://localhost:5173/#settings')
+    settingsWindow.loadURL('http://localhost:5174/#settings')
   } else {
     settingsWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'settings' })
   }
@@ -350,7 +390,7 @@ function createSetupWindow(): void {
   })
 
   if (process.env['NODE_ENV'] === 'development') {
-    setupWindow.loadURL('http://localhost:5173/#setup')
+    setupWindow.loadURL('http://localhost:5174/#setup')
   } else {
     setupWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'setup' })
   }
@@ -488,9 +528,10 @@ app.whenReady().then(async () => {
       request.write(formBody)
       request.end()
     })
-    // 勤怠APIが成功した場合のみホワイトボードを退勤に更新
+    // 勤怠APIが成功した場合のみホワイトボードを退勤に更新 & Slack投稿
     if (result.ok) {
       sendWhiteboardLeave().catch(err => console.error('Whiteboard leave failed:', err))
+      sendSlackTeleworkEnd().catch(err => console.error('Slack telework end failed:', err))
     }
     return result
   })
@@ -539,8 +580,17 @@ app.whenReady().then(async () => {
     await settingsStore.setWhiteboardSettings(enabled, email)
   })
 
+  ipcMain.handle('settings:getSlackSettings', async () => {
+    return settingsStore.getSlackSettings()
+  })
+
+  ipcMain.handle('settings:setSlackSettings', async (_, { projectCode, projectName }: { projectCode: string; projectName: string }) => {
+    await settingsStore.setSlackSettings(projectCode, projectName)
+  })
+
   ipcMain.handle('whiteboard:teleworkStart', async () => {
     await sendWhiteboardTeleworkStart()
+    await sendSlackTeleworkStart().catch(err => console.error('Slack telework start failed:', err))
   })
 
   ipcMain.handle('setup:complete', async () => {
@@ -580,7 +630,7 @@ app.whenReady().then(async () => {
     })
 
     if (process.env['NODE_ENV'] === 'development') {
-      calendarWindow.loadURL('http://localhost:5173/#calendar')
+      calendarWindow.loadURL('http://localhost:5174/#calendar')
     } else {
       calendarWindow.loadFile(join(__dirname, '../renderer/index.html'), {
         hash: 'calendar',

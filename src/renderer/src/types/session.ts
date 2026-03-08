@@ -28,5 +28,7 @@ export interface ElectronAPI {
   getWhiteboardSettings: () => Promise<{ enabled: boolean; email: string }>
   setWhiteboardSettings: (enabled: boolean, email: string) => Promise<void>
   teleworkStart: () => Promise<void>
+  getSlackSettings: () => Promise<{ projectCode: string; projectName: string }>
+  setSlackSettings: (projectCode: string, projectName: string) => Promise<void>
   completeSetup: () => Promise<void>
 }

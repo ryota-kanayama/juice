@@ -11,6 +11,8 @@ interface Settings {
   setupCompleted: boolean
   whiteboardEnabled: boolean
   whiteboardEmail: string
+  slackProjectCode: string
+  slackProjectName: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -23,6 +25,8 @@ const DEFAULT_SETTINGS: Settings = {
   setupCompleted: false,
   whiteboardEnabled: false,
   whiteboardEmail: '',
+  slackProjectCode: '',
+  slackProjectName: '',
 }
 
 export class SettingsStore {
@@ -142,5 +146,18 @@ export class SettingsStore {
   async setWhiteboardSettings(enabled: boolean, email: string): Promise<void> {
     const s = await this.readAll()
     await this.writeAll({ ...s, whiteboardEnabled: enabled, whiteboardEmail: email })
+  }
+
+  async getSlackSettings(): Promise<{ projectCode: string; projectName: string }> {
+    const s = await this.readAll()
+    return {
+      projectCode: s.slackProjectCode,
+      projectName: s.slackProjectName,
+    }
+  }
+
+  async setSlackSettings(projectCode: string, projectName: string): Promise<void> {
+    const s = await this.readAll()
+    await this.writeAll({ ...s, slackProjectCode: projectCode, slackProjectName: projectName })
   }
 }
