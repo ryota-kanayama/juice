@@ -64,26 +64,27 @@ export default function App() {
     <div className={styles.app}>
       {/* ヘッダー */}
       <header className={styles.header}>
-        <span className={styles.logo}>Juice</span>
-        <div className={styles.headerActions}>
-          <div className={styles.menuWrapper} ref={menuRef}>
-            <button className={styles.menuButton} onClick={() => setMenuOpen(p => !p)}>
-              <Menu width={16} height={16} />
-            </button>
-            {menuOpen && (
-              <div className={styles.menuPopup}>
-                <button
-                  className={styles.menuItem}
-                  onClick={() => {
-                    setMenuOpen(false)
-                    window.electronAPI.openUrl('https://attendance.jsl.co.jp/')
-                  }}
-                >
-                  JSL <OpenNewWindow width={12} height={12} />
-                </button>
-              </div>
-            )}
-          </div>
+        <button className={styles.headerButton} onClick={() => window.electronAPI.hideWindow()}>
+          <Xmark width={16} height={16} />
+        </button>
+        <span className={styles.logo}>juice</span>
+        <div className={styles.menuWrapper} ref={menuRef}>
+          <button className={styles.headerButton} onClick={() => setMenuOpen(p => !p)}>
+            <Menu width={16} height={16} />
+          </button>
+          {menuOpen && (
+            <div className={styles.menuPopup}>
+              <button
+                className={styles.menuItem}
+                onClick={() => {
+                  setMenuOpen(false)
+                  window.electronAPI.openUrl('https://attendance.jsl.co.jp/')
+                }}
+              >
+                JSL <OpenNewWindow width={12} height={12} />
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
