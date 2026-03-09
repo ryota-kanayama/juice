@@ -1,10 +1,12 @@
 import { useState, useEffect, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '../../types/session'
-import { calcSessionMinutes, formatLocalDateTime, sortSessionsByStart } from '../../../../shared/sessionUtils'
+import { calcSessionMinutes, formatLocalDateTime, formatTimeFromDate, sortSessionsByStart } from '../../../../shared/sessionUtils'
 import styles from './SessionList.module.css'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
+import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
+import { usePagination } from '../../hooks/usePagination'
 import { Check, Xmark, Play, EditPencil, Trash, Timer } from 'iconoir-react'
 
 interface AddParams {
@@ -32,10 +34,6 @@ function getTodayKey(): string {
 
 function getTeleworkKey(): string {
   return `telework.${getTodayKey()}`
-}
-
-function formatTime(d: Date): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
@@ -69,6 +67,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
   const { expandedId, setExpandedId } = useExpandedItem()
 
+  const sortedSessions = sortSessionsByStart(sessions)
+  const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
+  const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
+
   const openAddDialog = () => {
     setAddDialog({ name: '', projectCode: '', workCategory: '', totalTime: '' })
     setContextMenu(null)
@@ -81,12 +83,12 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   }
 
   const handleWorkStart = () => {
-    setTimePickerValue(formatTime(new Date()))
+    setTimePickerValue(formatTimeFromDate(new Date()))
     setTimePickerMode('start')
   }
 
   const handleWorkEnd = () => {
-    setTimePickerValue(formatTime(new Date()))
+    setTimePickerValue(formatTimeFromDate(new Date()))
     setTimePickerMode('end')
   }
 
@@ -103,26 +105,6 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     }
     setTimePickerMode(null)
   }
-
-  const PAGE_SIZE = 4
-  const [page, setPage] = useState(0)
-  const [animKey, setAnimKey] = useState(0)
-
-  const sortedSessions = sortSessionsByStart(sessions)
-  const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
-  const totalPages = Math.max(1, Math.ceil(sortedSessions.length / PAGE_SIZE))
-  const pagedSessions = sortedSessions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-
-  const changePage = (newPage: number) => {
-    if (newPage === page) return
-    setPage(newPage)
-    setAnimKey(k => k + 1)
-  }
-
-  // ページ数が減った場合に調整
-  useEffect(() => {
-    if (page >= totalPages) setPage(Math.max(0, totalPages - 1))
-  }, [page, totalPages])
 
   const handleEditStart = (session: Session) => {
     const lastInterval = session.times[session.times.length - 1]
@@ -331,18 +313,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         </ul>
       )}
 
-      {totalPages > 1 && (
-        <div className={styles.pageIndicator}>
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              className={`${styles.pageDot} ${i === page ? styles.pageDotActive : ''}`}
-              onClick={() => changePage(i)}
-              aria-label={`ページ ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
+      <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
       <div className={styles.total}>
         <div className={styles.workTimeRow}>
@@ -374,19 +345,17 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
             <Timer width={14} height={14} /> 追加
           </button>
           {contextMenu.sessionId !== '' && (
-            <>
-              <button
-                className={styles.contextMenuItem}
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => {
-                  const id = contextMenu.sessionId
-                  setContextMenu(null)
-                  setPendingDeleteId(id)
-                }}
-              >
-                <Trash width={14} height={14} /> 流す
-              </button>
-            </>
+            <button
+              className={styles.contextMenuItem}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => {
+                const id = contextMenu.sessionId
+                setContextMenu(null)
+                setPendingDeleteId(id)
+              }}
+            >
+              <Trash width={14} height={14} /> 流す
+            </button>
           )}
         </div>
       )}
