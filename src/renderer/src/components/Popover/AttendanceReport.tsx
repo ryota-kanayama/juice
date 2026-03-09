@@ -1,8 +1,31 @@
 import { useState } from 'react'
-import { formatLocalDate, calcSessionMinutes } from '../../../../shared/sessionUtils'
+import { formatLocalDate, calcSessionMinutes, sortSessionsByStart } from '../../../../shared/sessionUtils'
 import type { Session } from '../../types/session'
 import styles from './AttendanceReport.module.css'
 import { Check, Copy, SendDiagonal } from 'iconoir-react'
+
+function getOrderedSessions(sessions: Session[], todayKey: string): Session[] {
+  const orderKey = `sessionOrder.${todayKey}`
+  const stored = localStorage.getItem(orderKey)
+  if (!stored) return sortSessionsByStart(sessions)
+  const customOrder: string[] = JSON.parse(stored)
+  const byId = new Map(sessions.map(s => [s.id, s]))
+  const ordered: Session[] = []
+  for (const id of customOrder) {
+    const s = byId.get(id)
+    if (s) { ordered.push(s); byId.delete(id) }
+  }
+  for (const s of sortSessionsByStart([...byId.values()])) {
+    ordered.push(s)
+  }
+  return ordered
+}
+
+function parseHHMM(t: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t)
+  if (!m) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
 
 export function buildAttendanceText(
   sessions: Session[],
@@ -28,10 +51,24 @@ export function buildAttendanceText(
     }
   }
 
+  const groups = Array.from(map.values()).filter(g => g.totalMinutes > 0)
+
+  // 勤務時間から休憩を引いた実労働時間と、タイマー合計の差分を最後のタスクに加算
+  if (groups.length > 0 && workStart && workEnd) {
+    const startMin = parseHHMM(workStart)
+    const endMin = parseHHMM(workEnd)
+    if (startMin != null && endMin != null) {
+      const actualWorkMinutes = endMin - startMin - breakMinutes
+      const timerTotal = groups.reduce((sum, g) => sum + g.totalMinutes, 0)
+      const diff = actualWorkMinutes - timerTotal
+      if (diff > 0) {
+        groups[groups.length - 1].totalMinutes += diff
+      }
+    }
+  }
+
   const timeLine = `${workStart ?? ''} ${workEnd ?? ''} ${breakMinutes}`
-  const taskLines = Array.from(map.values())
-    .filter(g => g.totalMinutes > 0)
-    .map(g => `${g.projectCode} ${g.name} ${g.workCategory} ${g.totalMinutes}`)
+  const taskLines = groups.map(g => `${g.projectCode} ${g.name} ${g.workCategory} ${g.totalMinutes}`)
 
   return ['勤怠', timeLine, ...taskLines].join('\n')
 }
@@ -50,7 +87,8 @@ export function AttendanceReport({ sessions }: Props) {
   const workStart = localStorage.getItem(`workStart.${todayKey}`)
   const workEnd = localStorage.getItem(`workEnd.${todayKey}`)
 
-  const text = buildAttendanceText(sessions, workStart, workEnd, breakMinutes)
+  const orderedSessions = getOrderedSessions(sessions, todayKey)
+  const text = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
 
   const isValidTime = (t: string | null): boolean => !!t && /^\d{1,2}:\d{2}$/.test(t)
   const canSend = isValidTime(workStart) && isValidTime(workEnd) && sessions.length > 0
