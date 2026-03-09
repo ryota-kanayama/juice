@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
-import { calcSessionMinutes, formatInterval, sortSessionsByStart } from '../../../../shared/sessionUtils'
+import { calcSessionMinutes, sortSessionsByStart } from '../../../../shared/sessionUtils'
 import styles from './DayDetail.module.css'
 import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
-import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { Check, Xmark, EditPencil } from 'iconoir-react'
 
 interface Props {
@@ -21,20 +20,40 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
   const [editingDurationValue, setEditingDurationValue] = useState('')
 
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
-  const { expandedId, setExpandedId } = useExpandedItem()
 
   useEffect(() => {
     setEditingKey(null)
     setEditingName('')
-    setExpandedId(null)
+  }, [date])
+
+  const PAGE_SIZE = 4
+  const [page, setPage] = useState(0)
+  const [animKey, setAnimKey] = useState(0)
+
+  const sortedSessions = sortSessionsByStart(sessions)
+  const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
+  const totalPages = Math.max(1, Math.ceil(sortedSessions.length / PAGE_SIZE))
+  const pagedSessions = sortedSessions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  const changePage = (newPage: number) => {
+    if (newPage === page) return
+    setPage(newPage)
+    setAnimKey(k => k + 1)
+  }
+
+  // ページ数が減った場合に調整
+  useEffect(() => {
+    if (page >= totalPages) setPage(Math.max(0, totalPages - 1))
+  }, [page, totalPages])
+
+  // 日付が変わったらページをリセット
+  useEffect(() => {
+    setPage(0)
   }, [date])
 
   if (!date) {
     return <div className={styles.placeholder}>日付を選択してください</div>
   }
-
-  const sortedSessions = sortSessionsByStart(sessions)
-  const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
 
   const handleEditStart = (session: Session) => {
     setEditingKey(session.id)
@@ -86,105 +105,90 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
         )}
         <h3 className={styles.date}>{date}</h3>
       </div>
+
       {sessions.length === 0 ? (
         <p className={styles.empty}>この日はジュースを注いでいません</p>
       ) : (
-        <>
-          <ul className={styles.list}>
-            {sortedSessions.map(session => (
-              <li
-                key={session.id}
-                data-session-item
-                className={styles.item}
-                onClick={(e) => {
-                  if ((e.target as HTMLElement).closest('button, input')) return
-                  setExpandedId(prev => prev === session.id ? null : session.id)
-                }}
-                onContextMenu={e => {
-                  e.preventDefault()
-                  setContextMenu({ sessionId: session.id, x: e.clientX, y: e.clientY })
-                }}
-              >
-                <span
-                  className={styles.dot}
-                  style={{ background: session.color }}
-                  aria-hidden="true"
-                />
-                <div className={styles.info}>
-                  {editingKey === session.id ? (
-                    <input
-                      className={styles.nameInput}
-                      value={editingName}
-                      aria-label="セッション名"
-                      onChange={e => setEditingName(e.target.value)}
-                      onBlur={handleEditCommit}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleEditCommit()
-                        if (e.key === 'Escape') handleEditCancel()
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <>
-                      <p className={styles.name}>{session.name}</p>
-                      {(session.projectCode || session.workCategory) && (
-                        <div className={styles.metaRow}>
-                          {session.projectCode && (
-                            <span className={styles.metaTag}>{session.projectCode}</span>
-                          )}
-                          {session.workCategory && (
-                            <span className={styles.metaTag}>{session.workCategory}</span>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {session.times.length === 1 ? (
-                    <p className={styles.time}>{formatInterval(session.times[0])}</p>
-                  ) : (
-                    <ul className={styles.timeList}>
-                      {(expandedId === session.id ? session.times : session.times.slice(0, 2)).map((t, i) => (
-                        <li key={t.startTime} className={`${styles.timeEntry} ${expandedId !== session.id && i === 1 && session.times.length > 2 ? styles.timeEntryFaded : ''}`}>
-                          {formatInterval(t)}
-                          {t.endTime && (
-                            <span className={styles.entryDuration}>
-                              {Math.round((new Date(t.endTime).getTime() - new Date(t.startTime).getTime()) / 60000)}分
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <span className={styles.duration}>{calcSessionMinutes(session)} 分</span>
+        <ul
+          className={styles.list}
+          key={animKey}
+          onWheel={e => {
+            if (totalPages <= 1) return
+            if (e.deltaY > 0 && page < totalPages - 1) changePage(page + 1)
+            if (e.deltaY < 0 && page > 0) changePage(page - 1)
+          }}
+        >
+          {pagedSessions.map(session => (
+            <li
+              key={session.id}
+              data-session-item
+              className={styles.item}
+              onContextMenu={e => {
+                e.preventDefault()
+                e.stopPropagation()
+                setContextMenu({ sessionId: session.id, x: e.clientX, y: e.clientY })
+              }}
+            >
+              <span className={styles.dot} style={{ background: session.color }} aria-hidden="true" />
+              <div className={styles.info}>
                 {editingKey === session.id ? (
-                  <>
-                    <button
-                      className={styles.confirmButton}
-                      onClick={handleEditCommit}
-                      onMouseDown={e => e.preventDefault()}
-                      aria-label="保存"
-                    ><Check width={14} height={14} /></button>
-                    <button
-                      className={styles.cancelButton}
-                      onClick={handleEditCancel}
-                      onMouseDown={e => e.preventDefault()}
-                      aria-label="キャンセル"
-                    ><Xmark width={14} height={14} /></button>
-                  </>
+                  <input
+                    className={styles.nameInput}
+                    value={editingName}
+                    aria-label="セッション名"
+                    onChange={e => setEditingName(e.target.value)}
+                    onBlur={handleEditCommit}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleEditCommit()
+                      if (e.key === 'Escape') handleEditCancel()
+                    }}
+                    autoFocus
+                  />
                 ) : (
-                  <button
-                    className={styles.editButton}
-                    onClick={() => handleEditStart(session)}
-                    aria-label="名前を編集"
-                  ><EditPencil width={14} height={14} /></button>
+                  <>
+                    <span className={styles.name}>{session.name}</span>
+                    {(session.projectCode || session.workCategory) && (
+                      <div className={styles.metaRow}>
+                        {session.projectCode && <span className={styles.metaTag}>{session.projectCode}</span>}
+                        {session.workCategory && <span className={styles.metaTag}>{session.workCategory}</span>}
+                      </div>
+                    )}
+                  </>
                 )}
-              </li>
-            ))}
-          </ul>
-          <p className={styles.total}>注いだ時間: {totalMinutes}分</p>
-        </>
+              </div>
+              <span className={styles.duration}>{calcSessionMinutes(session)}分</span>
+              {editingKey === session.id ? (
+                <>
+                  <button className={styles.confirmButton} onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
+                  <button className={styles.cancelButton} onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
+                </>
+              ) : (
+                <button className={styles.editButton} onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
+
+      {totalPages > 1 && (
+        <div className={styles.pageIndicator}>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i}
+              className={`${styles.pageDot} ${i === page ? styles.pageDotActive : ''}`}
+              onClick={() => changePage(i)}
+              aria-label={`ページ ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className={styles.total}>
+        {sessions.length > 0 && (
+          <span>注いだ時間: <strong>{totalMinutes}分</strong></span>
+        )}
+      </div>
+
       {contextMenu && (
         <div
           ref={contextMenuRef}

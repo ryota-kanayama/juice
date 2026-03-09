@@ -1,6 +1,6 @@
-import { useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useState, useEffect, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '../../types/session'
-import { calcSessionMinutes, formatInterval, formatLocalDateTime, sortSessionsByStart } from '../../../../shared/sessionUtils'
+import { calcSessionMinutes, formatLocalDateTime, sortSessionsByStart } from '../../../../shared/sessionUtils'
 import styles from './SessionList.module.css'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
@@ -16,6 +16,7 @@ interface AddParams {
 
 interface Props {
   sessions: Session[]
+  today?: string
   isRunning?: boolean
   onStartMore?: (session: Session) => void
   onUpdate?: (session: Session) => Promise<void>
@@ -29,24 +30,36 @@ function getTodayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function getTeleworkKey(): string {
+  return `telework.${getTodayKey()}`
+}
+
 function formatTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
+export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingProjectCode, setEditingProjectCode] = useState('')
   const [editingWorkCategory, setEditingWorkCategory] = useState('')
   const [editingDuration, setEditingDuration] = useState('')
 
-  const todayKey = getTodayKey()
+  const todayKey = today ?? getTodayKey()
   const [workStart, setWorkStart] = useState<string | null>(
     () => localStorage.getItem(`workStart.${todayKey}`)
   )
   const [workEnd, setWorkEnd] = useState<string | null>(
     () => localStorage.getItem(`workEnd.${todayKey}`)
   )
+
+  // 日付が変わったら workStart/workEnd をリセット
+  useEffect(() => {
+    setWorkStart(localStorage.getItem(`workStart.${todayKey}`))
+    setWorkEnd(localStorage.getItem(`workEnd.${todayKey}`))
+  }, [todayKey])
+
+  const [telework, setTelework] = useState(() => localStorage.getItem(getTeleworkKey()) === 'true')
 
   const [timePickerMode, setTimePickerMode] = useState<'start' | 'end' | null>(null)
   const [timePickerValue, setTimePickerValue] = useState('')
@@ -81,6 +94,9 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
     if (timePickerMode === 'start') {
       localStorage.setItem(`workStart.${todayKey}`, timePickerValue)
       setWorkStart(timePickerValue)
+      if (telework) {
+        window.electronAPI.teleworkStart()
+      }
     } else if (timePickerMode === 'end') {
       localStorage.setItem(`workEnd.${todayKey}`, timePickerValue)
       setWorkEnd(timePickerValue)
@@ -88,8 +104,25 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
     setTimePickerMode(null)
   }
 
+  const PAGE_SIZE = 4
+  const [page, setPage] = useState(0)
+  const [animKey, setAnimKey] = useState(0)
+
   const sortedSessions = sortSessionsByStart(sessions)
   const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
+  const totalPages = Math.max(1, Math.ceil(sortedSessions.length / PAGE_SIZE))
+  const pagedSessions = sortedSessions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  const changePage = (newPage: number) => {
+    if (newPage === page) return
+    setPage(newPage)
+    setAnimKey(k => k + 1)
+  }
+
+  // ページ数が減った場合に調整
+  useEffect(() => {
+    if (page >= totalPages) setPage(Math.max(0, totalPages - 1))
+  }, [page, totalPages])
 
   const handleEditStart = (session: Session) => {
     const lastInterval = session.times[session.times.length - 1]
@@ -176,6 +209,21 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
                 if (e.key === 'Escape') setTimePickerMode(null)
               }}
             />
+            {timePickerMode === 'start' && (
+              <label className={styles.teleworkLabel}>
+                <input
+                  type="checkbox"
+                  className={styles.teleworkCheckbox}
+                  checked={telework}
+                  onChange={e => {
+                    const checked = e.target.checked
+                    setTelework(checked)
+                    localStorage.setItem(getTeleworkKey(), String(checked))
+                  }}
+                />
+                <span className={styles.teleworkText}>テレワーク</span>
+              </label>
+            )}
             <div className={styles.timePickerActions}>
               <button className={styles.timePickerCancel} onClick={() => setTimePickerMode(null)}>キャンセル</button>
               <button className={styles.timePickerConfirm} onClick={handleTimePickerConfirm}>確定</button>
@@ -187,8 +235,16 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
       {sessions.length === 0 ? (
         <p className={styles.empty}>まだジュースを注いでいません</p>
       ) : (
-        <ul className={styles.list}>
-          {sortedSessions.map(session => (
+        <ul
+          className={styles.list}
+          key={animKey}
+          onWheel={e => {
+            if (totalPages <= 1) return
+            if (e.deltaY > 0 && page < totalPages - 1) changePage(page + 1)
+            if (e.deltaY < 0 && page > 0) changePage(page - 1)
+          }}
+        >
+          {pagedSessions.map(session => (
             <li
               key={session.id}
               data-session-item
@@ -243,25 +299,6 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
                     )}
                   </>
                 )}
-                {session.times.length === 1 ? (
-                  <span className={styles.time}>{formatInterval(session.times[0])}</span>
-                ) : (
-                  <ul className={styles.timeList}>
-                    {(expandedId === session.id ? session.times : session.times.slice(0, 2)).map((t, i) => (
-                      <li
-                        key={t.startTime}
-                        className={`${styles.timeEntry} ${expandedId !== session.id && i === 1 && session.times.length > 1 ? styles.timeEntryFade : ''}`}
-                      >
-                        {formatInterval(t)}
-                        {t.endTime && (
-                          <span className={styles.entryDuration}>
-                            {Math.round((new Date(t.endTime).getTime() - new Date(t.startTime).getTime()) / 60000)}分
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
               {editingKey === session.id ? (
                 <input
@@ -294,11 +331,21 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
         </ul>
       )}
 
+      {totalPages > 1 && (
+        <div className={styles.pageIndicator}>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i}
+              className={`${styles.pageDot} ${i === page ? styles.pageDotActive : ''}`}
+              onClick={() => changePage(i)}
+              aria-label={`ページ ${i + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
       <div className={styles.total}>
         <div className={styles.workTimeRow}>
-          <span className={styles.workTime}>
-            {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
-          </span>
           {!workEnd && (
             <button
               className={workStart ? styles.endButton : styles.startButton}
@@ -307,6 +354,9 @@ export function SessionList({ sessions, isRunning, onStartMore, onUpdate, onDele
               {workStart ? '終了' : '開始'}
             </button>
           )}
+          <span className={styles.workTime}>
+            {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
+          </span>
         </div>
         {sessions.length > 0 && (
           <span>今日注いだ時間: <strong>{totalMinutes}分</strong></span>

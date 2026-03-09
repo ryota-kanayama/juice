@@ -38,6 +38,166 @@ let timerStartTime: Date | null = null
 let elapsedCheckInterval: ReturnType<typeof setInterval> | null = null
 let elapsedNotifyCount: number = 0
 
+async function sendSlackMessage(text: string): Promise<void> {
+  const token = import.meta.env.MAIN_VITE_SLACK_BOT_TOKEN
+  const channel = import.meta.env.MAIN_VITE_SLACK_CHANNEL_ID
+  if (!token || !channel) return
+
+  const { net } = await import('electron')
+
+  await new Promise<void>((resolve, reject) => {
+    const request = net.request({
+      method: 'POST',
+      url: 'https://slack.com/api/chat.postMessage',
+    })
+    request.setHeader('Content-Type', 'application/json; charset=utf-8')
+    request.setHeader('Authorization', `Bearer ${token}`)
+    request.on('response', (response) => {
+      let body = ''
+      response.on('data', (chunk) => { body += chunk.toString() })
+      response.on('end', () => {
+        if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+        else reject(new Error(`Slack API error: ${response.statusCode} ${body}`))
+      })
+    })
+    request.on('error', reject)
+    request.write(JSON.stringify({ channel, text }))
+    request.end()
+  })
+}
+
+async function sendSlackTeleworkStart(): Promise<void> {
+  const { projectCode, projectName } = await settingsStore.getSlackSettings()
+  const text = `テレワークを開始します\n${projectCode} ${projectName}`
+  await sendSlackMessage(text)
+}
+
+async function sendSlackTeleworkEnd(): Promise<void> {
+  const { projectCode, projectName } = await settingsStore.getSlackSettings()
+  const text = `テレワークを終了します\n${projectCode} ${projectName}`
+  await sendSlackMessage(text)
+}
+
+async function sendWhiteboardLeave(): Promise<void> {
+  const { enabled, email } = await settingsStore.getWhiteboardSettings()
+  if (!enabled || !email) return
+
+  const apiUrl = import.meta.env.MAIN_VITE_WHITEBOARD_API_URL
+  const apiKey = import.meta.env.MAIN_VITE_WHITEBOARD_API_KEY
+  if (!apiUrl || !apiKey) return
+
+  const { net } = await import('electron')
+
+  // 1. POST /api/magnet (退勤: magnet_id=3)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${apiUrl}/api/magnet?apiKey=${apiKey}`,
+      })
+      request.setHeader('Content-Type', 'application/json')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+          else reject(new Error(`magnet API error: ${response.statusCode} ${body}`))
+        })
+      })
+      request.on('error', reject)
+      request.write(JSON.stringify({ magnet_id: 3, email }))
+      request.end()
+    })
+  } catch (err) {
+    console.error('Whiteboard magnet API failed:', err)
+    return
+  }
+
+  // 2. POST /api/attendance (退勤: come_to_the_office=false)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${apiUrl}/api/attendance?apiKey=${apiKey}`,
+      })
+      request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+          else reject(new Error(`attendance API error: ${response.statusCode} ${body}`))
+        })
+      })
+      request.on('error', reject)
+      request.write(`come_to_the_office=false&email=${encodeURIComponent(email)}`)
+      request.end()
+    })
+  } catch (err) {
+    console.error('Whiteboard attendance API failed:', err)
+  }
+}
+
+async function sendWhiteboardTeleworkStart(): Promise<void> {
+  const { enabled, email } = await settingsStore.getWhiteboardSettings()
+  if (!enabled || !email) return
+
+  const apiUrl = import.meta.env.MAIN_VITE_WHITEBOARD_API_URL
+  const apiKey = import.meta.env.MAIN_VITE_WHITEBOARD_API_KEY
+  if (!apiUrl || !apiKey) return
+
+  const { net } = await import('electron')
+
+  // 1. POST /api/magnet (テレワーク: magnet_id=2)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${apiUrl}/api/magnet?apiKey=${apiKey}`,
+      })
+      request.setHeader('Content-Type', 'application/json')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+          else reject(new Error(`magnet API error: ${response.statusCode} ${body}`))
+        })
+      })
+      request.on('error', reject)
+      request.write(JSON.stringify({ magnet_id: 2, email }))
+      request.end()
+    })
+  } catch (err) {
+    console.error('Whiteboard telework magnet API failed:', err)
+    return
+  }
+
+  // 2. POST /api/attendance (テレワーク開始: come_to_the_office=true)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const request = net.request({
+        method: 'POST',
+        url: `${apiUrl}/api/attendance?apiKey=${apiKey}`,
+      })
+      request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
+      request.on('response', (response) => {
+        let body = ''
+        response.on('data', (chunk) => { body += chunk.toString() })
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
+          else reject(new Error(`attendance API error: ${response.statusCode} ${body}`))
+        })
+      })
+      request.on('error', reject)
+      request.write(`come_to_the_office=true&email=${encodeURIComponent(email)}`)
+      request.end()
+    })
+  } catch (err) {
+    console.error('Whiteboard telework attendance API failed:', err)
+  }
+}
+
 function createPopoverWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 320,
@@ -73,7 +233,7 @@ function createPopoverWindow(): BrowserWindow {
   })
 
   if (process.env['NODE_ENV'] === 'development') {
-    win.loadURL('http://localhost:5173/')
+    win.loadURL('http://localhost:5174/')
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -113,7 +273,7 @@ function createSettingsWindow(): void {
   })
 
   if (process.env['NODE_ENV'] === 'development') {
-    settingsWindow.loadURL('http://localhost:5173/#settings')
+    settingsWindow.loadURL('http://localhost:5174/#settings')
   } else {
     settingsWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'settings' })
   }
@@ -230,7 +390,7 @@ function createSetupWindow(): void {
   })
 
   if (process.env['NODE_ENV'] === 'development') {
-    setupWindow.loadURL('http://localhost:5173/#setup')
+    setupWindow.loadURL('http://localhost:5174/#setup')
   } else {
     setupWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'setup' })
   }
@@ -245,9 +405,9 @@ function createSetupWindow(): void {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createEmpty()
+  const iconPath = join(__dirname, '../../resources/icon.png')
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 22, height: 22 })
   tray = new Tray(icon)
-  tray.setTitle('🧃')
   tray.setToolTip('Juice')
 
   const contextMenu = Menu.buildFromTemplate([
@@ -348,7 +508,7 @@ app.whenReady().then(async () => {
     }
     const { net } = await import('electron')
     const formBody = `user_name=${encodeURIComponent(userName)}&text=${encodeURIComponent(text)}`
-    return new Promise<{ ok: boolean; status: number; body: string }>((resolve) => {
+    const result = await new Promise<{ ok: boolean; status: number; body: string }>((resolve) => {
       const request = net.request({
         method: 'POST',
         url: `${import.meta.env.MAIN_VITE_ATTENDANCE_API_URL}?key=${import.meta.env.MAIN_VITE_ATTENDANCE_API_KEY}`,
@@ -368,6 +528,12 @@ app.whenReady().then(async () => {
       request.write(formBody)
       request.end()
     })
+    // 勤怠APIが成功した場合のみホワイトボードを退勤に更新 & Slack投稿
+    if (result.ok) {
+      sendWhiteboardLeave().catch(err => console.error('Whiteboard leave failed:', err))
+      sendSlackTeleworkEnd().catch(err => console.error('Slack telework end failed:', err))
+    }
+    return result
   })
 
   ipcMain.handle('timer:started', () => {
@@ -404,6 +570,27 @@ app.whenReady().then(async () => {
     if (timerStartTime) {
       startElapsedCheck()
     }
+  })
+
+  ipcMain.handle('settings:getWhiteboardSettings', async () => {
+    return settingsStore.getWhiteboardSettings()
+  })
+
+  ipcMain.handle('settings:setWhiteboardSettings', async (_, { enabled, email }: { enabled: boolean; email: string }) => {
+    await settingsStore.setWhiteboardSettings(enabled, email)
+  })
+
+  ipcMain.handle('settings:getSlackSettings', async () => {
+    return settingsStore.getSlackSettings()
+  })
+
+  ipcMain.handle('settings:setSlackSettings', async (_, { projectCode, projectName }: { projectCode: string; projectName: string }) => {
+    await settingsStore.setSlackSettings(projectCode, projectName)
+  })
+
+  ipcMain.handle('whiteboard:teleworkStart', async () => {
+    await sendWhiteboardTeleworkStart()
+    await sendSlackTeleworkStart().catch(err => console.error('Slack telework start failed:', err))
   })
 
   ipcMain.handle('setup:complete', async () => {
@@ -443,7 +630,7 @@ app.whenReady().then(async () => {
     })
 
     if (process.env['NODE_ENV'] === 'development') {
-      calendarWindow.loadURL('http://localhost:5173/#calendar')
+      calendarWindow.loadURL('http://localhost:5174/#calendar')
     } else {
       calendarWindow.loadFile(join(__dirname, '../renderer/index.html'), {
         hash: 'calendar',

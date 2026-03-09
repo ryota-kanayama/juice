@@ -25,5 +25,10 @@ export interface ElectronAPI {
   getUserName: () => Promise<string>
   setUserName: (userName: string) => Promise<void>
   sendAttendance: (text: string) => Promise<{ ok: boolean; status: number; body: string }>
+  getWhiteboardSettings: () => Promise<{ enabled: boolean; email: string }>
+  setWhiteboardSettings: (enabled: boolean, email: string) => Promise<void>
+  teleworkStart: () => Promise<void>
+  getSlackSettings: () => Promise<{ projectCode: string; projectName: string }>
+  setSlackSettings: (projectCode: string, projectName: string) => Promise<void>
   completeSetup: () => Promise<void>
 }

@@ -45,6 +45,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('settings:setUserName', userName),
   sendAttendance: (text: string) =>
     ipcRenderer.invoke('attendance:send', text),
+  getWhiteboardSettings: () =>
+    ipcRenderer.invoke('settings:getWhiteboardSettings'),
+  setWhiteboardSettings: (enabled: boolean, email: string) =>
+    ipcRenderer.invoke('settings:setWhiteboardSettings', { enabled, email }),
+  teleworkStart: () =>
+    ipcRenderer.invoke('whiteboard:teleworkStart'),
+  getSlackSettings: () =>
+    ipcRenderer.invoke('settings:getSlackSettings'),
+  setSlackSettings: (projectCode: string, projectName: string) =>
+    ipcRenderer.invoke('settings:setSlackSettings', { projectCode, projectName }),
   completeSetup: () =>
     ipcRenderer.invoke('setup:complete'),
 })
