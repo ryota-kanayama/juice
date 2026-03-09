@@ -52,6 +52,9 @@ export function AttendanceReport({ sessions }: Props) {
 
   const text = buildAttendanceText(sessions, workStart, workEnd, breakMinutes)
 
+  const isValidTime = (t: string | null): boolean => !!t && /^\d{1,2}:\d{2}$/.test(t)
+  const canSend = isValidTime(workStart) && isValidTime(workEnd) && sessions.length > 0
+
   const handleCopy = () => {
     navigator.clipboard.writeText(text)
       .then(() => {
@@ -103,7 +106,7 @@ export function AttendanceReport({ sessions }: Props) {
         <button
           className={`${styles.sendButton}${sendResult === 'success' ? ` ${styles.sent}` : ''}${sendResult === 'error' ? ` ${styles.sendError}` : ''}`}
           onClick={handleSend}
-          disabled={sending}
+          disabled={sending || !canSend}
         >
           {sending ? '送信中...' : sendResult === 'success' ? <><Check width={14} height={14} /> 送信しました</> : sendResult === 'error' ? '送信失敗' : <><SendDiagonal width={14} height={14} /> 送る</>}
         </button>
