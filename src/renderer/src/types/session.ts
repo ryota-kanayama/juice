@@ -31,4 +31,5 @@ export interface ElectronAPI {
   getSlackSettings: () => Promise<{ projectCode: string; projectName: string }>
   setSlackSettings: (projectCode: string, projectName: string) => Promise<void>
   completeSetup: () => Promise<void>
+  getHolidays: () => Promise<Record<string, string>>
 }

@@ -6,13 +6,14 @@ interface Props {
   month: number  // 1-12
   sessionDates: string[]  // "YYYY-MM-DD" の配列（記録がある日）
   selectedDate: string | null
+  holidays: Record<string, string>  // "YYYY-MM-DD" => 祝日名
   onSelectDate: (date: string) => void
   onPrevMonth: () => void
   onNextMonth: () => void
 }
 
 export function MonthView({
-  year, month, sessionDates, selectedDate,
+  year, month, sessionDates, selectedDate, holidays,
   onSelectDate, onPrevMonth, onNextMonth
 }: Props) {
   const daysInMonth = new Date(year, month, 0).getDate()
@@ -37,8 +38,8 @@ export function MonthView({
       </div>
 
       <div className={styles.grid} role="grid">
-        {['日', '月', '火', '水', '木', '金', '土'].map(d => (
-          <div key={d} className={styles.weekday} role="columnheader">{d}</div>
+        {['日', '月', '火', '水', '木', '金', '土'].map((d, i) => (
+          <div key={d} className={`${styles.weekday} ${i === 0 ? styles.sunday : i === 6 ? styles.saturday : ''}`} role="columnheader">{d}</div>
         ))}
         {cells.map((day, idx) => {
           if (day === null) {
@@ -47,6 +48,10 @@ export function MonthView({
           const dateStr = `${year}-${pad(month)}-${pad(day)}`
           const hasSession = sessionDateSet.has(dateStr)
           const isSelected = selectedDate === dateStr
+          const dayOfWeek = new Date(year, month - 1, day).getDay()
+          const isSunday = dayOfWeek === 0
+          const isSaturday = dayOfWeek === 6
+          const isHoliday = dateStr in holidays
           return (
             <button
               key={dateStr}
@@ -54,7 +59,10 @@ export function MonthView({
                 styles.day,
                 hasSession ? styles.hasSession : '',
                 isSelected ? styles.selected : '',
+                (isSunday || isHoliday) ? styles.sunday : '',
+                isSaturday && !isHoliday ? styles.saturday : '',
               ].filter(Boolean).join(' ')}
+              title={isHoliday ? holidays[dateStr] : undefined}
               onClick={() => onSelectDate(dateStr)}
               aria-pressed={isSelected}
               aria-label={`${month}月${day}日${hasSession ? '（記録あり）' : ''}`}

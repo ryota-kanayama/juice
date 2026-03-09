@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, ipcMain, nativeImage, Menu, shell, Notification, screen } from 'electron'
+import { app, BrowserWindow, Tray, ipcMain, nativeImage, Menu, shell, Notification, screen, net } from 'electron'
 import { join } from 'path'
 import os from 'os'
 import { SessionStore } from './sessionStore'
@@ -601,6 +601,19 @@ app.whenReady().then(async () => {
     app.dock?.hide()
     createTray()
     startIdleCheck()
+  })
+
+  // 祝日データキャッシュ
+  let holidaysCache: Record<string, string> | null = null
+  ipcMain.handle('holidays:get', async () => {
+    if (holidaysCache) return holidaysCache
+    try {
+      const response = await net.fetch('https://holidays-jp.github.io/api/v1/date.json')
+      holidaysCache = await response.json()
+      return holidaysCache
+    } catch {
+      return {}
+    }
   })
 
   ipcMain.handle('calendar:open', () => {

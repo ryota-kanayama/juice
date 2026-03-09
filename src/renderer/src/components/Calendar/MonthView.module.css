@@ -87,6 +87,19 @@
   background: var(--accent);
 }
 
+.sunday {
+  color: #e74c3c;
+}
+
+.saturday {
+  color: #3498db;
+}
+
+.selected.sunday,
+.selected.saturday {
+  color: white;
+}
+
 .selected .dot {
   background: white;
 }

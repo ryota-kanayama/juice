@@ -264,8 +264,13 @@ function CalendarPage() {
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [sessionsByDate, setSessionsByDate] = useState<Record<string, Session[]>>({})
+  const [holidays, setHolidays] = useState<Record<string, string>>({})
 
   const yearMonth = `${year}-${String(month).padStart(2, '0')}`
+
+  useEffect(() => {
+    window.electronAPI.getHolidays().then(setHolidays)
+  }, [])
 
   useEffect(() => {
     window.electronAPI.getSessions(yearMonth).then(sessions => {
@@ -316,6 +321,7 @@ function CalendarPage() {
           month={month}
           sessionDates={sessionDates}
           selectedDate={selectedDate}
+          holidays={holidays}
           onSelectDate={setSelectedDate}
           onPrevMonth={prevMonth}
           onNextMonth={nextMonth}

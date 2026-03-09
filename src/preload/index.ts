@@ -57,4 +57,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('settings:setSlackSettings', { projectCode, projectName }),
   completeSetup: () =>
     ipcRenderer.invoke('setup:complete'),
+  getHolidays: () =>
+    ipcRenderer.invoke('holidays:get'),
 })
