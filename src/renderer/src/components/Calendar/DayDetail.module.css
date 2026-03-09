@@ -105,7 +105,6 @@
   border-radius: 50%;
   margin-top: 3px;
   flex-shrink: 0;
-  box-shadow: 0 0 8px currentColor;
 }
 
 .info {
