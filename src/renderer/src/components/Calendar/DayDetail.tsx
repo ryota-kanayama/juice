@@ -3,7 +3,9 @@ import type { Session } from '../../types/session'
 import { calcSessionMinutes, sortSessionsByStart } from '../../../../shared/sessionUtils'
 import styles from './DayDetail.module.css'
 import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
+import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { useContextMenu } from '../../hooks/useContextMenu'
+import { usePagination } from '../../hooks/usePagination'
 import { Check, Xmark, EditPencil } from 'iconoir-react'
 
 interface Props {
@@ -26,30 +28,9 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
     setEditingName('')
   }, [date])
 
-  const PAGE_SIZE = 4
-  const [page, setPage] = useState(0)
-  const [animKey, setAnimKey] = useState(0)
-
   const sortedSessions = sortSessionsByStart(sessions)
   const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
-  const totalPages = Math.max(1, Math.ceil(sortedSessions.length / PAGE_SIZE))
-  const pagedSessions = sortedSessions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-
-  const changePage = (newPage: number) => {
-    if (newPage === page) return
-    setPage(newPage)
-    setAnimKey(k => k + 1)
-  }
-
-  // ページ数が減った場合に調整
-  useEffect(() => {
-    if (page >= totalPages) setPage(Math.max(0, totalPages - 1))
-  }, [page, totalPages])
-
-  // 日付が変わったらページをリセット
-  useEffect(() => {
-    setPage(0)
-  }, [date])
+  const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
   if (!date) {
     return <div className={styles.placeholder}>日付を選択してください</div>
@@ -170,18 +151,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
         </ul>
       )}
 
-      {totalPages > 1 && (
-        <div className={styles.pageIndicator}>
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              className={`${styles.pageDot} ${i === page ? styles.pageDotActive : ''}`}
-              onClick={() => changePage(i)}
-              aria-label={`ページ ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
+      <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
       <div className={styles.total}>
         {sessions.length > 0 && (

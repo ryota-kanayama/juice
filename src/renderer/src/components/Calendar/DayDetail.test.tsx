@@ -25,7 +25,7 @@ describe('DayDetail', () => {
   it('セッション一覧と合計を表示する', () => {
     render(<DayDetail date="2026-02-25" sessions={[session]} />)
     expect(screen.getByText('企画書作業')).toBeInTheDocument()
-    expect(screen.getByText(/45分/)).toBeInTheDocument()
+    expect(screen.getAllByText(/45分/)).toHaveLength(2) // アイテムの duration + 合計
   })
 
   it('times配列に複数インターバルがある場合はサブリストで表示する', () => {
@@ -44,7 +44,7 @@ describe('DayDetail', () => {
   it('✏️ボタンをクリックするとinputが表示される', async () => {
     const user = userEvent.setup()
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: '名前を編集' }))
+    await user.click(screen.getByRole('button', { name: '編集' }))
     expect(screen.getByRole('textbox')).toBeInTheDocument()
     expect(screen.getByRole('textbox')).toHaveValue('企画書作業')
   })
@@ -53,7 +53,7 @@ describe('DayDetail', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.click(screen.getByRole('button', { name: '名前を編集' }))
+    await user.click(screen.getByRole('button', { name: '編集' }))
     await user.clear(screen.getByRole('textbox'))
     await user.type(screen.getByRole('textbox'), '新しい作業名{Enter}')
     expect(onUpdate).toHaveBeenCalledWith({ ...session, name: '新しい作業名' })
@@ -63,7 +63,7 @@ describe('DayDetail', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn()
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.click(screen.getByRole('button', { name: '名前を編集' }))
+    await user.click(screen.getByRole('button', { name: '編集' }))
     await user.type(screen.getByRole('textbox'), '変更途中{Escape}')
     expect(onUpdate).not.toHaveBeenCalled()
     expect(screen.getByText('企画書作業')).toBeInTheDocument()
@@ -73,7 +73,7 @@ describe('DayDetail', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn()
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.click(screen.getByRole('button', { name: '名前を編集' }))
+    await user.click(screen.getByRole('button', { name: '編集' }))
     await user.clear(screen.getByRole('textbox'))
     await user.keyboard('{Enter}')
     expect(onUpdate).not.toHaveBeenCalled()

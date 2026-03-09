@@ -80,33 +80,6 @@
   }
 }
 
-/* ====== ページインジケーター ====== */
-.pageIndicator {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 0;
-}
-
-.pageDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  background: var(--glass-border);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.pageDot:hover {
-  background: var(--text-secondary);
-}
-
-.pageDotActive {
-  background: var(--accent);
-}
-
 .item {
   display: flex;
   align-items: flex-start;

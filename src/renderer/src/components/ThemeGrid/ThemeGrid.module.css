@@ -1,0 +1,80 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.gridCompact {
+  gap: 8px;
+}
+
+.card {
+  position: relative;
+  border: 2px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 12px 10px 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: var(--transition-smooth);
+  text-align: left;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-glass);
+}
+
+.cardCompact {
+  padding: 10px 8px 6px;
+  gap: 4px;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
+}
+
+.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-light);
+}
+
+.dots {
+  display: flex;
+  gap: 5px;
+}
+
+.gridCompact .dots {
+  gap: 4px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: block;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.gridCompact .dot {
+  width: 10px;
+  height: 10px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.labelCompact {
+  font-size: 11px;
+}
+
+.check {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}

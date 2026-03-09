@@ -1,7 +1,7 @@
 import { useState, useEffect, type ChangeEvent } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
 import styles from './SettingsView.module.css'
-import { Check } from 'iconoir-react'
+import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
 
 type Section = 'theme' | 'notification' | 'account'
 
@@ -125,49 +125,9 @@ export function SettingsView() {
         {activeSection === 'theme' && (
           <>
             <h2 className={styles.heading}>ライト</h2>
-            <div className={styles.grid}>
-              {THEMES.map(theme => (
-                <button
-                  key={theme.id}
-                  className={`${styles.card} ${activeThemeId === theme.id ? styles.active : ''}`}
-                  style={{ background: theme.bg }}
-                  onClick={() => handleSelect(theme.id)}
-                >
-                  <div className={styles.dots}>
-                    <span className={styles.dot} style={{ background: theme.accent }} />
-                    <span className={styles.dot} style={{ background: theme.textPrimary }} />
-                  </div>
-                  <span className={styles.label} style={{ color: theme.textPrimary }}>
-                    {theme.name}
-                  </span>
-                  {activeThemeId === theme.id && (
-                    <span className={styles.check} style={{ color: theme.accent }}><Check width={14} height={14} /></span>
-                  )}
-                </button>
-              ))}
-            </div>
+            <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={handleSelect} />
             <h2 className={styles.heading} style={{ marginTop: '1.5rem' }}>ダーク</h2>
-            <div className={styles.grid}>
-              {DARK_THEMES.map(theme => (
-                <button
-                  key={theme.id}
-                  className={`${styles.card} ${activeThemeId === theme.id ? styles.active : ''}`}
-                  style={{ background: theme.bg }}
-                  onClick={() => handleSelect(theme.id)}
-                >
-                  <div className={styles.dots}>
-                    <span className={styles.dot} style={{ background: theme.accent }} />
-                    <span className={styles.dot} style={{ background: theme.textPrimary }} />
-                  </div>
-                  <span className={styles.label} style={{ color: theme.textPrimary }}>
-                    {theme.name}
-                  </span>
-                  {activeThemeId === theme.id && (
-                    <span className={styles.check} style={{ color: theme.accent }}><Check width={14} height={14} /></span>
-                  )}
-                </button>
-              ))}
-            </div>
+            <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={handleSelect} />
           </>
         )}
 
