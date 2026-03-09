@@ -1,4 +1,4 @@
-import { useState, useEffect, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '../../types/session'
 import { calcSessionMinutes, formatLocalDateTime, formatTimeFromDate, sortSessionsByStart } from '../../../../shared/sessionUtils'
 import styles from './SessionList.module.css'
@@ -67,9 +67,75 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
   const { expandedId, setExpandedId } = useExpandedItem()
 
-  const sortedSessions = sortSessionsByStart(sessions)
+  // カスタム順序（localStorage）またはデフォルトの時刻順
+  const orderKey = `sessionOrder.${todayKey}`
+  const [customOrder, setCustomOrder] = useState<string[] | null>(
+    () => {
+      const stored = localStorage.getItem(orderKey)
+      return stored ? JSON.parse(stored) : null
+    }
+  )
+
+  // 日付変更時にカスタム順序をリセット
+  useEffect(() => {
+    const stored = localStorage.getItem(orderKey)
+    setCustomOrder(stored ? JSON.parse(stored) : null)
+  }, [orderKey])
+
+  const getOrderedSessions = useCallback((): Session[] => {
+    if (!customOrder) return sortSessionsByStart(sessions)
+    const byId = new Map(sessions.map(s => [s.id, s]))
+    const ordered: Session[] = []
+    for (const id of customOrder) {
+      const s = byId.get(id)
+      if (s) { ordered.push(s); byId.delete(id) }
+    }
+    // 新しいセッション（カスタム順序にないもの）を末尾に追加
+    for (const s of sortSessionsByStart([...byId.values()])) {
+      ordered.push(s)
+    }
+    return ordered
+  }, [sessions, customOrder])
+
+  const sortedSessions = getOrderedSessions()
   const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
+
+  // ドラッグ&ドロップ
+  const dragItemRef = useRef<string | null>(null)
+  const dragOverItemRef = useRef<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  const handleDragStart = (sessionId: string) => {
+    dragItemRef.current = sessionId
+  }
+
+  const handleDragOver = (e: React.DragEvent, sessionId: string) => {
+    e.preventDefault()
+    dragOverItemRef.current = sessionId
+    setDragOverId(sessionId)
+  }
+
+  const handleDragEnd = () => {
+    const fromId = dragItemRef.current
+    const toId = dragOverItemRef.current
+    dragItemRef.current = null
+    dragOverItemRef.current = null
+    setDragOverId(null)
+
+    if (!fromId || !toId || fromId === toId) return
+
+    const currentOrder = sortedSessions.map(s => s.id)
+    const fromIdx = currentOrder.indexOf(fromId)
+    const toIdx = currentOrder.indexOf(toId)
+    if (fromIdx === -1 || toIdx === -1) return
+
+    currentOrder.splice(fromIdx, 1)
+    currentOrder.splice(toIdx, 0, fromId)
+
+    localStorage.setItem(orderKey, JSON.stringify(currentOrder))
+    setCustomOrder(currentOrder)
+  }
 
   const openAddDialog = () => {
     setAddDialog({ name: '', projectCode: '', workCategory: '', totalTime: '' })
@@ -230,7 +296,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
             <li
               key={session.id}
               data-session-item
-              className={`${styles.item} ${expandedId === session.id ? styles.itemExpanded : ''}`}
+              draggable
+              className={`${styles.item} ${expandedId === session.id ? styles.itemExpanded : ''} ${dragOverId === session.id ? styles.itemDragOver : ''}`}
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('button, input')) return
                 setExpandedId(prev => prev === session.id ? null : session.id)
@@ -240,6 +307,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 e.stopPropagation()
                 setContextMenu({ sessionId: session.id, x: e.clientX, y: e.clientY })
               }}
+              onDragStart={() => handleDragStart(session.id)}
+              onDragOver={(e) => handleDragOver(e, session.id)}
+              onDragLeave={() => setDragOverId(null)}
+              onDragEnd={handleDragEnd}
             >
               <span className={styles.dot} style={{ background: session.color }} aria-hidden="true" />
               <div className={styles.info}>

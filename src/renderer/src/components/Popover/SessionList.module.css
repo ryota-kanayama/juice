@@ -355,6 +355,19 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
+.item[draggable] {
+  cursor: grab;
+}
+
+.item[draggable]:active {
+  cursor: grabbing;
+}
+
+.itemDragOver {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
 .dot {
   width: 10px;
   height: 10px;

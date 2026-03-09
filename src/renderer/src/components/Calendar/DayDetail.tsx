@@ -28,7 +28,22 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
     setEditingName('')
   }, [date])
 
-  const sortedSessions = sortSessionsByStart(sessions)
+  const sortedSessions = (() => {
+    if (!date) return sortSessionsByStart(sessions)
+    const stored = localStorage.getItem(`sessionOrder.${date}`)
+    if (!stored) return sortSessionsByStart(sessions)
+    const order: string[] = JSON.parse(stored)
+    const byId = new Map(sessions.map(s => [s.id, s]))
+    const ordered: Session[] = []
+    for (const id of order) {
+      const s = byId.get(id)
+      if (s) { ordered.push(s); byId.delete(id) }
+    }
+    for (const s of sortSessionsByStart([...byId.values()])) {
+      ordered.push(s)
+    }
+    return ordered
+  })()
   const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
