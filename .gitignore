@@ -57,3 +57,5 @@ docs
 
 # TypeScript build info
 tsconfig.*.tsbuildinfo
+
+.markdownlint.json
