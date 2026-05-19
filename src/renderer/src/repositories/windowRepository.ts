@@ -9,10 +9,6 @@ export const windowRepository = {
   hide(): Promise<void> {
     return window.electronAPI.hideWindow()
   },
-  /** カレンダーウィンドウを開く */
-  openCalendar(): Promise<void> {
-    return window.electronAPI.openCalendar()
-  },
   /** 外部 URL を既定ブラウザで開く */
   openUrl(url: string): Promise<void> {
     return window.electronAPI.openUrl(url)
