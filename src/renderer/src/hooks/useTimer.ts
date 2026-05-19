@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback } from 'react'
 import type { Session } from '../types/session'
-import { formatLocalDateTime } from '../../../shared/sessionUtils'
+import { formatLocalDateTime, formatLocalDate } from '../../../shared/sessionUtils'
 
-const JUICE_COLORS = [
+export const JUICE_COLORS = [
   '#FF6B6B', // いちご
   '#FF9500', // オレンジ
   '#F7B731', // レモン
@@ -15,13 +15,8 @@ const JUICE_COLORS = [
   '#00b894', // キウイ
 ]
 
-function randomColor(): string {
+export function randomColor(): string {
   return JUICE_COLORS[Math.floor(Math.random() * JUICE_COLORS.length)]
-}
-
-function toDateString(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 export interface TimerState {
@@ -127,7 +122,7 @@ export function useTimer(): TimerState {
         workCategory: opts?.workCategory ?? '',
         totalTime: newIntervalMinutes,
         times: [newInterval],
-        date: toDateString(startTimeRef.current),
+        date: formatLocalDate(startTimeRef.current.getTime()),
         color: activeColorRef.current,
       }
       await window.electronAPI.saveSession(resultSession)

@@ -3,7 +3,7 @@ import { formatLocalDateTime, formatLocalDate } from '../../shared/sessionUtils'
 import { TimerForm } from './components/Popover/TimerForm'
 import { ActiveTimer } from './components/Popover/ActiveTimer'
 import { SessionList } from './components/Popover/SessionList'
-import { useTimer } from './hooks/useTimer'
+import { useTimer, randomColor } from './hooks/useTimer'
 import type { Session } from './types/session'
 import styles from './App.module.css'
 import { MonthView } from './components/Calendar/MonthView'
@@ -193,7 +193,6 @@ function TimerPage({ todaySessions, setTodaySessions, today }: {
   const handleAdd = async (params: { name: string; projectCode: string; workCategory: string; totalTime: string }) => {
     const dateStr = formatLocalDate(Date.now())
     const totalTime = Math.max(1, parseInt(params.totalTime, 10))
-    const JUICE_COLORS = ['#FF6B6B', '#FF9500', '#F7B731', '#e17055', '#fd79a8', '#a29bfe', '#45aaf2', '#0984e3', '#26de81', '#00b894']
     const id = crypto.randomUUID()
     const session: Session = {
       id,
@@ -203,7 +202,7 @@ function TimerPage({ todaySessions, setTodaySessions, today }: {
       workCategory: params.workCategory,
       times: [],
       date: dateStr,
-      color: JUICE_COLORS[Math.floor(Math.random() * JUICE_COLORS.length)],
+      color: randomColor(),
       totalTime,
     }
     await window.electronAPI.updateSession(session)

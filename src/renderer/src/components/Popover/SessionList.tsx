@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '../../types/session'
-import { calcSessionMinutes, formatLocalDateTime, formatTimeFromDate, sortSessionsByStart } from '../../../../shared/sessionUtils'
+import { formatLocalDate, formatLocalDateTime, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
 import styles from './SessionList.module.css'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
@@ -27,13 +27,8 @@ interface Props {
   onAdd?: (params: AddParams) => void
 }
 
-function getTodayKey(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 function getTeleworkKey(): string {
-  return `telework.${getTodayKey()}`
+  return `telework.${formatLocalDate(Date.now())}`
 }
 
 export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
@@ -43,7 +38,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const [editingWorkCategory, setEditingWorkCategory] = useState('')
   const [editingDuration, setEditingDuration] = useState('')
 
-  const todayKey = today ?? getTodayKey()
+  const todayKey = today ?? formatLocalDate(Date.now())
   const [workStart, setWorkStart] = useState<string | null>(
     () => localStorage.getItem(`workStart.${todayKey}`)
   )
@@ -82,23 +77,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     setCustomOrder(stored ? JSON.parse(stored) : null)
   }, [orderKey])
 
-  const getOrderedSessions = useCallback((): Session[] => {
-    if (!customOrder) return sortSessionsByStart(sessions)
-    const byId = new Map(sessions.map(s => [s.id, s]))
-    const ordered: Session[] = []
-    for (const id of customOrder) {
-      const s = byId.get(id)
-      if (s) { ordered.push(s); byId.delete(id) }
-    }
-    // 新しいセッション（カスタム順序にないもの）を末尾に追加
-    for (const s of sortSessionsByStart([...byId.values()])) {
-      ordered.push(s)
-    }
-    return ordered
-  }, [sessions, customOrder])
-
-  const sortedSessions = getOrderedSessions()
-  const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
+  const sortedSessions = orderSessions(sessions, customOrder)
+  const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
   // ドラッグ&ドロップ
@@ -216,7 +196,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     setEditingName(session.name)
     setEditingProjectCode(session.projectCode)
     setEditingWorkCategory(session.workCategory)
-    setEditingDuration(String(calcSessionMinutes(session) + Math.round(runningMs / 60000)))
+    setEditingDuration(String(session.totalTime + Math.round(runningMs / 60000)))
   }
 
   const handleEditCommit = async () => {
@@ -401,7 +381,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                   min="1"
                 />
               ) : (
-                <span className={styles.duration}>{calcSessionMinutes(session)}分</span>
+                <span className={styles.duration}>{session.totalTime}分</span>
               )}
               {editingKey === session.id ? (
                 <>

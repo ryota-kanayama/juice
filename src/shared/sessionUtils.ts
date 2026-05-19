@@ -1,10 +1,5 @@
 import type { Session, TimeInterval } from './types'
 
-/** セッションの合計時間（分）。totalTime を返す */
-export function calcSessionMinutes(session: Session): number {
-  return session.totalTime
-}
-
 /** ミリ秒をローカル日時文字列に変換（"YYYY-MM-DDTHH:mm:ss"） */
 export function formatLocalDateTime(ms: number): string {
   const d = new Date(ms)
@@ -63,4 +58,19 @@ export function sortSessionsByStart(sessions: Session[]): Session[] {
     const bStart = b.times[0]?.startTime ?? ''
     return aStart.localeCompare(bStart)
   })
+}
+
+/** customOrder（セッションIDの並び）に従って並べ替える。含まれないものは時刻順で末尾に追加 */
+export function orderSessions(sessions: Session[], customOrder: string[] | null): Session[] {
+  if (!customOrder) return sortSessionsByStart(sessions)
+  const byId = new Map(sessions.map(s => [s.id, s]))
+  const ordered: Session[] = []
+  for (const id of customOrder) {
+    const s = byId.get(id)
+    if (s) { ordered.push(s); byId.delete(id) }
+  }
+  for (const s of sortSessionsByStart([...byId.values()])) {
+    ordered.push(s)
+  }
+  return ordered
 }

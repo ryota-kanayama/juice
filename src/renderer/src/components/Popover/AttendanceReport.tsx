@@ -1,25 +1,8 @@
 import { useState } from 'react'
-import { formatLocalDate, calcSessionMinutes, sortSessionsByStart } from '../../../../shared/sessionUtils'
+import { formatLocalDate, orderSessions } from '../../../../shared/sessionUtils'
 import type { Session } from '../../types/session'
 import styles from './AttendanceReport.module.css'
 import { Check, Copy, SendDiagonal } from 'iconoir-react'
-
-function getOrderedSessions(sessions: Session[], todayKey: string): Session[] {
-  const orderKey = `sessionOrder.${todayKey}`
-  const stored = localStorage.getItem(orderKey)
-  if (!stored) return sortSessionsByStart(sessions)
-  const customOrder: string[] = JSON.parse(stored)
-  const byId = new Map(sessions.map(s => [s.id, s]))
-  const ordered: Session[] = []
-  for (const id of customOrder) {
-    const s = byId.get(id)
-    if (s) { ordered.push(s); byId.delete(id) }
-  }
-  for (const s of sortSessionsByStart([...byId.values()])) {
-    ordered.push(s)
-  }
-  return ordered
-}
 
 function parseHHMM(t: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(t)
@@ -37,7 +20,7 @@ export function buildAttendanceText(
 
   for (const s of sessions) {
     const key = s.taskId ?? s.id
-    const minutes = calcSessionMinutes(s)
+    const minutes = s.totalTime
     const existing = map.get(key)
     if (existing) {
       existing.totalMinutes += minutes
@@ -87,7 +70,8 @@ export function AttendanceReport({ sessions }: Props) {
   const workStart = localStorage.getItem(`workStart.${todayKey}`)
   const workEnd = localStorage.getItem(`workEnd.${todayKey}`)
 
-  const orderedSessions = getOrderedSessions(sessions, todayKey)
+  const storedOrder = localStorage.getItem(`sessionOrder.${todayKey}`)
+  const orderedSessions = orderSessions(sessions, storedOrder ? JSON.parse(storedOrder) : null)
   const text = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
 
   const isValidTime = (t: string | null): boolean => !!t && /^\d{1,2}:\d{2}$/.test(t)

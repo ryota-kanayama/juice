@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
-import { calcSessionMinutes, sortSessionsByStart } from '../../../../shared/sessionUtils'
+import { orderSessions } from '../../../../shared/sessionUtils'
 import styles from './DayDetail.module.css'
 import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
@@ -28,23 +28,9 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
     setEditingName('')
   }, [date])
 
-  const sortedSessions = (() => {
-    if (!date) return sortSessionsByStart(sessions)
-    const stored = localStorage.getItem(`sessionOrder.${date}`)
-    if (!stored) return sortSessionsByStart(sessions)
-    const order: string[] = JSON.parse(stored)
-    const byId = new Map(sessions.map(s => [s.id, s]))
-    const ordered: Session[] = []
-    for (const id of order) {
-      const s = byId.get(id)
-      if (s) { ordered.push(s); byId.delete(id) }
-    }
-    for (const s of sortSessionsByStart([...byId.values()])) {
-      ordered.push(s)
-    }
-    return ordered
-  })()
-  const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
+  const stored = date ? localStorage.getItem(`sessionOrder.${date}`) : null
+  const sortedSessions = orderSessions(sessions, stored ? JSON.parse(stored) : null)
+  const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
   if (!date) {
@@ -152,7 +138,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
                   </>
                 )}
               </div>
-              <span className={styles.duration}>{calcSessionMinutes(session)}分</span>
+              <span className={styles.duration}>{session.totalTime}分</span>
               {editingKey === session.id ? (
                 <>
                   <button className={styles.confirmButton} onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
@@ -188,7 +174,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
               onClick={() => {
                 const session = sessions.find(s => s.id === contextMenu.sessionId)
                 if (!session) { setContextMenu(null); return }
-                setEditingDurationValue(String(calcSessionMinutes(session)))
+                setEditingDurationValue(String(session.totalTime))
                 setEditingDurationId(session.id)
                 setContextMenu(null)
               }}
