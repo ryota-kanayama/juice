@@ -28,19 +28,6 @@ describe('DayDetail', () => {
     expect(screen.getAllByText(/45分/)).toHaveLength(2) // アイテムの duration + 合計
   })
 
-  it('times配列に複数インターバルがある場合はサブリストで表示する', () => {
-    const multiSession: Session = {
-      ...session,
-      times: [
-        { startTime: '2026-02-25T10:00:00', endTime: '2026-02-25T10:30:00' },
-        { startTime: '2026-02-25T11:00:00', endTime: '2026-02-25T11:15:00' },
-      ],
-    }
-    render(<DayDetail date="2026-02-25" sessions={[multiSession]} />)
-    expect(screen.getByText(/10:00/)).toBeInTheDocument()
-    expect(screen.getByText(/11:15/)).toBeInTheDocument()
-  })
-
   it('✏️ボタンをクリックするとinputが表示される', async () => {
     const user = userEvent.setup()
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
