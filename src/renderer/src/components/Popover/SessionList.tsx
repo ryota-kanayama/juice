@@ -105,6 +105,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const dragItemRef = useRef<string | null>(null)
   const dragOverItemRef = useRef<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const listRef = useRef<HTMLUListElement | null>(null)
+  const pageChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleDragStart = (sessionId: string) => {
     dragItemRef.current = sessionId
@@ -116,7 +118,40 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     setDragOverId(sessionId)
   }
 
+  // ドラッグ中にリスト上端/下端付近でページ切り替え
+  const handleListDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (!listRef.current || totalPages <= 1 || !dragItemRef.current) return
+
+    const rect = listRef.current.getBoundingClientRect()
+    const x = e.clientX
+    const edgeZone = 40 // px
+
+    const nearLeft = x - rect.left < edgeZone && page > 0
+    const nearRight = rect.right - x < edgeZone && page < totalPages - 1
+
+    if (nearLeft || nearRight) {
+      if (!pageChangeTimerRef.current) {
+        pageChangeTimerRef.current = setTimeout(() => {
+          pageChangeTimerRef.current = null
+          if (nearLeft) changePage(page - 1)
+          else if (nearRight) changePage(page + 1)
+        }, 400)
+      }
+    } else {
+      if (pageChangeTimerRef.current) {
+        clearTimeout(pageChangeTimerRef.current)
+        pageChangeTimerRef.current = null
+      }
+    }
+  }
+
   const handleDragEnd = () => {
+    if (pageChangeTimerRef.current) {
+      clearTimeout(pageChangeTimerRef.current)
+      pageChangeTimerRef.current = null
+    }
+
     const fromId = dragItemRef.current
     const toId = dragOverItemRef.current
     dragItemRef.current = null
@@ -284,8 +319,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         <p className={styles.empty}>まだジュースを注いでいません</p>
       ) : (
         <ul
+          ref={listRef}
           className={styles.list}
           key={animKey}
+          onDragOver={handleListDragOver}
           onWheel={e => {
             if (totalPages <= 1) return
             if (e.deltaY > 0 && page < totalPages - 1) changePage(page + 1)
@@ -296,7 +333,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
             <li
               key={session.id}
               data-session-item
-              draggable
+              draggable={editingKey !== session.id}
               className={`${styles.item} ${expandedId === session.id ? styles.itemExpanded : ''} ${dragOverId === session.id ? styles.itemDragOver : ''}`}
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('button, input')) return

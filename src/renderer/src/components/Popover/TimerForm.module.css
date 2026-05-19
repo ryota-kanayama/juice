@@ -1,5 +1,5 @@
 .form {
-  padding: 12px 16px;
+  padding: 8px 16px;
   margin: 10px 16px 0;
   background: var(--bg-card);
   backdrop-filter: blur(20px);
@@ -18,10 +18,10 @@
 .input {
   flex: 1;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 6px 12px;
   border: 1.5px solid var(--glass-border);
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: 12px;
   background: var(--glass-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -41,7 +41,7 @@
 }
 
 .button {
-  padding: 10px 16px;
+  padding: 6px 16px;
   background: var(--gradient-accent);
   color: white;
   border: none;
