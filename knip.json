@@ -14,9 +14,7 @@
     "preact",
     "@electron-toolkit/preload",
     "@electron-toolkit/utils",
-    "@electron-toolkit/eslint-config-prettier",
-    "@electron-toolkit/eslint-config-ts",
-    "eslint"
+    "@electron-toolkit/eslint-config-prettier"
   ],
   "ignoreExportsUsedInFile": true
 }
