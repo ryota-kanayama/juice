@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '../../types/session'
 import { formatLocalDate, formatLocalDateTime, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
+import { dailyStore } from '../../dailyStore'
 import styles from './SessionList.module.css'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
@@ -27,10 +28,6 @@ interface Props {
   onAdd?: (params: AddParams) => void
 }
 
-function getTeleworkKey(): string {
-  return `telework.${formatLocalDate(Date.now())}`
-}
-
 export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -40,19 +37,19 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
   const todayKey = today ?? formatLocalDate(Date.now())
   const [workStart, setWorkStart] = useState<string | null>(
-    () => localStorage.getItem(`workStart.${todayKey}`)
+    () => dailyStore.getWorkStart(todayKey)
   )
   const [workEnd, setWorkEnd] = useState<string | null>(
-    () => localStorage.getItem(`workEnd.${todayKey}`)
+    () => dailyStore.getWorkEnd(todayKey)
   )
 
   // 日付が変わったら workStart/workEnd をリセット
   useEffect(() => {
-    setWorkStart(localStorage.getItem(`workStart.${todayKey}`))
-    setWorkEnd(localStorage.getItem(`workEnd.${todayKey}`))
+    setWorkStart(dailyStore.getWorkStart(todayKey))
+    setWorkEnd(dailyStore.getWorkEnd(todayKey))
   }, [todayKey])
 
-  const [telework, setTelework] = useState(() => localStorage.getItem(getTeleworkKey()) === 'true')
+  const [telework, setTelework] = useState(() => dailyStore.getTelework(todayKey))
 
   const [timePickerMode, setTimePickerMode] = useState<'start' | 'end' | null>(null)
   const [timePickerValue, setTimePickerValue] = useState('')
@@ -62,20 +59,15 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
   const { expandedId, setExpandedId } = useExpandedItem()
 
-  // カスタム順序（localStorage）またはデフォルトの時刻順
-  const orderKey = `sessionOrder.${todayKey}`
+  // カスタム順序（ドラッグ&ドロップ）またはデフォルトの時刻順
   const [customOrder, setCustomOrder] = useState<string[] | null>(
-    () => {
-      const stored = localStorage.getItem(orderKey)
-      return stored ? JSON.parse(stored) : null
-    }
+    () => dailyStore.getSessionOrder(todayKey)
   )
 
   // 日付変更時にカスタム順序をリセット
   useEffect(() => {
-    const stored = localStorage.getItem(orderKey)
-    setCustomOrder(stored ? JSON.parse(stored) : null)
-  }, [orderKey])
+    setCustomOrder(dailyStore.getSessionOrder(todayKey))
+  }, [todayKey])
 
   const sortedSessions = orderSessions(sessions, customOrder)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
@@ -148,7 +140,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     currentOrder.splice(fromIdx, 1)
     currentOrder.splice(toIdx, 0, fromId)
 
-    localStorage.setItem(orderKey, JSON.stringify(currentOrder))
+    dailyStore.setSessionOrder(todayKey, currentOrder)
     setCustomOrder(currentOrder)
   }
 
@@ -175,13 +167,13 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
   const handleTimePickerConfirm = () => {
     if (timePickerMode === 'start') {
-      localStorage.setItem(`workStart.${todayKey}`, timePickerValue)
+      dailyStore.setWorkStart(todayKey, timePickerValue)
       setWorkStart(timePickerValue)
       if (telework) {
         window.electronAPI.teleworkStart()
       }
     } else if (timePickerMode === 'end') {
-      localStorage.setItem(`workEnd.${todayKey}`, timePickerValue)
+      dailyStore.setWorkEnd(todayKey, timePickerValue)
       setWorkEnd(timePickerValue)
     }
     setTimePickerMode(null)
@@ -281,7 +273,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                   onChange={e => {
                     const checked = e.target.checked
                     setTelework(checked)
-                    localStorage.setItem(getTeleworkKey(), String(checked))
+                    dailyStore.setTelework(todayKey, checked)
                   }}
                 />
                 <span className={styles.teleworkText}>テレワーク</span>

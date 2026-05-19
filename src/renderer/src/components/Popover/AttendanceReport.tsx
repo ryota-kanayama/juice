@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { formatLocalDate, orderSessions } from '../../../../shared/sessionUtils'
+import { dailyStore } from '../../dailyStore'
 import type { Session } from '../../types/session'
 import styles from './AttendanceReport.module.css'
 import { Check, Copy, SendDiagonal } from 'iconoir-react'
@@ -67,11 +68,10 @@ export function AttendanceReport({ sessions }: Props) {
   const [sendResult, setSendResult] = useState<'success' | 'error' | null>(null)
 
   const todayKey = formatLocalDate(Date.now())
-  const workStart = localStorage.getItem(`workStart.${todayKey}`)
-  const workEnd = localStorage.getItem(`workEnd.${todayKey}`)
+  const workStart = dailyStore.getWorkStart(todayKey)
+  const workEnd = dailyStore.getWorkEnd(todayKey)
 
-  const storedOrder = localStorage.getItem(`sessionOrder.${todayKey}`)
-  const orderedSessions = orderSessions(sessions, storedOrder ? JSON.parse(storedOrder) : null)
+  const orderedSessions = orderSessions(sessions, dailyStore.getSessionOrder(todayKey))
   const text = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
 
   const isValidTime = (t: string | null): boolean => !!t && /^\d{1,2}:\d{2}$/.test(t)

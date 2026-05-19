@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { orderSessions } from '../../../../shared/sessionUtils'
+import { dailyStore } from '../../dailyStore'
 import styles from './DayDetail.module.css'
 import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
@@ -28,8 +29,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
     setEditingName('')
   }, [date])
 
-  const stored = date ? localStorage.getItem(`sessionOrder.${date}`) : null
-  const sortedSessions = orderSessions(sessions, stored ? JSON.parse(stored) : null)
+  const sortedSessions = orderSessions(sessions, date ? dailyStore.getSessionOrder(date) : null)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
