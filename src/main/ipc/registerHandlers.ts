@@ -1,9 +1,10 @@
 import { app } from 'electron'
 import type { SessionStore } from '../sessionStore'
 import type { SettingsStore } from '../settingsStore'
+import { logger } from '../logger'
 import { handle } from './handle'
 import { hidePopover, resizePopover } from '../windows/popover'
-import { getSetupWindow, createSetupWindow } from '../windows/setup'
+import { getSetupWindow } from '../windows/setup'
 import { createTray } from '../windows/tray'
 import { broadcastThemeToAll } from '../windows/themeBroadcast'
 import { recordActivity, startIdleCheck } from '../notifications/idle'
@@ -77,7 +78,7 @@ export function registerIpcHandlers(
   handle('attendance:send', (_, text) => sendAttendance(settingsStore, text))
   handle('whiteboard:teleworkStart', async () => {
     await sendWhiteboardTeleworkStart(settingsStore)
-    await sendSlackTeleworkStart(settingsStore).catch(err => console.error('Slack telework start failed:', err))
+    await sendSlackTeleworkStart(settingsStore).catch(err => logger.error('Slack telework start failed:', err))
   })
 
   // setup

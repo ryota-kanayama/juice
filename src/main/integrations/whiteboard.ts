@@ -1,4 +1,5 @@
 import { httpPost } from '../http'
+import { logger } from '../logger'
 import type { SettingsStore } from '../settingsStore'
 
 // magnet_id: ホワイトボード上の状態を示す値
@@ -20,7 +21,7 @@ export async function sendWhiteboardLeave(settingsStore: SettingsStore): Promise
     { 'Content-Type': 'application/json' }
   )
   if (!magnet.ok) {
-    console.error('Whiteboard magnet API failed:', magnet.status, magnet.body)
+    logger.error('Whiteboard magnet API failed:', magnet.status, magnet.body)
     return
   }
 
@@ -30,7 +31,7 @@ export async function sendWhiteboardLeave(settingsStore: SettingsStore): Promise
     { 'Content-Type': 'application/x-www-form-urlencoded' }
   )
   if (!attendance.ok) {
-    console.error('Whiteboard attendance API failed:', attendance.status, attendance.body)
+    logger.error('Whiteboard attendance API failed:', attendance.status, attendance.body)
   }
 }
 
@@ -49,7 +50,7 @@ export async function sendWhiteboardTeleworkStart(settingsStore: SettingsStore):
     { 'Content-Type': 'application/json' }
   )
   if (!magnet.ok) {
-    console.error('Whiteboard telework magnet API failed:', magnet.status, magnet.body)
+    logger.error('Whiteboard telework magnet API failed:', magnet.status, magnet.body)
     return
   }
 
@@ -59,6 +60,6 @@ export async function sendWhiteboardTeleworkStart(settingsStore: SettingsStore):
     { 'Content-Type': 'application/x-www-form-urlencoded' }
   )
   if (!attendance.ok) {
-    console.error('Whiteboard telework attendance API failed:', attendance.status, attendance.body)
+    logger.error('Whiteboard telework attendance API failed:', attendance.status, attendance.body)
   }
 }

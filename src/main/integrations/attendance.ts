@@ -1,4 +1,5 @@
 import { httpPost } from '../http'
+import { logger } from '../logger'
 import type { SettingsStore } from '../settingsStore'
 import type { AttendanceSendResult } from '../../shared/ipc'
 import { sendWhiteboardLeave } from './whiteboard'
@@ -22,8 +23,8 @@ export async function sendAttendance(
     { 'Content-Type': 'application/x-www-form-urlencoded' }
   )
   if (result.ok) {
-    sendWhiteboardLeave(settingsStore).catch(err => console.error('Whiteboard leave failed:', err))
-    sendSlackTeleworkEnd(settingsStore).catch(err => console.error('Slack telework end failed:', err))
+    sendWhiteboardLeave(settingsStore).catch(err => logger.error('Whiteboard leave failed:', err))
+    sendSlackTeleworkEnd(settingsStore).catch(err => logger.error('Slack telework end failed:', err))
   }
   return result
 }
