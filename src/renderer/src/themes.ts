@@ -31,5 +31,3 @@ export const DARK_THEMES: ThemeMeta[] = [
   { id: 'midnight', name: 'Midnight', bg: '#1A1810', accent: '#E8C820', accentSecondary: '#C8A800', textPrimary: '#FFF8E0', dark: true },
   { id: 'amber',    name: 'Amber',    bg: '#1E1810', accent: '#E8A020', accentSecondary: '#C88800', textPrimary: '#FFF4E0', dark: true },
 ]
-
-export const ALL_THEMES: ThemeMeta[] = [...THEMES, ...DARK_THEMES]

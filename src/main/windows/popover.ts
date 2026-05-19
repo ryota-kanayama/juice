@@ -9,10 +9,6 @@ let popoverWindow: BrowserWindow | null = null
 let anchorPosition: { x: number; y: number } | null = null
 let lastTrayBounds: { x: number; y: number; width: number; height: number } | null = null
 
-export function getPopoverWindow(): BrowserWindow | null {
-  return popoverWindow
-}
-
 export function setLastTrayBounds(bounds: { x: number; y: number; width: number; height: number }): void {
   lastTrayBounds = bounds
 }

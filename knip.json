@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/src/main.tsx"
+  ],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": [
+    "src/main/env.d.ts",
+    "src/renderer/src/env.d.ts"
+  ],
+  "ignoreDependencies": [
+    "preact",
+    "@electron-toolkit/preload",
+    "@electron-toolkit/utils",
+    "@electron-toolkit/eslint-config-prettier",
+    "@electron-toolkit/eslint-config-ts",
+    "eslint"
+  ],
+  "ignoreExportsUsedInFile": true
+}

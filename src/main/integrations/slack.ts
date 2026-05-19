@@ -2,7 +2,7 @@ import { httpPost } from '../http'
 import type { SettingsStore } from '../settingsStore'
 
 /** Slack のチャンネルにメッセージを投稿する。トークン / チャンネル未設定なら何もしない。 */
-export async function sendSlackMessage(text: string): Promise<void> {
+async function sendSlackMessage(text: string): Promise<void> {
   const token = import.meta.env.MAIN_VITE_SLACK_BOT_TOKEN
   const channel = import.meta.env.MAIN_VITE_SLACK_CHANNEL_ID
   if (!token || !channel) return
