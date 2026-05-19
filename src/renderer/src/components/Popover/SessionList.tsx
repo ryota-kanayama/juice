@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '../../types/session'
-import { formatLocalDate, formatLocalDateTime, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
+import { formatLocalDate, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
+import { applySessionEdit } from '../../domain/session'
 import { dailyStore } from '../../dailyStore'
+import { attendanceRepository } from '../../repositories/attendanceRepository'
 import styles from './SessionList.module.css'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
@@ -170,7 +172,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
       dailyStore.setWorkStart(todayKey, timePickerValue)
       setWorkStart(timePickerValue)
       if (telework) {
-        window.electronAPI.teleworkStart()
+        attendanceRepository.startTelework()
       }
     } else if (timePickerMode === 'end') {
       dailyStore.setWorkEnd(todayKey, timePickerValue)
@@ -195,35 +197,20 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     if (!editingKey || !editingName.trim()) { setEditingKey(null); return }
     const session = sessions.find(s => s.id === editingKey)
     if (!session || !onUpdate) { setEditingKey(null); return }
-    let updated: Session = {
-      ...session,
+
+    const parsed = parseInt(editingDuration, 10)
+    const { session: updated, adjustedStartMs } = applySessionEdit(session, {
       name: editingName.trim(),
       projectCode: editingProjectCode.trim(),
       workCategory: editingWorkCategory.trim(),
-    }
-
-    const newTotal = parseInt(editingDuration, 10)
-    if (!isNaN(newTotal) && newTotal >= 1 && session.times.length > 0) {
-      const lastInterval = session.times[session.times.length - 1]
-      if (!lastInterval.endTime) {
-        const desiredElapsed = Math.max(1, newTotal - session.totalTime)
-        const newStartMs = Date.now() - desiredElapsed * 60000
-        updated = { ...updated, times: session.times.map(t =>
-          t === lastInterval ? { ...t, startTime: formatLocalDateTime(newStartMs) } : t
-        ) }
-        setEditingKey(null)
-        try {
-          await onUpdate(updated)
-          onAdjustStartTime?.(newStartMs)
-        } catch { /* IPC errors are logged by main process */ }
-        return
-      } else {
-        updated = { ...updated, totalTime: newTotal }
-      }
-    }
+      totalMinutes: isNaN(parsed) ? null : parsed,
+    })
 
     setEditingKey(null)
-    try { await onUpdate(updated) } catch { /* IPC errors are logged by main process */ }
+    try {
+      await onUpdate(updated)
+      if (adjustedStartMs != null) onAdjustStartTime?.(adjustedStartMs)
+    } catch { /* IPC errors are logged by main process */ }
   }
 
   const handleEditCancel = () => {

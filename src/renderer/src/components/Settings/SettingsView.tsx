@@ -1,116 +1,29 @@
-import { useState, useEffect, type ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
+import { useSettings } from '../../hooks/useSettings'
 import styles from './SettingsView.module.css'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
 
 type Section = 'theme' | 'notification' | 'account'
 
+const NAV_ITEMS: { id: Section; label: string }[] = [
+  { id: 'theme', label: 'テーマ' },
+  { id: 'notification', label: '通知' },
+  { id: 'account', label: 'アカウント' },
+]
+
 export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
-  const [activeThemeId, setActiveThemeId] = useState('rose')
-  const [idleEnabled, setIdleEnabled] = useState(false)
-  const [idleMinutes, setIdleMinutes] = useState(60)
-  const [elapsedEnabled, setElapsedEnabled] = useState(false)
-  const [elapsedMinutes, setElapsedMinutes] = useState(30)
-  const [userName, setUserName] = useState('')
-  const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
-  const [whiteboardEmail, setWhiteboardEmail] = useState('')
-  const [slackProjectCode, setSlackProjectCode] = useState('')
-  const [slackProjectName, setSlackProjectName] = useState('')
-
-  useEffect(() => {
-    window.electronAPI.getTheme().then(setActiveThemeId)
-    window.electronAPI.onThemeChanged(setActiveThemeId)
-    window.electronAPI.getIdleSettings().then(({ enabled, minutes }) => {
-      setIdleEnabled(enabled)
-      setIdleMinutes(minutes)
-    })
-    window.electronAPI.getElapsedSettings().then(({ enabled, minutes }) => {
-      setElapsedEnabled(enabled)
-      setElapsedMinutes(minutes)
-    })
-    window.electronAPI.getUserName().then(setUserName)
-    window.electronAPI.getWhiteboardSettings().then(({ enabled, email }) => {
-      setWhiteboardEnabled(enabled)
-      setWhiteboardEmail(email)
-    })
-    window.electronAPI.getSlackSettings().then(({ projectCode, projectName }) => {
-      setSlackProjectCode(projectCode)
-      setSlackProjectName(projectName)
-    })
-  }, [])
-
-  const handleSelect = (themeId: string) => {
-    // 即時反映（IPC待ちなし）
-    document.documentElement.dataset.theme = themeId
-    setActiveThemeId(themeId)
-    window.electronAPI.setTheme(themeId)
-  }
-
-  const handleIdleToggle = (e: ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked
-    setIdleEnabled(enabled)
-    window.electronAPI.setIdleSettings(enabled, idleMinutes)
-  }
-
-  const handleIdleMinutesChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const minutes = Number(e.target.value)
-    setIdleMinutes(minutes)
-    window.electronAPI.setIdleSettings(idleEnabled, minutes)
-  }
-
-  const handleElapsedToggle = (e: ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked
-    setElapsedEnabled(enabled)
-    window.electronAPI.setElapsedSettings(enabled, elapsedMinutes)
-  }
-
-  const handleElapsedMinutesChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const minutes = Number(e.target.value)
-    setElapsedMinutes(minutes)
-    window.electronAPI.setElapsedSettings(elapsedEnabled, minutes)
-  }
-
-  const handleUserNameChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setUserName(value)
-    window.electronAPI.setUserName(value.trim())
-  }
-
-  const handleWhiteboardToggle = (e: ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked
-    setWhiteboardEnabled(enabled)
-    window.electronAPI.setWhiteboardSettings(enabled, whiteboardEmail)
-  }
-
-  const handleWhiteboardEmailChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const email = e.target.value
-    setWhiteboardEmail(email)
-    window.electronAPI.setWhiteboardSettings(whiteboardEnabled, email.trim())
-  }
-
-  const handleSlackProjectCodeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSlackProjectCode(value)
-    window.electronAPI.setSlackSettings(value.trim(), slackProjectName)
-  }
-
-  const handleSlackProjectNameChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSlackProjectName(value)
-    window.electronAPI.setSlackSettings(slackProjectCode, value.trim())
-  }
-
-  const navItems: { id: Section; label: string }[] = [
-    { id: 'theme', label: 'テーマ' },
-    { id: 'notification', label: '通知' },
-    { id: 'account', label: 'アカウント' },
-  ]
+  const {
+    activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes,
+    userName, whiteboardEnabled, whiteboardEmail, slackProjectCode, slackProjectName,
+    setTheme, setIdle, setElapsed, setUserName, setWhiteboard, setSlack,
+  } = useSettings()
 
   return (
     <div className={styles.container}>
       <nav className={styles.sidebar}>
-        {navItems.map(item => (
+        {NAV_ITEMS.map(item => (
           <button
             key={item.id}
             className={`${styles.navItem} ${activeSection === item.id ? styles.navItemActive : ''}`}
@@ -125,9 +38,9 @@ export function SettingsView() {
         {activeSection === 'theme' && (
           <>
             <h2 className={styles.heading}>ライト</h2>
-            <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={handleSelect} />
+            <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={setTheme} />
             <h2 className={styles.heading} style={{ marginTop: '1.5rem' }}>ダーク</h2>
-            <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={handleSelect} />
+            <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={setTheme} />
           </>
         )}
 
@@ -141,7 +54,7 @@ export function SettingsView() {
                   type="text"
                   className={styles.userNameInput}
                   value={userName}
-                  onChange={handleUserNameChange}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setUserName(e.target.value)}
                   placeholder="Slack ユーザー名"
                 />
               </label>
@@ -153,7 +66,7 @@ export function SettingsView() {
                 <input
                   type="checkbox"
                   checked={whiteboardEnabled}
-                  onChange={handleWhiteboardToggle}
+                  onChange={e => setWhiteboard(e.target.checked, whiteboardEmail)}
                   className={styles.idleCheckbox}
                 />
                 タイマー開始時に出勤 / 勤怠送信時に退勤
@@ -167,7 +80,7 @@ export function SettingsView() {
                     type="email"
                     className={styles.userNameInput}
                     value={whiteboardEmail}
-                    onChange={handleWhiteboardEmailChange}
+                    onChange={e => setWhiteboard(whiteboardEnabled, e.target.value)}
                     placeholder="example@jsl.co.jp"
                   />
                 </label>
@@ -182,7 +95,7 @@ export function SettingsView() {
                   type="text"
                   className={styles.userNameInput}
                   value={slackProjectCode}
-                  onChange={handleSlackProjectCodeChange}
+                  onChange={e => setSlack(e.target.value, slackProjectName)}
                   placeholder="PJコード"
                 />
               </label>
@@ -194,7 +107,7 @@ export function SettingsView() {
                   type="text"
                   className={styles.userNameInput}
                   value={slackProjectName}
-                  onChange={handleSlackProjectNameChange}
+                  onChange={e => setSlack(slackProjectCode, e.target.value)}
                   placeholder="プロジェクト名"
                 />
               </label>
@@ -210,7 +123,7 @@ export function SettingsView() {
                 <input
                   type="checkbox"
                   checked={idleEnabled}
-                  onChange={handleIdleToggle}
+                  onChange={e => setIdle(e.target.checked, idleMinutes)}
                   className={styles.idleCheckbox}
                 />
                 タイマーを起動していない時に通知する
@@ -222,7 +135,7 @@ export function SettingsView() {
                   通知まで待機
                   <select
                     value={idleMinutes}
-                    onChange={handleIdleMinutesChange}
+                    onChange={e => setIdle(idleEnabled, Number(e.target.value))}
                     className={styles.idleSelect}
                   >
                     <option value={1}>1分</option>
@@ -242,7 +155,7 @@ export function SettingsView() {
                 <input
                   type="checkbox"
                   checked={elapsedEnabled}
-                  onChange={handleElapsedToggle}
+                  onChange={e => setElapsed(e.target.checked, elapsedMinutes)}
                   className={styles.idleCheckbox}
                 />
                 タイマー起動中に一定時間ごとに通知する
@@ -254,7 +167,7 @@ export function SettingsView() {
                   通知間隔
                   <select
                     value={elapsedMinutes}
-                    onChange={handleElapsedMinutesChange}
+                    onChange={e => setElapsed(elapsedEnabled, Number(e.target.value))}
                     className={styles.idleSelect}
                   >
                     <option value={1}>1分</option>

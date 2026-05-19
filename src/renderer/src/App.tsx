@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
-import { formatLocalDateTime, formatLocalDate } from '../../shared/sessionUtils'
 import { TimerForm } from './components/Popover/TimerForm'
 import { ActiveTimer } from './components/Popover/ActiveTimer'
 import { SessionList } from './components/Popover/SessionList'
-import { useTimer, randomColor } from './hooks/useTimer'
+import { useTimer } from './hooks/useTimer'
+import { useSessions, type SessionsState } from './hooks/useSessions'
 import type { Session } from './types/session'
 import styles from './App.module.css'
-import { MonthView } from './components/Calendar/MonthView'
-import { DayDetail } from './components/Calendar/DayDetail'
 import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
 import { SetupView } from './components/Setup/SetupView'
+import { CalendarPage } from './components/Calendar/CalendarPage'
+import { windowRepository } from './repositories/windowRepository'
 import { Menu, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
 
 type Page = 'timer' | 'calendar' | 'attendance'
@@ -34,29 +34,11 @@ function PopoverView() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // 今日のセッション（全タブで共有）
-  const [todaySessions, setTodaySessions] = useState<Session[]>([])
-  const [today, setToday] = useState(() => formatLocalDate(Date.now()))
-  const [yearMonth, setYearMonth] = useState(() => formatLocalDate(Date.now()).slice(0, 7))
-
-  useEffect(() => {
-    const handleFocus = () => {
-      setToday(formatLocalDate(Date.now()))
-      setYearMonth(formatLocalDate(Date.now()).slice(0, 7))
-    }
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [])
-
-  useEffect(() => {
-    window.electronAPI.getSessions(yearMonth).then(sessions => {
-      setTodaySessions(sessions.filter(s => s.date === today))
-    })
-  }, [today, yearMonth])
+  const sessions = useSessions()
 
   useEffect(() => {
     if (!menuOpen) return
-    const handler = (e: MouseEvent) => {
+    const handler = (e: MouseEvent): void => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
     }
     document.addEventListener('mousedown', handler)
@@ -67,7 +49,7 @@ function PopoverView() {
     <div className={styles.app}>
       {/* ヘッダー */}
       <header className={styles.header}>
-        <button className={styles.headerButton} onClick={() => window.electronAPI.hideWindow()}>
+        <button className={styles.headerButton} onClick={() => windowRepository.hide()}>
           <Xmark width={16} height={16} />
         </button>
         <span className={styles.logo}>juice</span>
@@ -81,7 +63,7 @@ function PopoverView() {
                 className={styles.menuItem}
                 onClick={() => {
                   setMenuOpen(false)
-                  window.electronAPI.openUrl('https://attendance.jsl.co.jp/')
+                  windowRepository.openUrl('https://attendance.jsl.co.jp/')
                 }}
               >
                 JSL <OpenNewWindow width={12} height={12} />
@@ -94,10 +76,14 @@ function PopoverView() {
       {/* ページコンテンツ */}
       <main className={styles.content}>
         <div className={styles.page} style={{ display: currentPage === 'timer' ? 'flex' : 'none' }}>
-          <TimerPage todaySessions={todaySessions} setTodaySessions={setTodaySessions} today={today} />
+          <TimerPage sessions={sessions} />
         </div>
         {currentPage === 'calendar' && <CalendarPage />}
-        {currentPage === 'attendance' && <AttendancePage sessions={todaySessions} />}
+        {currentPage === 'attendance' && (
+          <div className={styles.attendanceContent}>
+            <AttendanceReport sessions={sessions.todaySessions} />
+          </div>
+        )}
       </main>
 
       {/* ボトムナビゲーション */}
@@ -128,96 +114,42 @@ function PopoverView() {
   )
 }
 
-function TimerPage({ todaySessions, setTodaySessions, today }: {
-  todaySessions: Session[]
-  setTodaySessions: React.Dispatch<React.SetStateAction<Session[]>>
-  today: string
-}) {
+function TimerPage({ sessions }: { sessions: SessionsState }) {
   const { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
   const [activeTimerName, setActiveTimerName] = useState('')
   const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
   const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
   const [midnightSession, setMidnightSession] = useState<Session | null>(null)
 
-  const handleStart = (name: string) => {
+  const handleStart = (name: string): void => {
     setActiveTimerName(name)
     setActiveTimerProjectCode('')
     setActiveTimerWorkCategory('')
     start(name)
   }
 
-  const handleStartMore = (session: Session) => {
+  const handleStartMore = (session: Session): void => {
     setActiveTimerName(session.name)
     setActiveTimerProjectCode(session.projectCode)
     setActiveTimerWorkCategory(session.workCategory)
-    // 稼働中インターバルをUIに即時反映（ディスク未保存）
-    const startTime = formatLocalDateTime(Date.now())
-    setTodaySessions(prev => prev.map(s =>
-      s.id === session.id
-        ? { ...s, times: [...s.times, { startTime, endTime: null }] }
-        : s
-    ))
+    sessions.applyStartMore(session)
     startMore(session)
   }
 
-  const handleStop = async (projectCode: string, workCategory: string) => {
-    const session = await stop({ projectCode, workCategory })
-    if (session) {
-      // 日付を跨いだ場合はリストに追加せず通知バナーを表示
-      if (session.date !== today) {
-        setMidnightSession(session)
-        return
-      }
-      setTodaySessions(prev => {
-        const exists = prev.some(s => s.id === session.id)
-        return exists
-          ? prev.map(s => s.id === session.id ? session : s)
-          : [...prev, session]
-      })
+  const handleStop = async (projectCode: string, workCategory: string): Promise<void> => {
+    const result = await stop({ projectCode, workCategory })
+    if (!result) return
+    // 日付を跨いだ場合はリストに追加せず通知バナーを表示
+    if (result.date !== sessions.today) {
+      setMidnightSession(result)
+      return
     }
+    sessions.upsertToday(result)
   }
 
-  const handleUpdate = async (updatedSession: Session) => {
-    // 稼働中インターバルがある場合はディスク書き込みをスキップ（stop時に正しく保存される）
-    const isRunning = updatedSession.times.some(t => t.endTime === null)
-    if (!isRunning) {
-      await window.electronAPI.updateSession(updatedSession)
-    }
-    setTodaySessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s))
-  }
-
-  const handleAdjustStartTime = (newStartMs: number) => {
-    adjustStartTime(new Date(newStartMs))
-  }
-
-  const handleAdd = async (params: { name: string; projectCode: string; workCategory: string; totalTime: string }) => {
-    const dateStr = formatLocalDate(Date.now())
-    const totalTime = Math.max(1, parseInt(params.totalTime, 10))
-    const id = crypto.randomUUID()
-    const session: Session = {
-      id,
-      taskId: id,
-      name: params.name,
-      projectCode: params.projectCode,
-      workCategory: params.workCategory,
-      times: [],
-      date: dateStr,
-      color: randomColor(),
-      totalTime,
-    }
-    await window.electronAPI.updateSession(session)
-    setTodaySessions(prev => [...prev, session])
-  }
-
-  const handleDelete = async (sessionId: string) => {
-    if (sessionId === activeSessionId) {
-      cancel()
-    }
-    const session = todaySessions.find(s => s.id === sessionId)
-    if (session) {
-      await window.electronAPI.deleteSession(sessionId, session.date.slice(0, 7))
-    }
-    setTodaySessions(prev => prev.filter(s => s.id !== sessionId))
+  const handleDelete = async (sessionId: string): Promise<void> => {
+    if (sessionId === activeSessionId) cancel()
+    await sessions.remove(sessionId)
   }
 
   return (
@@ -246,97 +178,17 @@ function TimerPage({ todaySessions, setTodaySessions, today }: {
         <div className={styles.idleContent}>
           <TimerForm onStart={handleStart} />
           <SessionList
-            sessions={todaySessions}
-            today={today}
+            sessions={sessions.todaySessions}
+            today={sessions.today}
             isRunning={isRunning}
-            onUpdate={handleUpdate}
+            onUpdate={sessions.update}
             onStartMore={handleStartMore}
             onDelete={handleDelete}
-            onAdjustStartTime={handleAdjustStartTime}
-            onAdd={handleAdd}
+            onAdjustStartTime={ms => adjustStartTime(new Date(ms))}
+            onAdd={sessions.add}
           />
         </div>
       )}
-    </div>
-  )
-}
-
-function CalendarPage() {
-  const [year, setYear] = useState(new Date().getFullYear())
-  const [month, setMonth] = useState(new Date().getMonth() + 1)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [sessionsByDate, setSessionsByDate] = useState<Record<string, Session[]>>({})
-  const [holidays, setHolidays] = useState<Record<string, string>>({})
-
-  const yearMonth = `${year}-${String(month).padStart(2, '0')}`
-
-  useEffect(() => {
-    window.electronAPI.getHolidays().then(setHolidays)
-  }, [])
-
-  useEffect(() => {
-    window.electronAPI.getSessions(yearMonth).then(sessions => {
-      const grouped: Record<string, Session[]> = {}
-      for (const s of sessions) {
-        if (!grouped[s.date]) grouped[s.date] = []
-        grouped[s.date].push(s)
-      }
-      setSessionsByDate(grouped)
-    })
-  }, [yearMonth])
-
-  const prevMonth = () => {
-    if (month === 1) { setYear(y => y - 1); setMonth(12) }
-    else setMonth(m => m - 1)
-    setSelectedDate(null)
-  }
-
-  const nextMonth = () => {
-    if (month === 12) { setYear(y => y + 1); setMonth(1) }
-    else setMonth(m => m + 1)
-    setSelectedDate(null)
-  }
-
-  const handleUpdateSession = async (updated: Session) => {
-    await window.electronAPI.updateSession(updated)
-    setSessionsByDate(prev => ({
-      ...prev,
-      [updated.date]: prev[updated.date]?.map(s => s.id === updated.id ? updated : s) ?? prev[updated.date],
-    }))
-  }
-
-  const sessionDates = Object.keys(sessionsByDate)
-  const selectedSessions = selectedDate ? (sessionsByDate[selectedDate] ?? []) : []
-
-  return (
-    <div className={styles.calendarLayout}>
-      {selectedDate ? (
-        <DayDetail
-          date={selectedDate}
-          sessions={selectedSessions}
-          onUpdate={handleUpdateSession}
-          onBack={() => setSelectedDate(null)}
-        />
-      ) : (
-        <MonthView
-          year={year}
-          month={month}
-          sessionDates={sessionDates}
-          selectedDate={selectedDate}
-          holidays={holidays}
-          onSelectDate={setSelectedDate}
-          onPrevMonth={prevMonth}
-          onNextMonth={nextMonth}
-        />
-      )}
-    </div>
-  )
-}
-
-function AttendancePage({ sessions }: { sessions: Session[] }) {
-  return (
-    <div className={styles.attendanceContent}>
-      <AttendanceReport sessions={sessions} />
     </div>
   )
 }

@@ -1,30 +1,14 @@
-import { useState, useEffect, type ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
+import { useSetup } from '../../hooks/useSetup'
 import styles from './SetupView.module.css'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
 
 const TOTAL_STEPS = 3
 
 export function SetupView() {
+  const { activeThemeId, userName, setUserName, setTheme, complete } = useSetup()
   const [step, setStep] = useState(1)
-  const [userName, setUserName] = useState('')
-  const [activeThemeId, setActiveThemeId] = useState('rose')
-
-  useEffect(() => {
-    window.electronAPI.getTheme().then(setActiveThemeId)
-    window.electronAPI.onThemeChanged(setActiveThemeId)
-  }, [])
-
-  const handleSelectTheme = (themeId: string) => {
-    document.documentElement.dataset.theme = themeId
-    setActiveThemeId(themeId)
-    window.electronAPI.setTheme(themeId)
-  }
-
-  const handleComplete = async () => {
-    await window.electronAPI.setUserName(userName.trim())
-    await window.electronAPI.completeSetup()
-  }
 
   return (
     <div className={styles.container}>
@@ -72,9 +56,9 @@ export function SetupView() {
             <p className={styles.subtitle}>お好みのテーマを選んでください</p>
           </div>
           <div className={styles.section}>
-            <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={handleSelectTheme} size="compact" />
+            <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={setTheme} size="compact" />
             <div style={{ marginTop: '8px' }}>
-              <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={handleSelectTheme} size="compact" />
+              <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={setTheme} size="compact" />
             </div>
           </div>
         </div>
@@ -112,7 +96,7 @@ export function SetupView() {
             </button>
           )}
           {step === 3 && (
-            <button className={styles.nextButton} onClick={handleComplete}>
+            <button className={styles.nextButton} onClick={complete}>
               完了
             </button>
           )}
