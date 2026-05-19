@@ -26,7 +26,10 @@ function isSettingsRoute(): boolean {
 export default function App() {
   if (isSetupRoute()) return <SetupView />
   if (isSettingsRoute()) return <SettingsView />
+  return <PopoverView />
+}
 
+function PopoverView() {
   const [currentPage, setCurrentPage] = useState<Page>('timer')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)

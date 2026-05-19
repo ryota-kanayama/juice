@@ -38,32 +38,49 @@ let timerStartTime: Date | null = null
 let elapsedCheckInterval: ReturnType<typeof setInterval> | null = null
 let elapsedNotifyCount: number = 0
 
+interface HttpResult {
+  ok: boolean
+  status: number
+  body: string
+}
+
+/** POST リクエストを送信する。ネットワークエラー時も reject せず status:0 で resolve する */
+function httpPost(url: string, body: string, headers: Record<string, string>): Promise<HttpResult> {
+  return new Promise<HttpResult>((resolve) => {
+    const request = net.request({ method: 'POST', url })
+    for (const [key, value] of Object.entries(headers)) request.setHeader(key, value)
+    request.on('response', (response) => {
+      let resBody = ''
+      response.on('data', (chunk) => { resBody += chunk.toString() })
+      response.on('end', () => {
+        const ok = response.statusCode >= 200 && response.statusCode < 300
+        resolve({ ok, status: response.statusCode, body: resBody })
+      })
+    })
+    request.on('error', (err) => {
+      resolve({ ok: false, status: 0, body: err.message })
+    })
+    request.write(body)
+    request.end()
+  })
+}
+
 async function sendSlackMessage(text: string): Promise<void> {
   const token = import.meta.env.MAIN_VITE_SLACK_BOT_TOKEN
   const channel = import.meta.env.MAIN_VITE_SLACK_CHANNEL_ID
   if (!token || !channel) return
 
-  const { net } = await import('electron')
-
-  await new Promise<void>((resolve, reject) => {
-    const request = net.request({
-      method: 'POST',
-      url: 'https://slack.com/api/chat.postMessage',
-    })
-    request.setHeader('Content-Type', 'application/json; charset=utf-8')
-    request.setHeader('Authorization', `Bearer ${token}`)
-    request.on('response', (response) => {
-      let body = ''
-      response.on('data', (chunk) => { body += chunk.toString() })
-      response.on('end', () => {
-        if (response.statusCode >= 200 && response.statusCode < 300) resolve()
-        else reject(new Error(`Slack API error: ${response.statusCode} ${body}`))
-      })
-    })
-    request.on('error', reject)
-    request.write(JSON.stringify({ channel, text }))
-    request.end()
-  })
+  const result = await httpPost(
+    'https://slack.com/api/chat.postMessage',
+    JSON.stringify({ channel, text }),
+    {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${token}`,
+    }
+  )
+  if (!result.ok) {
+    throw new Error(`Slack API error: ${result.status} ${result.body}`)
+  }
 }
 
 async function sendSlackTeleworkStart(): Promise<void> {
@@ -86,55 +103,25 @@ async function sendWhiteboardLeave(): Promise<void> {
   const apiKey = import.meta.env.MAIN_VITE_WHITEBOARD_API_KEY
   if (!apiUrl || !apiKey) return
 
-  const { net } = await import('electron')
-
   // 1. POST /api/magnet (退勤: magnet_id=3)
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const request = net.request({
-        method: 'POST',
-        url: `${apiUrl}/api/magnet?apiKey=${apiKey}`,
-      })
-      request.setHeader('Content-Type', 'application/json')
-      request.on('response', (response) => {
-        let body = ''
-        response.on('data', (chunk) => { body += chunk.toString() })
-        response.on('end', () => {
-          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
-          else reject(new Error(`magnet API error: ${response.statusCode} ${body}`))
-        })
-      })
-      request.on('error', reject)
-      request.write(JSON.stringify({ magnet_id: 3, email }))
-      request.end()
-    })
-  } catch (err) {
-    console.error('Whiteboard magnet API failed:', err)
+  const magnet = await httpPost(
+    `${apiUrl}/api/magnet?apiKey=${apiKey}`,
+    JSON.stringify({ magnet_id: 3, email }),
+    { 'Content-Type': 'application/json' }
+  )
+  if (!magnet.ok) {
+    console.error('Whiteboard magnet API failed:', magnet.status, magnet.body)
     return
   }
 
   // 2. POST /api/attendance (退勤: come_to_the_office=false)
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const request = net.request({
-        method: 'POST',
-        url: `${apiUrl}/api/attendance?apiKey=${apiKey}`,
-      })
-      request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
-      request.on('response', (response) => {
-        let body = ''
-        response.on('data', (chunk) => { body += chunk.toString() })
-        response.on('end', () => {
-          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
-          else reject(new Error(`attendance API error: ${response.statusCode} ${body}`))
-        })
-      })
-      request.on('error', reject)
-      request.write(`come_to_the_office=false&email=${encodeURIComponent(email)}`)
-      request.end()
-    })
-  } catch (err) {
-    console.error('Whiteboard attendance API failed:', err)
+  const attendance = await httpPost(
+    `${apiUrl}/api/attendance?apiKey=${apiKey}`,
+    `come_to_the_office=false&email=${encodeURIComponent(email)}`,
+    { 'Content-Type': 'application/x-www-form-urlencoded' }
+  )
+  if (!attendance.ok) {
+    console.error('Whiteboard attendance API failed:', attendance.status, attendance.body)
   }
 }
 
@@ -146,55 +133,25 @@ async function sendWhiteboardTeleworkStart(): Promise<void> {
   const apiKey = import.meta.env.MAIN_VITE_WHITEBOARD_API_KEY
   if (!apiUrl || !apiKey) return
 
-  const { net } = await import('electron')
-
   // 1. POST /api/magnet (テレワーク: magnet_id=2)
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const request = net.request({
-        method: 'POST',
-        url: `${apiUrl}/api/magnet?apiKey=${apiKey}`,
-      })
-      request.setHeader('Content-Type', 'application/json')
-      request.on('response', (response) => {
-        let body = ''
-        response.on('data', (chunk) => { body += chunk.toString() })
-        response.on('end', () => {
-          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
-          else reject(new Error(`magnet API error: ${response.statusCode} ${body}`))
-        })
-      })
-      request.on('error', reject)
-      request.write(JSON.stringify({ magnet_id: 2, email }))
-      request.end()
-    })
-  } catch (err) {
-    console.error('Whiteboard telework magnet API failed:', err)
+  const magnet = await httpPost(
+    `${apiUrl}/api/magnet?apiKey=${apiKey}`,
+    JSON.stringify({ magnet_id: 2, email }),
+    { 'Content-Type': 'application/json' }
+  )
+  if (!magnet.ok) {
+    console.error('Whiteboard telework magnet API failed:', magnet.status, magnet.body)
     return
   }
 
   // 2. POST /api/attendance (テレワーク開始: come_to_the_office=true)
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const request = net.request({
-        method: 'POST',
-        url: `${apiUrl}/api/attendance?apiKey=${apiKey}`,
-      })
-      request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
-      request.on('response', (response) => {
-        let body = ''
-        response.on('data', (chunk) => { body += chunk.toString() })
-        response.on('end', () => {
-          if (response.statusCode >= 200 && response.statusCode < 300) resolve()
-          else reject(new Error(`attendance API error: ${response.statusCode} ${body}`))
-        })
-      })
-      request.on('error', reject)
-      request.write(`come_to_the_office=true&email=${encodeURIComponent(email)}`)
-      request.end()
-    })
-  } catch (err) {
-    console.error('Whiteboard telework attendance API failed:', err)
+  const attendance = await httpPost(
+    `${apiUrl}/api/attendance?apiKey=${apiKey}`,
+    `come_to_the_office=true&email=${encodeURIComponent(email)}`,
+    { 'Content-Type': 'application/x-www-form-urlencoded' }
+  )
+  if (!attendance.ok) {
+    console.error('Whiteboard telework attendance API failed:', attendance.status, attendance.body)
   }
 }
 
@@ -506,28 +463,12 @@ app.whenReady().then(async () => {
     if (!userName) {
       return { ok: false, status: 0, body: 'user_name が設定されていません' }
     }
-    const { net } = await import('electron')
     const formBody = `user_name=${encodeURIComponent(userName)}&text=${encodeURIComponent(text)}`
-    const result = await new Promise<{ ok: boolean; status: number; body: string }>((resolve) => {
-      const request = net.request({
-        method: 'POST',
-        url: `${import.meta.env.MAIN_VITE_ATTENDANCE_API_URL}?key=${import.meta.env.MAIN_VITE_ATTENDANCE_API_KEY}`,
-      })
-      request.setHeader('Content-Type', 'application/x-www-form-urlencoded')
-      request.on('response', (response) => {
-        let body = ''
-        response.on('data', (chunk) => { body += chunk.toString() })
-        response.on('end', () => {
-          const ok = response.statusCode >= 200 && response.statusCode < 300
-          resolve({ ok, status: response.statusCode, body })
-        })
-      })
-      request.on('error', (err) => {
-        resolve({ ok: false, status: 0, body: err.message })
-      })
-      request.write(formBody)
-      request.end()
-    })
+    const result = await httpPost(
+      `${import.meta.env.MAIN_VITE_ATTENDANCE_API_URL}?key=${import.meta.env.MAIN_VITE_ATTENDANCE_API_KEY}`,
+      formBody,
+      { 'Content-Type': 'application/x-www-form-urlencoded' }
+    )
     // 勤怠APIが成功した場合のみホワイトボードを退勤に更新 & Slack投稿
     if (result.ok) {
       sendWhiteboardLeave().catch(err => console.error('Whiteboard leave failed:', err))

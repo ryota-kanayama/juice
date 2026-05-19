@@ -1,6 +1,15 @@
 import { readFile, writeFile, mkdir, rename } from 'fs/promises'
 import { join } from 'path'
-import type { Session, SessionFile } from '../shared/types'
+import type { Session, SessionFile, TimeInterval } from '../shared/types'
+
+/** 旧フォーマット（totalTime なし）のセッション向けに times[] から合計分を算出 */
+function totalTimeFromIntervals(times: TimeInterval[]): number {
+  let ms = 0
+  for (const t of times ?? []) {
+    if (t.endTime) ms += new Date(t.endTime).getTime() - new Date(t.startTime).getTime()
+  }
+  return Math.max(1, Math.round(ms / 60000))
+}
 
 export class SessionStore {
   constructor(private dataDir: string) {}
@@ -12,13 +21,12 @@ export class SessionStore {
   async getSessions(yearMonth: string): Promise<Session[]> {
     const parse = (content: string): Session[] => {
       const data: SessionFile = JSON.parse(content)
-      return data.sessions
-        .filter(s => typeof s.totalTime === 'number')
-        .map(s => ({
-          ...s,
-          projectCode: s.projectCode ?? '',
-          workCategory: s.workCategory ?? '',
-        }))
+      return data.sessions.map(s => ({
+        ...s,
+        projectCode: s.projectCode ?? '',
+        workCategory: s.workCategory ?? '',
+        totalTime: typeof s.totalTime === 'number' ? s.totalTime : totalTimeFromIntervals(s.times),
+      }))
     }
     try {
       return parse(await readFile(this.filePath(yearMonth), 'utf-8'))
