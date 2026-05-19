@@ -1,6 +1,6 @@
 import { Notification } from 'electron'
 import { showPopoverFromNotification } from '../windows/popover'
-import { recordActivity } from './idle'
+import { recordActivity } from './activity'
 import type { SettingsStore } from '../settingsStore'
 
 // 経過時間通知の state はこのモジュールに閉じ込める。

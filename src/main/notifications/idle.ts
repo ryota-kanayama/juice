@@ -1,18 +1,16 @@
 import { Notification } from 'electron'
 import { showPopoverFromNotification } from '../windows/popover'
 import { isTimerRunning } from './elapsed'
+import {
+  getLastActivityTime,
+  markIdleNotificationSent,
+  wasIdleNotificationSent,
+} from './activity'
 import type { SettingsStore } from '../settingsStore'
 
-// アイドル検知の state はこのモジュールに閉じ込める。
-let lastActivityTime: Date = new Date()
-let idleNotificationSent: boolean = false
+// アイドル検知の interval 管理だけをここに持つ。
+// lastActivityTime と idleNotificationSent は activity.ts に集約済み。
 let idleCheckInterval: ReturnType<typeof setInterval> | null = null
-
-/** セッション操作などのアクティビティがあったことを記録する */
-export function recordActivity(): void {
-  lastActivityTime = new Date()
-  idleNotificationSent = false
-}
 
 /**
  * アイドル検知を開始する。設定が無効化されていれば既存 interval を停止して何もしない。
@@ -31,10 +29,10 @@ export async function startIdleCheck(settingsStore: SettingsStore): Promise<void
     const settings = await settingsStore.getIdleSettings()
     if (!settings.enabled) return
 
-    const idleMs = Date.now() - lastActivityTime.getTime()
+    const idleMs = Date.now() - getLastActivityTime().getTime()
     const thresholdMs = settings.minutes * 60 * 1000
 
-    if (idleMs >= thresholdMs && !idleNotificationSent && !isTimerRunning()) {
+    if (idleMs >= thresholdMs && !wasIdleNotificationSent() && !isTimerRunning()) {
       if (Notification.isSupported()) {
         const notif = new Notification({
           title: 'Juice',
@@ -42,7 +40,7 @@ export async function startIdleCheck(settingsStore: SettingsStore): Promise<void
         })
         notif.on('click', () => showPopoverFromNotification(settingsStore))
         notif.show()
-        idleNotificationSent = true
+        markIdleNotificationSent()
       }
     }
   }, 60 * 1000)

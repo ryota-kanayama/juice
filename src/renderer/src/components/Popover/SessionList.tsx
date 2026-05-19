@@ -3,7 +3,6 @@ import type { Session } from '../../types/session'
 import { formatLocalDate, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit } from '../../domain/session'
 import { dailyStore } from '../../dailyStore'
-import { attendanceRepository } from '../../repositories/attendanceRepository'
 import styles from './SessionList.module.css'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
@@ -28,9 +27,10 @@ interface Props {
   onDelete?: (sessionId: string) => void
   onAdjustStartTime?: (newStartMs: number) => void
   onAdd?: (params: AddParams) => void
+  onTeleworkStart?: () => void
 }
 
-export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
+export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, onTeleworkStart }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingProjectCode, setEditingProjectCode] = useState('')
@@ -172,7 +172,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
       dailyStore.setWorkStart(todayKey, timePickerValue)
       setWorkStart(timePickerValue)
       if (telework) {
-        attendanceRepository.startTelework()
+        onTeleworkStart?.()
       }
     } else if (timePickerMode === 'end') {
       dailyStore.setWorkEnd(todayKey, timePickerValue)

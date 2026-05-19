@@ -3,6 +3,7 @@ import type { Session } from '../types/session'
 import { formatLocalDate } from '../../../shared/sessionUtils'
 import { appendRunningInterval, createManualSession, hasRunningInterval } from '../domain/session'
 import { sessionRepository } from '../repositories/sessionRepository'
+import { attendanceRepository } from '../repositories/attendanceRepository'
 
 export interface SessionsState {
   today: string
@@ -17,6 +18,8 @@ export interface SessionsState {
   add: (params: { name: string; projectCode: string; workCategory: string; totalTime: string }) => Promise<void>
   /** セッションを削除する */
   remove: (sessionId: string) => Promise<void>
+  /** テレワーク開始をホワイトボード / Slack に通知する */
+  startTelework: () => Promise<void>
 }
 
 /** 今日のセッション一覧と変更操作を統括する。フォーカス復帰時の日付更新も担う。 */
@@ -78,5 +81,7 @@ export function useSessions(): SessionsState {
     setTodaySessions(prev => prev.filter(s => s.id !== sessionId))
   }, [todaySessions])
 
-  return { today, todaySessions, upsertToday, applyStartMore, update, add, remove }
+  const startTelework = useCallback(() => attendanceRepository.startTelework(), [])
+
+  return { today, todaySessions, upsertToday, applyStartMore, update, add, remove, startTelework }
 }

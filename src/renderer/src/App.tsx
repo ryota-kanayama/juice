@@ -186,6 +186,7 @@ function TimerPage({ sessions }: { sessions: SessionsState }) {
             onDelete={handleDelete}
             onAdjustStartTime={ms => adjustStartTime(new Date(ms))}
             onAdd={sessions.add}
+            onTeleworkStart={sessions.startTelework}
           />
         </div>
       )}
