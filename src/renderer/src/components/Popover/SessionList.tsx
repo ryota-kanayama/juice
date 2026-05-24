@@ -9,6 +9,9 @@ import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { usePagination } from '../../hooks/usePagination'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Check, Xmark, Play, EditPencil, Trash, Timer } from 'iconoir-react'
 
 interface AddParams {
@@ -234,45 +237,39 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         setContextMenu({ sessionId: '', x: e.clientX, y: e.clientY })
       }}
     >
-      {timePickerMode && (
-        <div className={styles.timePickerBackdrop} onClick={() => setTimePickerMode(null)}>
-          <div className={styles.timePickerDialog} onClick={e => e.stopPropagation()}>
-            <p className={styles.timePickerTitle}>
-              {timePickerMode === 'start' ? '業務開始時刻' : '業務終了時刻'}
-            </p>
-            <input
-              type="time"
-              className={styles.timePickerInput}
-              value={timePickerValue}
-              onChange={e => setTimePickerValue(e.target.value)}
-              autoFocus
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleTimePickerConfirm()
-                if (e.key === 'Escape') setTimePickerMode(null)
-              }}
-            />
-            {timePickerMode === 'start' && (
-              <label className={styles.teleworkLabel}>
-                <input
-                  type="checkbox"
-                  className={styles.teleworkCheckbox}
-                  checked={telework}
-                  onChange={e => {
-                    const checked = e.target.checked
-                    setTelework(checked)
-                    dailyStore.setTelework(todayKey, checked)
-                  }}
-                />
-                <span className={styles.teleworkText}>テレワーク</span>
-              </label>
-            )}
-            <div className={styles.timePickerActions}>
-              <button className={styles.timePickerCancel} onClick={() => setTimePickerMode(null)}>キャンセル</button>
-              <button className={styles.timePickerConfirm} onClick={handleTimePickerConfirm}>確定</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={timePickerMode !== null} onOpenChange={open => { if (!open) setTimePickerMode(null) }}>
+        <DialogContent className="max-w-[220px]" aria-describedby={undefined}>
+          <DialogTitle>{timePickerMode === 'end' ? '業務終了時刻' : '業務開始時刻'}</DialogTitle>
+          <Input
+            type="time"
+            className="h-11 text-center text-xl"
+            value={timePickerValue}
+            onChange={e => setTimePickerValue(e.target.value)}
+            autoFocus
+            onKeyDown={e => { if (e.key === 'Enter') handleTimePickerConfirm() }}
+          />
+          {timePickerMode === 'start' && (
+            <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={telework}
+                onChange={e => {
+                  const checked = e.target.checked
+                  setTelework(checked)
+                  dailyStore.setTelework(todayKey, checked)
+                }}
+              />
+              テレワーク
+            </label>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTimePickerMode(null)}>キャンセル</Button>
+            <Button onClick={handleTimePickerConfirm}>確定</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {sessions.length === 0 ? (
         <p className={styles.empty}>まだジュースを注いでいません</p>
@@ -312,24 +309,24 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               <div className={styles.info}>
                 {editingKey === session.id ? (
                   <div className={styles.editInputs}>
-                    <input
-                      className={styles.metaInput}
+                    <Input
+                      className="h-7 text-xs"
                       value={editingProjectCode}
                       onChange={e => setEditingProjectCode(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="PJコード"
                       aria-label="PJコード"
                     />
-                    <input
-                      className={styles.nameInput}
+                    <Input
+                      className="h-7 text-sm font-medium"
                       value={editingName}
                       onChange={e => setEditingName(e.target.value)}
                       onKeyDown={handleKeyDown}
                       aria-label="セッション名"
                       autoFocus
                     />
-                    <input
-                      className={styles.metaInput}
+                    <Input
+                      className="h-7 text-xs"
                       value={editingWorkCategory}
                       onChange={e => setEditingWorkCategory(e.target.value)}
                       onKeyDown={handleKeyDown}
@@ -350,8 +347,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 )}
               </div>
               {editingKey === session.id ? (
-                <input
-                  className={styles.durationInput}
+                <Input
+                  className="h-7 w-16 shrink-0 text-right text-sm font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   value={editingDuration}
                   onChange={e => setEditingDuration(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -385,12 +382,14 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
       <div className={styles.total}>
         <div className={styles.workTimeRow}>
           {!workEnd && (
-            <button
-              className={workStart ? styles.endButton : styles.startButton}
+            <Button
+              variant={workStart ? 'destructive' : 'outline'}
+              size="sm"
+              className={workStart ? 'h-7' : 'h-7 border-green-600 text-green-600 hover:bg-green-600 hover:text-white'}
               onClick={workStart ? handleWorkEnd : handleWorkStart}
             >
               {workStart ? '終了' : '開始'}
-            </button>
+            </Button>
           )}
           <span className={styles.workTime}>
             {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
@@ -427,62 +426,56 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         </div>
       )}
 
-      {addDialog && (
-        <div className={styles.timePickerBackdrop} onClick={() => setAddDialog(null)}>
-          <div className={styles.addDialog} onClick={e => e.stopPropagation()}>
-            <p className={styles.timePickerTitle}>タイマーを追加</p>
-            <div className={styles.addDialogFields}>
-              <input
-                className={styles.addDialogInput}
-                placeholder="作業名（必須）"
-                value={addDialog.name}
-                onChange={e => setAddDialog(d => d && { ...d, name: e.target.value })}
-                autoFocus
-                onKeyDown={e => { if (e.key === 'Escape') setAddDialog(null) }}
+      <Dialog open={addDialog !== null} onOpenChange={open => { if (!open) setAddDialog(null) }}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>タイマーを追加</DialogTitle>
+          <div className="flex flex-col gap-2">
+            <Input
+              placeholder="作業名（必須）"
+              value={addDialog?.name ?? ''}
+              onChange={e => setAddDialog(d => d && { ...d, name: e.target.value })}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Input
+                className="text-xs"
+                placeholder="PJコード"
+                value={addDialog?.projectCode ?? ''}
+                onChange={e => setAddDialog(d => d && { ...d, projectCode: e.target.value })}
               />
-              <div className={styles.addDialogRow}>
-                <input
-                  className={styles.addDialogInputSmall}
-                  placeholder="PJコード"
-                  value={addDialog.projectCode}
-                  onChange={e => setAddDialog(d => d && { ...d, projectCode: e.target.value })}
-                />
-                <input
-                  className={styles.addDialogInputSmall}
-                  placeholder="作業区分"
-                  value={addDialog.workCategory}
-                  onChange={e => setAddDialog(d => d && { ...d, workCategory: e.target.value })}
-                />
-              </div>
-              <div className={styles.addDialogRow}>
-                <div className={styles.addDialogTimeField}>
-                  <span className={styles.addDialogTimeLabel}>時間</span>
-                  <input
-                    type="number"
-                    min="1"
-                    className={styles.addDialogTimeInput}
-                    placeholder="分"
-                    value={addDialog.totalTime}
-                    onChange={e => setAddDialog(d => d && { ...d, totalTime: e.target.value })}
-                    onKeyDown={e => { if (e.key === 'Enter') handleAddConfirm(); if (e.key === 'Escape') setAddDialog(null) }}
-                  />
-                  <span className={styles.addDialogTimeLabel}>分</span>
-                </div>
-              </div>
+              <Input
+                className="text-xs"
+                placeholder="作業区分"
+                value={addDialog?.workCategory ?? ''}
+                onChange={e => setAddDialog(d => d && { ...d, workCategory: e.target.value })}
+              />
             </div>
-            <div className={styles.timePickerActions}>
-              <button className={styles.timePickerCancel} onClick={() => setAddDialog(null)}>キャンセル</button>
-              <button
-                className={styles.timePickerConfirm}
-                onClick={handleAddConfirm}
-                disabled={!addDialog.name.trim() || !addDialog.totalTime}
-              >
-                追加
-              </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">時間</span>
+              <Input
+                type="number"
+                min="1"
+                className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                placeholder="分"
+                value={addDialog?.totalTime ?? ''}
+                onChange={e => setAddDialog(d => d && { ...d, totalTime: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddConfirm() }}
+              />
+              <span className="text-xs text-muted-foreground">分</span>
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialog(null)}>キャンセル</Button>
+            <Button
+              onClick={handleAddConfirm}
+              disabled={!addDialog?.name.trim() || !addDialog?.totalTime}
+            >
+              追加
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {pendingDeleteId && (
         <ConfirmDialog

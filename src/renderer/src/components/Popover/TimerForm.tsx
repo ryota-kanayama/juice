@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import styles from './TimerForm.module.css'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   onStart: (name: string) => void
@@ -16,10 +17,9 @@ export function TimerForm({ onStart }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={styles.form}>
-      <div className={styles.inputRow}>
-        <input
-          className={styles.input}
+    <form onSubmit={handleSubmit} className="mx-4 mt-2.5 rounded-md border border-border bg-card p-2">
+      <div className="flex items-stretch gap-2">
+        <Input
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="どんなジュースにしますか？"
@@ -27,13 +27,9 @@ export function TimerForm({ onStart }: Props) {
           aria-label="ジュースの種類"
           autoFocus
         />
-        <button
-          className={styles.button}
-          type="submit"
-          disabled={!name.trim()}
-        >
+        <Button type="submit" disabled={!name.trim()}>
           注ぐ
-        </button>
+        </Button>
       </div>
     </form>
   )

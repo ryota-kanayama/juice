@@ -1,226 +1,3 @@
-/* ====== 追加ダイアログ ====== */
-.addDialog {
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-elevated);
-  padding: 20px 24px 16px;
-  width: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.addDialogFields {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.addDialogInput {
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 13px;
-  padding: 8px 10px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--text-primary);
-  outline: none;
-  transition: var(--transition-smooth);
-}
-
-.addDialogInput:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-light);
-}
-
-.addDialogRow {
-  display: flex;
-  gap: 8px;
-}
-
-.addDialogInputSmall {
-  flex: 1;
-  min-width: 0;
-  font-size: 12px;
-  padding: 6px 8px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--text-primary);
-  outline: none;
-  transition: var(--transition-smooth);
-}
-
-.addDialogInputSmall:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-light);
-}
-
-.addDialogTimeField {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.addDialogTimeLabel {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.addDialogTimeInput {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  padding: 6px 8px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--text-primary);
-  outline: none;
-  transition: var(--transition-smooth);
-}
-
-.addDialogTimeInput:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-light);
-}
-
-/* ====== タイムピッカーダイアログ ====== */
-.timePickerBackdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.timePickerDialog {
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-elevated);
-  padding: 20px 24px 16px;
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.timePickerTitle {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-align: center;
-}
-
-.timePickerInput {
-  font-size: 22px;
-  text-align: center;
-  padding: 8px 10px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--text-primary);
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-  transition: var(--transition-smooth);
-}
-
-.timePickerInput:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-light);
-}
-
-/* ====== テレワークチェックボックス ====== */
-.teleworkLabel {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.teleworkCheckbox {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.teleworkText {
-  font-size: 12px;
-  color: var(--text-primary);
-}
-
-.timePickerActions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.timePickerCancel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  padding: 7px 14px;
-  font-size: 13px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.timePickerCancel:hover {
-  background: var(--bg-hover);
-}
-
-.timePickerConfirm {
-  background: var(--gradient-accent);
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 7px 14px;
-  font-size: 13px;
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-  box-shadow: 0 4px 12px var(--accent-light);
-}
-
-.timePickerConfirm:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px var(--accent-light);
-}
-
-.timePickerConfirm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
 /* ====== コンテナ ====== */
 .container {
   padding: 10px 16px 0;
@@ -229,66 +6,6 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-/* ====== ヘッダー ====== */
-.headingRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.heading {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-.startButton {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid #26de81;
-  color: #26de81;
-  background: none;
-  cursor: pointer;
-  font-weight: 600;
-  line-height: 1.4;
-  transition: var(--transition-smooth);
-}
-
-.startButton:hover {
-  background: #26de81;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(38, 222, 129, 0.3);
-}
-
-.endButton {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid #e74c3c;
-  color: #e74c3c;
-  background: none;
-  cursor: pointer;
-  font-weight: 600;
-  line-height: 1.4;
-  transition: var(--transition-smooth);
-}
-
-.endButton:hover {
-  background: #e74c3c;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-}
-
-.divider {
-  height: 1px;
-  background: var(--glass-border);
-  margin-bottom: 8px;
 }
 
 .empty {
@@ -330,29 +47,26 @@
   display: none;
 }
 
-/* ====== セッションアイテム（グラスカード） ====== */
+/* ====== セッションアイテム ====== */
 .item {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius-md);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   transition: var(--transition-smooth);
 }
 
 .item:hover {
   background: var(--bg-hover);
   border-color: var(--border);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .itemExpanded {
   background: var(--bg-hover);
   border-color: var(--border);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .item[draggable] {
@@ -395,39 +109,6 @@
   transition: color 0.15s;
 }
 
-.time {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-/* 複数セッションのサブリスト */
-.timeList {
-  list-style: none;
-  padding: 0;
-  margin: 2px 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.timeEntry {
-  font-size: 11px;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.entryDuration {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.timeEntryFade {
-  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
-}
-
 .duration {
   font-size: 13px;
   font-weight: 600;
@@ -435,33 +116,12 @@
   flex-shrink: 0;
 }
 
-.durationInput {
-  width: 48px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  text-align: right;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  padding: 2px 6px;
-  outline: none;
-  background: var(--glass-bg);
-  flex-shrink: 0;
-  -moz-appearance: textfield;
-}
-
-.durationInput::-webkit-inner-spin-button,
-.durationInput::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-/* ====== 合計フッター（グラスカード） ====== */
+/* ====== 合計フッター ====== */
 .total {
   margin-top: 8px;
   padding: 8px 12px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 11px;
   color: var(--text-secondary);
@@ -512,22 +172,6 @@
   gap: 3px;
 }
 
-.metaInput {
-  font-size: 11px;
-  color: var(--text-secondary);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  padding: 2px 6px;
-  width: 100%;
-  outline: none;
-  background: var(--glass-bg);
-  transition: var(--transition-smooth);
-}
-
-.metaInput:focus {
-  border-color: var(--accent);
-}
-
 .metaRow {
   display: flex;
   gap: 4px;
@@ -538,23 +182,11 @@
 .metaTag {
   font-size: 11px;
   color: var(--text-muted);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-tag);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 0 6px;
   line-height: 1.6;
-}
-
-.nameInput {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  padding: 2px 6px;
-  width: 100%;
-  outline: none;
-  background: var(--glass-bg);
 }
 
 .moreButton {
@@ -590,13 +222,11 @@
 .confirmButton:hover { color: #26de81; }
 .cancelButton:hover  { color: #e74c3c; }
 
-/* ====== コンテキストメニュー（グラスカード） ====== */
+/* ====== コンテキストメニュー ====== */
 .contextMenu {
   position: fixed;
   background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-elevated);
   z-index: 1000;
@@ -640,20 +270,4 @@
 
 .contextMenuItem:hover {
   background: var(--bg-hover);
-}
-
-.overlapError {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #e74c3c;
-  color: #fff;
-  font-size: 12px;
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  z-index: 3000;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }

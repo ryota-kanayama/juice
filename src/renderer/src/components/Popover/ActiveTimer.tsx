@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import styles from './ActiveTimer.module.css'
 
 interface Props {
@@ -62,16 +64,14 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
       {/* コントロール */}
       <div className={styles.controlSection}>
         <div className={styles.metaInputs}>
-          <input
-            className={styles.metaInput}
+          <Input
             value={projectCode}
             onChange={e => setProjectCode(e.target.value)}
             placeholder="PJコード"
             aria-label="PJコード"
             autoFocus
           />
-          <input
-            className={styles.metaInput}
+          <Input
             value={workCategory}
             onChange={e => setWorkCategory(e.target.value)}
             placeholder="作業区分"
@@ -79,9 +79,9 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
           />
         </div>
 
-        <button className={styles.stopButton} onClick={() => onStop(projectCode, workCategory)}>
+        <Button variant="outline" size="lg" onClick={() => onStop(projectCode, workCategory)}>
           やめる
-        </button>
+        </Button>
       </div>
     </div>
   )
