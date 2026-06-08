@@ -3,7 +3,6 @@ import type { Session } from '../../types/session'
 import { formatLocalDate, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit } from '../../domain/session'
 import { dailyStore } from '../../dailyStore'
-import styles from './SessionList.module.css'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { useContextMenu } from '../../hooks/useContextMenu'
@@ -230,7 +229,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
   return (
     <div
-      className={styles.container}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2.5"
       onContextMenu={e => {
         if ((e.target as HTMLElement).closest('[data-session-item]')) return
         e.preventDefault()
@@ -272,11 +271,11 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
 
       {sessions.length === 0 ? (
-        <p className={styles.empty}>まだジュースを注いでいません</p>
+        <p className="m-0 flex-1 py-6 text-center text-[13px] text-[var(--text-muted)]">まだジュースを注いでいません</p>
       ) : (
         <ul
           ref={listRef}
-          className={styles.list}
+          className="m-0 flex min-h-0 flex-1 list-none animate-slide-up flex-col gap-1.5 overflow-y-auto py-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           key={animKey}
           onDragOver={handleListDragOver}
           onWheel={e => {
@@ -290,7 +289,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               key={session.id}
               data-session-item
               draggable={editingKey !== session.id}
-              className={`${styles.item} ${expandedId === session.id ? styles.itemExpanded : ''} ${dragOverId === session.id ? styles.itemDragOver : ''}`}
+              className={`group flex cursor-grab items-start gap-2 rounded-[8px] border bg-card px-2.5 py-2 transition-all duration-200 hover:bg-accent active:cursor-grabbing ${expandedId === session.id ? 'bg-accent' : ''} ${dragOverId === session.id ? 'border-[var(--accent)] shadow-[0_0_0_2px_var(--accent-light)]' : 'border-border'}`}
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('button, input')) return
                 setExpandedId(prev => prev === session.id ? null : session.id)
@@ -305,10 +304,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               onDragLeave={() => setDragOverId(null)}
               onDragEnd={handleDragEnd}
             >
-              <span className={styles.dot} style={{ background: session.color }} aria-hidden="true" />
-              <div className={styles.info}>
+              <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: session.color }} aria-hidden="true" />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 {editingKey === session.id ? (
-                  <div className={styles.editInputs}>
+                  <div className="flex flex-col gap-[3px]">
                     <Input
                       className="h-7 text-xs"
                       value={editingProjectCode}
@@ -336,11 +335,11 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                   </div>
                 ) : (
                   <>
-                    <span className={styles.name}>{session.name}</span>
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-foreground transition-colors group-hover:text-[var(--accent)]">{session.name}</span>
                     {(session.projectCode || session.workCategory) && (
-                      <div className={styles.metaRow}>
-                        {session.projectCode && <span className={styles.metaTag}>{session.projectCode}</span>}
-                        {session.workCategory && <span className={styles.metaTag}>{session.workCategory}</span>}
+                      <div className="mt-px flex flex-wrap gap-1">
+                        {session.projectCode && <span className="rounded-[6px] border border-border bg-muted px-1.5 text-[11px] leading-[1.6] text-muted-foreground">{session.projectCode}</span>}
+                        {session.workCategory && <span className="rounded-[6px] border border-border bg-muted px-1.5 text-[11px] leading-[1.6] text-muted-foreground">{session.workCategory}</span>}
                       </div>
                     )}
                   </>
@@ -357,19 +356,19 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                   min="1"
                 />
               ) : (
-                <span className={styles.duration}>{session.totalTime}分</span>
+                <span className="shrink-0 text-[13px] font-semibold text-[var(--accent)]">{session.totalTime}分</span>
               )}
               {editingKey === session.id ? (
                 <>
-                  <button className={styles.confirmButton} onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
-                  <button className={styles.cancelButton} onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-muted-foreground transition-colors hover:text-[#26de81]" onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-muted-foreground transition-colors hover:text-[#e74c3c]" onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
                 </>
               ) : (
                 <>
                   {!isRunning && onStartMore && (
-                    <button className={styles.moreButton} onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
+                    <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] font-semibold text-[#26de81] opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
                   )}
-                  <button className={styles.editButton} onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-muted-foreground opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
                 </>
               )}
             </li>
@@ -379,8 +378,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
       <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
-      <div className={styles.total}>
-        <div className={styles.workTimeRow}>
+      <div className="mb-2 mt-2 flex shrink-0 items-center justify-between rounded-[8px] border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1.5">
           {!workEnd && (
             <Button
               variant={workStart ? 'destructive' : 'outline'}
@@ -391,7 +390,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               {workStart ? '終了' : '開始'}
             </Button>
           )}
-          <span className={styles.workTime}>
+          <span className="min-w-[90px] text-[11px] text-[var(--text-muted)]">
             {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
           </span>
         </div>
@@ -404,15 +403,15 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         <div
           ref={contextMenuRef}
           data-context-menu
-          className={styles.contextMenu}
+          className="fixed z-[1000] min-w-[120px] rounded-[8px] border border-border bg-card py-1 shadow-[var(--shadow-elevated)]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button className={styles.contextMenuItemNormal} onMouseDown={e => e.preventDefault()} onClick={openAddDialog}>
+          <button className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-foreground transition-colors duration-200 hover:bg-accent" onMouseDown={e => e.preventDefault()} onClick={openAddDialog}>
             <Timer width={14} height={14} /> 追加
           </button>
           {contextMenu.sessionId !== '' && (
             <button
-              className={styles.contextMenuItem}
+              className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
               onMouseDown={e => e.preventDefault()}
               onClick={() => {
                 const id = contextMenu.sessionId

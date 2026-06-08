@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { orderSessions } from '../../../../shared/sessionUtils'
 import { dailyStore } from '../../dailyStore'
-import styles from './DayDetail.module.css'
 import { DurationEditDialog } from '../DurationEditDialog/DurationEditDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { usePagination } from '../../hooks/usePagination'
+import { Input } from '@/components/ui/input'
 import { Check, Xmark, EditPencil } from 'iconoir-react'
 
 interface Props {
@@ -34,7 +34,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
   if (!date) {
-    return <div className={styles.placeholder}>日付を選択してください</div>
+    return <div className="px-4 py-8 text-center text-[14px] text-[var(--text-muted)]">日付を選択してください</div>
   }
 
   const handleEditStart = (session: Session) => {
@@ -80,19 +80,19 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2.5">
+      <div className="mb-3 flex items-center gap-2">
         {onBack && (
-          <button className={styles.backButton} onClick={onBack} aria-label="戻る">←</button>
+          <button className="cursor-pointer rounded-[6px] border-0 bg-transparent px-1.5 py-0.5 text-base text-[var(--text-secondary)] transition-all hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]" onClick={onBack} aria-label="戻る">←</button>
         )}
-        <h3 className={styles.date}>{date}</h3>
+        <h3 className="m-0 text-[15px] font-bold text-[var(--text-primary)]">{date}</h3>
       </div>
 
       {sessions.length === 0 ? (
-        <p className={styles.empty}>この日はジュースを注いでいません</p>
+        <p className="m-0 text-[13px] text-[var(--text-muted)]">この日はジュースを注いでいません</p>
       ) : (
         <ul
-          className={styles.list}
+          className="m-0 flex min-h-0 flex-1 list-none animate-slide-up flex-col gap-2.5 p-0"
           key={animKey}
           onWheel={e => {
             if (totalPages <= 1) return
@@ -104,18 +104,18 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
             <li
               key={session.id}
               data-session-item
-              className={styles.item}
+              className="group flex items-start gap-2 rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2.5 py-2 transition-all [backdrop-filter:blur(8px)] hover:-translate-y-px hover:bg-[var(--bg-hover)] hover:shadow-[var(--shadow-glass)]"
               onContextMenu={e => {
                 e.preventDefault()
                 e.stopPropagation()
                 setContextMenu({ sessionId: session.id, x: e.clientX, y: e.clientY })
               }}
             >
-              <span className={styles.dot} style={{ background: session.color }} aria-hidden="true" />
-              <div className={styles.info}>
+              <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: session.color }} aria-hidden="true" />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 {editingKey === session.id ? (
-                  <input
-                    className={styles.nameInput}
+                  <Input
+                    className="h-7 text-sm"
                     value={editingName}
                     aria-label="セッション名"
                     onChange={e => setEditingName(e.target.value)}
@@ -128,24 +128,24 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
                   />
                 ) : (
                   <>
-                    <span className={styles.name}>{session.name}</span>
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-foreground">{session.name}</span>
                     {(session.projectCode || session.workCategory) && (
-                      <div className={styles.metaRow}>
-                        {session.projectCode && <span className={styles.metaTag}>{session.projectCode}</span>}
-                        {session.workCategory && <span className={styles.metaTag}>{session.workCategory}</span>}
+                      <div className="mb-px mt-0.5 flex flex-wrap gap-1">
+                        {session.projectCode && <span className="rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.projectCode}</span>}
+                        {session.workCategory && <span className="rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.workCategory}</span>}
                       </div>
                     )}
                   </>
                 )}
               </div>
-              <span className={styles.duration}>{session.totalTime}分</span>
+              <span className="ml-auto shrink-0 text-sm font-semibold text-[var(--accent)]">{session.totalTime}分</span>
               {editingKey === session.id ? (
                 <>
-                  <button className={styles.confirmButton} onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
-                  <button className={styles.cancelButton} onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-sm text-[var(--text-secondary)] transition-colors hover:text-[#26de81]" onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-sm text-[var(--text-secondary)] transition-colors hover:text-[#e74c3c]" onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
                 </>
               ) : (
-                <button className={styles.editButton} onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
+                <button className="ml-auto shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-sm text-[var(--text-secondary)] opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
               )}
             </li>
           ))}
@@ -154,7 +154,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
 
       <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
-      <div className={styles.total}>
+      <div className="mb-2 mt-auto flex shrink-0 items-center justify-end rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2 text-right text-[11px] text-[var(--text-secondary)]">
         {sessions.length > 0 && (
           <span>注いだ時間: <strong>{totalMinutes}分</strong></span>
         )}
@@ -164,12 +164,12 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
         <div
           ref={contextMenuRef}
           data-context-menu
-          className={styles.contextMenu}
+          className="fixed z-[1000] min-w-[120px] rounded-[8px] border border-[var(--glass-border)] bg-card py-1 shadow-[var(--shadow-elevated)] [backdrop-filter:blur(20px)]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           {onUpdate && (sessions.find(s => s.id === contextMenu.sessionId)?.times.length ?? 0) > 0 && (
             <button
-              className={styles.contextMenuItemNormal}
+              className="block w-full cursor-pointer border-0 bg-transparent px-3.5 py-1.5 text-left text-[13px] text-foreground transition-all hover:bg-accent"
               onMouseDown={e => e.preventDefault()}
               onClick={() => {
                 const session = sessions.find(s => s.id === contextMenu.sessionId)

@@ -1,5 +1,7 @@
-import styles from './MonthView.module.css'
 import { NavArrowLeft, NavArrowRight } from 'iconoir-react'
+
+const navButton =
+  'cursor-pointer rounded-[6px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2.5 py-1 text-[18px] text-[var(--accent)] transition-all [backdrop-filter:blur(4px)] hover:bg-[var(--accent-light)]'
 
 interface Props {
   year: number
@@ -30,16 +32,20 @@ export function MonthView({
   const sessionDateSet = new Set(sessionDates)
 
   return (
-    <div className={styles.container}>
-      <div className={styles.navigation}>
-        <button onClick={onPrevMonth} aria-label="前月"><NavArrowLeft width={18} height={18} /></button>
-        <span className={styles.title}>{year}年 {month}月</span>
-        <button onClick={onNextMonth} aria-label="次月"><NavArrowRight width={18} height={18} /></button>
+    <div className="select-none bg-transparent p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <button className={navButton} onClick={onPrevMonth} aria-label="前月"><NavArrowLeft width={18} height={18} /></button>
+        <span className="text-base font-bold text-[var(--text-primary)]">{year}年 {month}月</span>
+        <button className={navButton} onClick={onNextMonth} aria-label="次月"><NavArrowRight width={18} height={18} /></button>
       </div>
 
-      <div className={styles.grid} role="grid">
+      <div className="grid grid-cols-7 gap-[3px]" role="grid">
         {['日', '月', '火', '水', '木', '金', '土'].map((d, i) => (
-          <div key={d} className={`${styles.weekday} ${i === 0 ? styles.sunday : i === 6 ? styles.saturday : ''}`} role="columnheader">{d}</div>
+          <div
+            key={d}
+            className={`py-1 text-center text-[11px] font-medium ${i === 0 ? 'text-[#e74c3c]' : i === 6 ? 'text-[#3498db]' : 'text-[var(--text-muted)]'}`}
+            role="columnheader"
+          >{d}</div>
         ))}
         {cells.map((day, idx) => {
           if (day === null) {
@@ -52,15 +58,23 @@ export function MonthView({
           const isSunday = dayOfWeek === 0
           const isSaturday = dayOfWeek === 6
           const isHoliday = dateStr in holidays
+          const textColor = isSelected
+            ? 'text-white'
+            : (isSunday || isHoliday)
+              ? 'text-[#e74c3c]'
+              : isSaturday
+                ? 'text-[#3498db]'
+                : 'text-[var(--text-primary)]'
           return (
             <button
               key={dateStr}
               className={[
-                styles.day,
-                hasSession ? styles.hasSession : '',
-                isSelected ? styles.selected : '',
-                (isSunday || isHoliday) ? styles.sunday : '',
-                isSaturday && !isHoliday ? styles.saturday : '',
+                'relative cursor-pointer rounded-[6px] border-0 py-[7px] text-center text-[13px] leading-none transition-all',
+                hasSession ? 'font-semibold' : '',
+                isSelected
+                  ? 'bg-[var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)]'
+                  : 'bg-transparent hover:bg-[var(--accent-light)]',
+                textColor,
               ].filter(Boolean).join(' ')}
               title={isHoliday ? holidays[dateStr] : undefined}
               onClick={() => onSelectDate(dateStr)}
@@ -68,7 +82,7 @@ export function MonthView({
               aria-label={`${month}月${day}日${hasSession ? '（記録あり）' : ''}`}
             >
               {day}
-              {hasSession && <span className={styles.dot} aria-hidden="true" />}
+              {hasSession && <span className={`absolute bottom-[2px] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${isSelected ? 'bg-white' : 'bg-[var(--accent)]'}`} aria-hidden="true" />}
             </button>
           )
         })}

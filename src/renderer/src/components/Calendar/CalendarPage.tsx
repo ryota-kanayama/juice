@@ -1,12 +1,11 @@
 import { useCalendar } from '../../hooks/useCalendar'
 import { MonthView } from './MonthView'
 import { DayDetail } from './DayDetail'
-import styles from '../../App.module.css'
 
 export function CalendarPage() {
   const cal = useCalendar()
   return (
-    <div className={styles.calendarLayout}>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden font-[var(--font-family)]">
       {cal.selectedDate ? (
         <DayDetail
           date={cal.selectedDate}
