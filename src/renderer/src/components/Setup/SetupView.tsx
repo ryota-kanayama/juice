@@ -1,13 +1,13 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
 import { useSetup } from '../../hooks/useSetup'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 const TOTAL_STEPS = 3
-
-const nextButton =
-  'flex-1 cursor-pointer rounded-[8px] border-0 bg-[image:var(--gradient-accent)] p-2.5 text-[14px] font-semibold text-white shadow-[0_4px_12px_var(--accent-light)] transition-all hover:-translate-y-px hover:shadow-[0_6px_16px_var(--accent-light)] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-40'
 
 export function SetupView() {
   const { activeThemeId, userName, setUserName, setTheme, complete } = useSetup()
@@ -38,14 +38,18 @@ export function SetupView() {
             <p className="m-0 text-xs text-[var(--text-secondary)]">勤怠連携に使用する Slack ユーザー名を入力してください</p>
           </div>
           <div className="mb-4">
-            <Input
-              type="text"
-              className="w-full"
-              value={userName}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setUserName(e.target.value)}
-              placeholder="例: kanayama"
-              autoFocus
-            />
+            <Card>
+              <CardContent className="flex flex-col gap-1.5 p-4">
+                <Label htmlFor="setup-name" className="text-[13px] text-foreground">ユーザー名</Label>
+                <Input
+                  id="setup-name"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder="例: kanayama"
+                  autoFocus
+                />
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
@@ -59,10 +63,14 @@ export function SetupView() {
             <p className="m-0 text-xs text-[var(--text-secondary)]">お好みのテーマを選んでください</p>
           </div>
           <div className="mb-4">
-            <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={setTheme} size="compact" />
-            <div className="mt-2">
-              <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={setTheme} size="compact" />
-            </div>
+            <Card>
+              <CardContent className="p-4">
+                <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={setTheme} size="compact" />
+                <div className="mt-2">
+                  <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={setTheme} size="compact" />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
@@ -82,31 +90,16 @@ export function SetupView() {
 
         <div className="flex gap-2">
           {step > 1 && (
-            <button
-              className="cursor-pointer rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-2.5 text-[13px] font-semibold text-[var(--text-secondary)] transition-all [backdrop-filter:blur(8px)] hover:bg-[var(--bg-hover)]"
-              onClick={() => setStep(s => s - 1)}
-            >
-              ← 戻る
-            </button>
+            <Button variant="outline" onClick={() => setStep(s => s - 1)}>← 戻る</Button>
           )}
           {step === 1 && (
-            <button className={nextButton} onClick={() => setStep(2)}>
-              はじめる
-            </button>
+            <Button className="flex-1" onClick={() => setStep(2)}>はじめる</Button>
           )}
           {step === 2 && (
-            <button
-              className={nextButton}
-              onClick={() => setStep(3)}
-              disabled={!userName.trim()}
-            >
-              次へ
-            </button>
+            <Button className="flex-1" onClick={() => setStep(3)} disabled={!userName.trim()}>次へ</Button>
           )}
           {step === 3 && (
-            <button className={nextButton} onClick={complete}>
-              完了
-            </button>
+            <Button className="flex-1" onClick={complete}>完了</Button>
           )}
         </div>
       </div>
