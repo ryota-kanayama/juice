@@ -190,9 +190,9 @@
   --glass-bg: #FFFFFF;
   --glass-border: #E4E4E7;
 
-  --sc-primary: 50 81% 52%;
-  --sc-primary-foreground: 240 6% 10%;
-  --sc-ring: 50 81% 52%;
+  --sc-primary: 43 89% 38%;
+  --sc-primary-foreground: 0 0% 100%;
+  --sc-ring: 43 89% 38%;
 }
 
 html, body {
