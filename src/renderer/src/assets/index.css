@@ -31,6 +31,16 @@
   button, input, optgroup, select, textarea {
     font-family: inherit;
   }
+
+  /* Preflight 無効のため border-style リセットが無く、Tailwind の border 系
+     ユーティリティ（border-width のみ設定）が描画されない。Tailwind preflight
+     相当のボーダー初期化を base レイヤーで補う。CSS Modules（非レイヤー＝優先度上）
+     や utilities レイヤーには影響しない。 */
+  *, ::before, ::after {
+    border-width: 0;
+    border-style: solid;
+    border-color: hsl(var(--sc-border));
+  }
 }
 
 *, *::before, *::after {

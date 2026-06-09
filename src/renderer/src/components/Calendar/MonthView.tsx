@@ -72,7 +72,7 @@ export function MonthView({
                 'relative cursor-pointer rounded-[6px] border-0 py-[7px] text-center text-[13px] leading-none transition-all',
                 hasSession ? 'font-semibold' : '',
                 isSelected
-                  ? 'bg-[var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)]'
+                  ? 'bg-[image:var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)]'
                   : 'bg-transparent hover:bg-[var(--accent-light)]',
                 textColor,
               ].filter(Boolean).join(' ')}

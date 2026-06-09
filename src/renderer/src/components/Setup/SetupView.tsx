@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 const TOTAL_STEPS = 3
 
 const nextButton =
-  'flex-1 cursor-pointer rounded-[8px] border-0 bg-[var(--gradient-accent)] p-2.5 text-[14px] font-semibold text-white shadow-[0_4px_12px_var(--accent-light)] transition-all hover:-translate-y-px hover:shadow-[0_6px_16px_var(--accent-light)] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-40'
+  'flex-1 cursor-pointer rounded-[8px] border-0 bg-[image:var(--gradient-accent)] p-2.5 text-[14px] font-semibold text-white shadow-[0_4px_12px_var(--accent-light)] transition-all hover:-translate-y-px hover:shadow-[0_6px_16px_var(--accent-light)] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-40'
 
 export function SetupView() {
   const { activeThemeId, userName, setUserName, setTheme, complete } = useSetup()

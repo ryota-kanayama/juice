@@ -32,7 +32,7 @@ export function AttendanceReport({ sessions }: Props) {
 
       <div className="flex shrink-0 gap-2">
         <button
-          className={`${actionButton} ${copied ? 'bg-[linear-gradient(135deg,#26de81,#20c870)]' : 'bg-[var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)] hover:shadow-[0_6px_16px_var(--accent-light)]'}`}
+          className={`${actionButton} ${copied ? 'bg-[linear-gradient(135deg,#26de81,#20c870)]' : 'bg-[image:var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)] hover:shadow-[0_6px_16px_var(--accent-light)]'}`}
           onClick={copy}
         >
           {copied ? <><Check width={14} height={14} /> コピーしました</> : <><Copy width={14} height={14} /> コピー</>}
