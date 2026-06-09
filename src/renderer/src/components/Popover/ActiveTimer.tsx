@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 interface Props {
   name: string
@@ -22,7 +23,7 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
   const level = juiceLevel(elapsedSeconds)
 
   return (
-    <div className="flex flex-1 w-full flex-col justify-center overflow-hidden rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] shadow-[var(--shadow-glass)] [backdrop-filter:blur(var(--glass-blur))] [-webkit-backdrop-filter:blur(var(--glass-blur))]">
+    <Card className="flex flex-1 w-full flex-col justify-center overflow-hidden bg-[var(--glass-bg)] shadow-[var(--shadow-glass)] [backdrop-filter:blur(var(--glass-blur))] [-webkit-backdrop-filter:blur(var(--glass-blur))]">
       {/* メインビジュアル */}
       <div className="flex flex-col items-center gap-2.5 px-4 pb-4 pt-7">
         <p className="m-0 text-base font-bold text-[var(--text-primary)]">{name}</p>
@@ -82,6 +83,6 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
           やめる
         </Button>
       </div>
-    </div>
+    </Card>
   )
 }

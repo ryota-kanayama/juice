@@ -10,6 +10,7 @@ import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { usePagination } from '../../hooks/usePagination'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Check, Xmark, Play, EditPencil, Trash, Timer } from 'iconoir-react'
 
@@ -378,26 +379,28 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
       <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
-      <div className="mb-2 mt-2 flex shrink-0 items-center justify-between rounded-[8px] border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          {!workEnd && (
-            <Button
-              variant={workStart ? 'destructive' : 'outline'}
-              size="sm"
-              className={workStart ? 'h-7' : 'h-7 border-green-600 text-green-600 hover:bg-green-600 hover:text-white'}
-              onClick={workStart ? handleWorkEnd : handleWorkStart}
-            >
-              {workStart ? '終了' : '開始'}
-            </Button>
+      <Card className="mb-2 mt-2">
+        <CardContent className="flex items-center justify-between px-3 py-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            {!workEnd && (
+              <Button
+                variant={workStart ? 'destructive' : 'outline'}
+                size="sm"
+                className={workStart ? 'h-7' : 'h-7 border-green-600 text-green-600 hover:bg-green-600 hover:text-white'}
+                onClick={workStart ? handleWorkEnd : handleWorkStart}
+              >
+                {workStart ? '終了' : '開始'}
+              </Button>
+            )}
+            <span className="min-w-[90px] text-[11px] text-[var(--text-muted)]">
+              {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
+            </span>
+          </div>
+          {sessions.length > 0 && (
+            <span>今日注いだ時間: <strong>{totalMinutes}分</strong></span>
           )}
-          <span className="min-w-[90px] text-[11px] text-[var(--text-muted)]">
-            {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
-          </span>
-        </div>
-        {sessions.length > 0 && (
-          <span>今日注いだ時間: <strong>{totalMinutes}分</strong></span>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
       {contextMenu && (
         <div
