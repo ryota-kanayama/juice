@@ -12,6 +12,7 @@ import { SetupView } from './components/Setup/SetupView'
 import { CalendarPage } from './components/Calendar/CalendarPage'
 import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
 import { useWorkday } from './hooks/useWorkday'
+import { useSuggestions } from './hooks/useSuggestions'
 import { windowRepository } from './repositories/windowRepository'
 import { Menu, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
@@ -120,15 +121,16 @@ function PopoverView() {
 export function TimerPage({ sessions }: { sessions: SessionsState }) {
   const { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
   const workday = useWorkday(sessions.today)
+  const suggestions = useSuggestions(sessions.todaySessions)
   const [activeTimerName, setActiveTimerName] = useState('')
   const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
   const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
   const [midnightSession, setMidnightSession] = useState<Session | null>(null)
 
-  const handleStart = (name: string): void => {
+  const handleStart = (name: string, projectCode = '', workCategory = ''): void => {
     setActiveTimerName(name)
-    setActiveTimerProjectCode('')
-    setActiveTimerWorkCategory('')
+    setActiveTimerProjectCode(projectCode)
+    setActiveTimerWorkCategory(workCategory)
     start(name)
   }
 
@@ -189,7 +191,7 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
       ) : (
         /* 待機時: スクロール可能なコンテナ */
         <div className={styles.idleContent}>
-          <TimerForm onStart={handleStart} />
+          <TimerForm onStart={handleStart} nameSuggestions={suggestions.names} />
           <SessionList
             sessions={sessions.todaySessions}
             today={sessions.today}

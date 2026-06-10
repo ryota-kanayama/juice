@@ -4,6 +4,11 @@ import { TimerPage } from './App'
 import type { SessionsState } from './hooks/useSessions'
 import { dailyStore } from './dailyStore'
 
+// useSuggestions が sessionRepository.list → window.electronAPI.getSessions を呼ぶため
+vi.stubGlobal('electronAPI', {
+  getSessions: vi.fn().mockResolvedValue([]),
+})
+
 function stubSessions(): SessionsState {
   return {
     today: '2026-06-10',
