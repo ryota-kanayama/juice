@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import type { Session } from '../types/session'
 import { formatLocalDateTime, formatLocalDate } from '../../../shared/sessionUtils'
-import { JUICE_COLORS, randomColor } from '../domain/colors'
+import { JUICE_COLOR_KEYS, randomColor } from '../domain/colors'
 import { timerRepository } from '../repositories/timerRepository'
 import { sessionRepository } from '../repositories/sessionRepository'
 
@@ -20,14 +20,14 @@ export interface TimerState {
 export function useTimer(): TimerState {
   const [isRunning, setIsRunning] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const [activeColor, setActiveColor] = useState(JUICE_COLORS[0])
+  const [activeColor, setActiveColor] = useState<string>(JUICE_COLOR_KEYS[0])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<Date | null>(null)
   const nameRef = useRef<string>('')
   const taskIdRef = useRef<string>('')
-  const activeColorRef = useRef<string>(JUICE_COLORS[0])
+  const activeColorRef = useRef<string>(JUICE_COLOR_KEYS[0])
   const isRunningRef = useRef<boolean>(false)
   const extendingSessionRef = useRef<Session | null>(null)
 
