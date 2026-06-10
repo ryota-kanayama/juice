@@ -1,6 +1,9 @@
 import type { Session } from '../../types/session'
 import { useAttendanceReport } from '../../hooks/useAttendanceReport'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
 import { Check, Copy, SendDiagonal } from 'iconoir-react'
 
 interface Props {
@@ -15,28 +18,29 @@ export function AttendanceReport({ sessions }: Props) {
     useAttendanceReport(sessions)
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-[12px] border border-[var(--glass-border)] bg-[var(--glass-bg)] p-3 [backdrop-filter:blur(12px)]">
+    <Card className="flex min-h-0 flex-1 flex-col bg-[var(--glass-bg)] p-3 [backdrop-filter:blur(12px)]">
       <div className="mb-3 flex items-center gap-2">
-        <span className="text-xs text-[var(--text-secondary)]">休憩</span>
+        <Label htmlFor="break" className="text-xs text-muted-foreground">休憩</Label>
         <Input
+          id="break"
           type="number"
           className="h-8 w-14 text-right text-[13px]"
           value={breakMinutes}
           min={0}
           onChange={e => setBreakMinutes(Number(e.target.value))}
         />
-        <span className="text-xs text-[var(--text-secondary)]">分</span>
+        <span className="text-xs text-muted-foreground">分</span>
       </div>
 
       <pre className="mb-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2.5 font-mono text-xs leading-[1.7] text-[var(--text-primary)] [backdrop-filter:blur(8px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{text}</pre>
 
       <div className="flex shrink-0 gap-2">
-        <button
-          className={`${actionButton} ${copied ? 'bg-[linear-gradient(135deg,#26de81,#20c870)]' : 'bg-[image:var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)] hover:shadow-[0_6px_16px_var(--accent-light)]'}`}
+        <Button
+          className={`flex-1 ${copied ? 'bg-[linear-gradient(135deg,#26de81,#20c870)] text-white' : ''}`}
           onClick={copy}
         >
           {copied ? <><Check width={14} height={14} /> コピーしました</> : <><Copy width={14} height={14} /> コピー</>}
-        </button>
+        </Button>
         <button
           className={`${actionButton} disabled:transform-none disabled:cursor-not-allowed disabled:opacity-60 ${
             sendResult === 'success'
@@ -51,6 +55,6 @@ export function AttendanceReport({ sessions }: Props) {
           {sending ? '送信中...' : sendResult === 'success' ? <><Check width={14} height={14} /> 送信しました</> : sendResult === 'error' ? '送信失敗' : <><SendDiagonal width={14} height={14} /> 送る</>}
         </button>
       </div>
-    </div>
+    </Card>
   )
 }
