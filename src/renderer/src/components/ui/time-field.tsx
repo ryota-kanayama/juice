@@ -28,8 +28,13 @@ export function TimeField({
   'aria-label': ariaLabel,
 }: TimeFieldProps) {
   const init = splitValue(value)
+  // h/m は JSX の value に渡すため state。hRef/mRef はその「鏡」で、
+  // 同一レンダー周期内に時→分を連続変更したとき emit が最新値を参照できるようにする
+  // （state はバッチ更新でクロージャが古いままになるため）。setH/setM とは必ずペアで更新する。
   const [h, setH] = useState(init[0])
   const [m, setM] = useState(init[1])
+  const hRef = useRef(init[0])
+  const mRef = useRef(init[1])
   const hourRef = useRef<HTMLInputElement>(null)
   const minRef = useRef<HTMLInputElement>(null)
   const lastEmitted = useRef(value)
@@ -38,8 +43,8 @@ export function TimeField({
   useEffect(() => {
     if (value !== lastEmitted.current) {
       const [nh, nm] = splitValue(value)
-      setH(nh)
-      setM(nm)
+      setH(nh); hRef.current = nh
+      setM(nm); mRef.current = nm
       lastEmitted.current = value
     }
   }, [value])
@@ -57,60 +62,60 @@ export function TimeField({
   const handleHour = (raw: string): void => {
     const digits = raw.replace(/\D/g, '').slice(-2)
     if (digits === '') {
-      setH('')
-      emit('0', m)
+      setH(''); hRef.current = ''
+      emit('0', mRef.current)
       return
     }
     if (digits.length === 2) {
       const n = parseInt(digits, 10)
       if (n > 23) {
         const last = digits.slice(-1)
-        setH(last)
-        emit(last, m)
+        setH(last); hRef.current = last
+        emit(last, mRef.current)
         return
       }
-      setH(digits)
-      emit(digits, m)
+      setH(digits); hRef.current = digits
+      emit(digits, mRef.current)
       minRef.current?.focus()
       return
     }
-    setH(digits)
-    emit(digits, m)
+    setH(digits); hRef.current = digits
+    emit(digits, mRef.current)
     if (parseInt(digits, 10) >= 3) minRef.current?.focus()
   }
 
   const handleMinute = (raw: string): void => {
     const digits = raw.replace(/\D/g, '').slice(-2)
     if (digits === '') {
-      setM('')
-      emit(h, '0')
+      setM(''); mRef.current = ''
+      emit(hRef.current, '0')
       return
     }
     if (digits.length === 2) {
       const n = parseInt(digits, 10)
       if (n > 59) {
         const last = digits.slice(-1)
-        setM(last)
-        emit(h, last)
+        setM(last); mRef.current = last
+        emit(hRef.current, last)
         return
       }
-      setM(digits)
-      emit(h, digits)
+      setM(digits); mRef.current = digits
+      emit(hRef.current, digits)
       return
     }
-    setM(digits)
-    emit(h, digits)
+    setM(digits); mRef.current = digits
+    emit(hRef.current, digits)
   }
 
   const step = (which: 'h' | 'm', dir: 1 | -1): void => {
     if (which === 'h') {
-      const nx = pad(wrap(parseInt(h || '0', 10) + dir, 24))
-      setH(nx)
-      emit(nx, m)
+      const nx = pad(wrap(parseInt(hRef.current || '0', 10) + dir, 24))
+      setH(nx); hRef.current = nx
+      emit(nx, mRef.current)
     } else {
-      const nx = pad(wrap(parseInt(m || '0', 10) + dir, 60))
-      setM(nx)
-      emit(h, nx)
+      const nx = pad(wrap(parseInt(mRef.current || '0', 10) + dir, 60))
+      setM(nx); mRef.current = nx
+      emit(hRef.current, nx)
     }
   }
 
@@ -130,10 +135,10 @@ export function TimeField({
   }
 
   const normalize = (): void => {
-    const nh = pad(parseInt(h || '0', 10))
-    const nm = pad(parseInt(m || '0', 10))
-    setH(nh)
-    setM(nm)
+    const nh = pad(parseInt(hRef.current || '0', 10))
+    const nm = pad(parseInt(mRef.current || '0', 10))
+    setH(nh); hRef.current = nh
+    setM(nm); mRef.current = nm
     // emit はキー入力ごとに発行済みだが、空欄からの blur 等で親と表示がずれないよう保証する
     if (`${nh}:${nm}` !== lastEmitted.current) emit(nh, nm)
   }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { TimeField } from '@/components/ui/time-field'
 import { Switch } from '@/components/ui/switch'
 import { formatTimeFromDate } from '../../../../shared/sessionUtils'
 
@@ -32,12 +32,12 @@ export function WorkStartOverlay({ date, onStart, onTeleworkStart }: Props) {
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
       <span className="text-xs text-muted-foreground">{formatJaDate(date)}</span>
       <span className="text-base font-bold text-foreground">🧃 今日の業務を開始</span>
-      <Input
-        type="time"
+      <TimeField
         aria-label="業務開始時刻"
-        className="h-11 w-32 text-center text-xl"
+        className="h-11 px-4 text-xl"
         value={time}
-        onChange={e => setTime(e.target.value)}
+        onChange={setTime}
+        autoFocus
       />
       <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-foreground">
         <Switch checked={telework} onCheckedChange={setTelework} aria-label="在宅" />
