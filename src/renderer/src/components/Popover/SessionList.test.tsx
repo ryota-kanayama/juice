@@ -156,6 +156,42 @@ describe('SessionList — 追加ボタン', () => {
   })
 })
 
+describe('SessionList — 追加フォームの下書き保持', () => {
+  async function openAddDialog(container: HTMLElement, user: ReturnType<typeof userEvent.setup>) {
+    fireEvent.contextMenu(container.firstChild as Element)
+    await user.click(screen.getByRole('button', { name: '追加' }))
+  }
+
+  it('途中まで入力して閉じ、再度開くと下書きが保持される', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<SessionList sessions={[]} onAdd={vi.fn()} />)
+
+    await openAddDialog(container, user)
+    await user.type(screen.getByPlaceholderText('作業名（必須）'), '仕様検討')
+    await user.type(screen.getByPlaceholderText('PJコード'), 'P999')
+    await user.click(screen.getByRole('button', { name: 'キャンセル' }))
+
+    await openAddDialog(container, user)
+    expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('仕様検討')
+    expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P999')
+  })
+
+  it('追加に成功すると下書きはクリアされる', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    const { container } = render(<SessionList sessions={[]} onAdd={onAdd} />)
+
+    await openAddDialog(container, user)
+    await user.type(screen.getByPlaceholderText('作業名（必須）'), '実装')
+    await user.type(screen.getByPlaceholderText('分'), '30')
+    await user.click(screen.getByRole('button', { name: '追加' }))
+    expect(onAdd).toHaveBeenCalledTimes(1)
+
+    await openAddDialog(container, user)
+    expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('')
+  })
+})
+
 describe('SessionList — 業務終了', () => {
   it('終了→時刻を変更→確定で onWorkEnd が "HH:mm" で呼ばれる', () => {
     const onWorkEnd = vi.fn()

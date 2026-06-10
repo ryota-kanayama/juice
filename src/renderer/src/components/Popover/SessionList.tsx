@@ -47,7 +47,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
   const [endPickerOpen, setEndPickerOpen] = useState(false)
   const [timePickerValue, setTimePickerValue] = useState('')
-  const [addDialog, setAddDialog] = useState<AddParams | null>(null)
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  // 下書きは閉じても保持し、追加成功時のみクリアする（アプリ起動中のみメモリ保持）
+  const EMPTY_ADD_DRAFT: AddParams = { name: '', projectCode: '', workCategory: '', totalTime: '' }
+  const [addDraft, setAddDraft] = useState<AddParams>(EMPTY_ADD_DRAFT)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
@@ -139,14 +142,15 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   }
 
   const openAddDialog = () => {
-    setAddDialog({ name: '', projectCode: '', workCategory: '', totalTime: '' })
+    setAddDialogOpen(true)
     setContextMenu(null)
   }
 
   const handleAddConfirm = () => {
-    if (!addDialog || !addDialog.name.trim() || !addDialog.totalTime) return
-    onAdd?.({ ...addDialog, name: addDialog.name.trim() })
-    setAddDialog(null)
+    if (!addDraft.name.trim() || !addDraft.totalTime) return
+    onAdd?.({ ...addDraft, name: addDraft.name.trim() })
+    setAddDraft(EMPTY_ADD_DRAFT)
+    setAddDialogOpen(false)
   }
 
   const handleWorkEnd = () => {
@@ -389,28 +393,28 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         </div>
       )}
 
-      <Dialog open={addDialog !== null} onOpenChange={open => { if (!open) setAddDialog(null) }}>
+      <Dialog open={addDialogOpen} onOpenChange={open => { if (!open) setAddDialogOpen(false) }}>
         <DialogContent aria-describedby={undefined}>
           <DialogTitle>タイマーを追加</DialogTitle>
           <div className="flex flex-col gap-2">
             <Input
               placeholder="作業名（必須）"
-              value={addDialog?.name ?? ''}
-              onChange={e => setAddDialog(d => d && { ...d, name: e.target.value })}
+              value={addDraft.name}
+              onChange={e => setAddDraft(d => ({ ...d, name: e.target.value }))}
               autoFocus
             />
             <div className="flex gap-2">
               <Input
                 className="text-xs"
                 placeholder="PJコード"
-                value={addDialog?.projectCode ?? ''}
-                onChange={e => setAddDialog(d => d && { ...d, projectCode: e.target.value })}
+                value={addDraft.projectCode}
+                onChange={e => setAddDraft(d => ({ ...d, projectCode: e.target.value }))}
               />
               <Input
                 className="text-xs"
                 placeholder="作業区分"
-                value={addDialog?.workCategory ?? ''}
-                onChange={e => setAddDialog(d => d && { ...d, workCategory: e.target.value })}
+                value={addDraft.workCategory}
+                onChange={e => setAddDraft(d => ({ ...d, workCategory: e.target.value }))}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -420,18 +424,18 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 min="1"
                 className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="分"
-                value={addDialog?.totalTime ?? ''}
-                onChange={e => setAddDialog(d => d && { ...d, totalTime: e.target.value })}
+                value={addDraft.totalTime}
+                onChange={e => setAddDraft(d => ({ ...d, totalTime: e.target.value }))}
                 onKeyDown={e => { if (e.key === 'Enter') handleAddConfirm() }}
               />
               <span className="text-xs text-muted-foreground">分</span>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddDialog(null)}>キャンセル</Button>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>キャンセル</Button>
             <Button
               onClick={handleAddConfirm}
-              disabled={!addDialog?.name.trim() || !addDialog?.totalTime}
+              disabled={!addDraft.name.trim() || !addDraft.totalTime}
             >
               追加
             </Button>
