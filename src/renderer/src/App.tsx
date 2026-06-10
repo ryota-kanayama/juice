@@ -82,7 +82,7 @@ function PopoverView() {
         <div className={styles.page} style={{ display: currentPage === 'timer' ? 'flex' : 'none' }}>
           <TimerPage sessions={sessions} />
         </div>
-        {currentPage === 'calendar' && <CalendarPage />}
+        {currentPage === 'calendar' && <CalendarPage todaySessions={sessions.todaySessions} />}
         {currentPage === 'attendance' && (
           <div className={styles.attendanceContent}>
             <AttendanceReport sessions={sessions.todaySessions} />
