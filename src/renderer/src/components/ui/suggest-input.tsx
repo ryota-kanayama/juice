@@ -19,7 +19,7 @@ interface SuggestInputProps extends React.ComponentProps<'input'> {
 
 const MAX_OPTIONS = 8
 
-export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, onKeyDown, onFocus, onBlur, onChange, ...props }: SuggestInputProps) {
+export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, onKeyDown, onBlur, onChange, onClick, ...props }: SuggestInputProps) {
   const [open, setOpen] = React.useState(false)
   const [highlight, setHighlight] = React.useState(-1)
 
@@ -55,6 +55,14 @@ export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, on
     // Fix 1: IME 変換中のキー操作には反応しない
     if (e.nativeEvent.isComposing || e.keyCode === 229) return
 
+    // 閉じているときの↓キーで候補を開く
+    if (!open && e.key === 'ArrowDown' && filtered.length > 0) {
+      e.preventDefault()
+      setOpen(true)
+      setHighlight(0)
+      return
+    }
+
     if (open && filtered.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -88,7 +96,7 @@ export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, on
       <Input
         {...props}
         autoComplete="off"
-        onFocus={e => { setOpen(true); onFocus?.(e) }}
+        onClick={e => { setOpen(true); onClick?.(e) }}
         onBlur={e => { setOpen(false); setHighlight(-1); onBlur?.(e) }}
         onChange={e => { setOpen(true); setHighlight(-1); onChange?.(e) }}
         onKeyDown={handleKeyDown}

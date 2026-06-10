@@ -35,12 +35,37 @@ const OPTIONS: SuggestOption[] = [
 ]
 
 describe('SuggestInput', () => {
-  it('フォーカスすると候補が表示される', async () => {
+  it('クリックすると候補が表示される', async () => {
     render(<Harness options={OPTIONS} />)
     await userEvent.click(screen.getByLabelText('テスト入力'))
     expect(screen.getByRole('listbox')).toBeInTheDocument()
     expect(screen.getAllByRole('option')).toHaveLength(3)
     expect(screen.getByText('P001 / 設計')).toBeInTheDocument()
+  })
+
+  it('autoFocus でフォーカスされただけでは候補が開かない', () => {
+    render(
+      <SuggestInput
+        value=""
+        onChange={() => {}}
+        options={OPTIONS}
+        onSelectOption={() => {}}
+        autoFocus
+        aria-label="テスト入力"
+      />
+    )
+    expect(screen.getByLabelText('テスト入力')).toHaveFocus()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('閉じた状態の↓キーで候補が開き先頭がハイライトされる', async () => {
+    render(<Harness options={OPTIONS} />)
+    const input = screen.getByLabelText('テスト入力')
+    input.focus()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true')
   })
 
   it('入力すると部分一致で絞り込まれる', async () => {
