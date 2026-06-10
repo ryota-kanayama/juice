@@ -277,6 +277,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 if ((e.target as HTMLElement).closest('button, input, [role="listbox"]')) return
                 setExpandedId(prev => prev === session.id ? null : session.id)
               }}
+              onDoubleClick={(e) => {
+                if ((e.target as HTMLElement).closest('button, input, [role="listbox"]')) return
+                handleEditStart(session)
+              }}
               onContextMenu={e => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -360,12 +364,9 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                   <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-muted-foreground transition-colors hover:text-[#e74c3c]" onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
                 </>
               ) : (
-                <>
-                  {!isRunning && onStartMore && (
-                    <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] font-semibold text-[#26de81] opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
-                  )}
-                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-muted-foreground opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
-                </>
+                !isRunning && onStartMore && (
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] font-semibold text-[#26de81] opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
+                )
               )}
             </li>
           ))}
@@ -408,17 +409,30 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
             <Timer width={14} height={14} /> 追加
           </button>
           {contextMenu.sessionId !== '' && (
-            <button
-              className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => {
-                const id = contextMenu.sessionId
-                setContextMenu(null)
-                setPendingDeleteId(id)
-              }}
-            >
-              <Trash width={14} height={14} /> 流す
-            </button>
+            <>
+              <button
+                className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-foreground transition-colors duration-200 hover:bg-accent"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => {
+                  const session = sessions.find(s => s.id === contextMenu.sessionId)
+                  setContextMenu(null)
+                  if (session) handleEditStart(session)
+                }}
+              >
+                <EditPencil width={14} height={14} /> 編集
+              </button>
+              <button
+                className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => {
+                  const id = contextMenu.sessionId
+                  setContextMenu(null)
+                  setPendingDeleteId(id)
+                }}
+              >
+                <Trash width={14} height={14} /> 流す
+              </button>
+            </>
           )}
         </div>
       )}
