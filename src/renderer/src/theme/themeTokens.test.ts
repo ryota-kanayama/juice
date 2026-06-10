@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { generateThemeTokens, JUICE_KEYS } from './themeTokens'
 import { findThemeParams, THEME_PARAMS } from './themeParams'
+import { hexToHslTriplet } from './colorUtils'
 
 const milk = findThemeParams('milk')!
 const graphite = findThemeParams('graphite')!
@@ -57,6 +58,13 @@ describe('ライト/ダークの生成ルール', () => {
     const { cssVars } = generateThemeTokens(milk)
     expect(cssVars['--shadow-glass']).toBeUndefined()
   })
+
+  it('ライトは card が bg より明るく tag は bg より暗い', () => {
+    const { cssVars } = generateThemeTokens(milk)
+    const lum = (hex: string): number => parseInt(hex.slice(1), 16)
+    expect(lum(cssVars['--bg-card'])).toBeGreaterThan(lum(cssVars['--bg']))
+    expect(lum(cssVars['--bg-tag'])).toBeLessThan(lum(cssVars['--bg']))
+  })
 })
 
 describe('overrides', () => {
@@ -65,10 +73,19 @@ describe('overrides', () => {
     expect(cssVars['--accent']).toBe('#123456')
     expect(cssVars['--bg']).toBe(generateThemeTokens(milk).cssVars['--bg'])
   })
+
+  it('--accent の上書きは text-on-accent 判定と --sc-primary に伝播する', () => {
+    const { cssVars } = generateThemeTokens({ ...milk, overrides: { '--accent': '#eeeeee' } })
+    // 明るいアクセントには暗い文字色が選ばれる
+    expect(cssVars['--text-on-accent']).not.toBe('#ffffff')
+    // sc-primary は新しいアクセント由来になる
+    expect(cssVars['--sc-primary']).toBe(hexToHslTriplet('#eeeeee'))
+  })
 })
 
 describe('全テーマ生成', () => {
   it('11テーマすべてが例外なく生成できる', () => {
+    expect(THEME_PARAMS).toHaveLength(11)
     for (const params of THEME_PARAMS) {
       expect(() => generateThemeTokens(params), params.id).not.toThrow()
     }

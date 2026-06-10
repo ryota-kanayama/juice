@@ -6,16 +6,16 @@ import { oklchToHex, contrastRatio, hexToHslTriplet } from './colorUtils'
 
 /** ジュース色のキーと hue（果物のイメージ色） */
 export const JUICE_HUES = {
+  peach: 5,
   strawberry: 25,
-  orange: 60,
-  lemon: 95,
-  grapefruit: 40,
-  peach: 20,
-  grape: 300,
-  blueberry: 260,
+  grapefruit: 45,
+  orange: 65,
+  lemon: 100,
+  muscat: 125,
+  kiwi: 155,
+  blueberry: 245,
+  grape: 290,
   cassis: 330,
-  muscat: 130,
-  kiwi: 150,
 } as const
 
 export type JuiceKey = keyof typeof JUICE_HUES
@@ -43,12 +43,13 @@ function lightVars(p: ThemeParams): Record<string, string> {
   const bg = oklchToHex(0.975, c, h)
   const bgCard = oklchToHex(0.995, c * 0.4, h)
   const bgTag = oklchToHex(0.945, c * 1.2, h)
+  const border = oklchToHex(0.91, c, h)
   return {
     '--bg': bg,
     '--bg-card': bgCard,
     '--bg-tag': bgTag,
     '--bg-hover': bgTag,
-    '--border': oklchToHex(0.91, c, h),
+    '--border': border,
     '--border-light': oklchToHex(0.95, c * 0.8, h),
     '--text-primary': oklchToHex(0.22, Math.min(c * 2, 0.04), h),
     '--text-secondary': oklchToHex(0.42, Math.min(c * 2, 0.04), h),
@@ -58,7 +59,7 @@ function lightVars(p: ThemeParams): Record<string, string> {
     '--accent-hover': oklchToHex(p.accentLightness - 0.05, p.accentChroma, p.accentHue),
     '--accent-light': oklchToHex(0.93, p.accentChroma * 0.35, p.accentHue),
     '--glass-bg': bgCard,
-    '--glass-border': oklchToHex(0.91, c, h),
+    '--glass-border': border,
   }
 }
 
@@ -68,12 +69,13 @@ function darkVars(p: ThemeParams): Record<string, string> {
   const bg = oklchToHex(0.16, c, h)
   const bgCard = oklchToHex(0.21, c * 1.1, h)
   const bgTag = oklchToHex(0.26, c * 1.2, h)
+  const border = oklchToHex(0.28, c * 1.2, h)
   return {
     '--bg': bg,
     '--bg-card': bgCard,
     '--bg-tag': bgTag,
     '--bg-hover': bgTag,
-    '--border': oklchToHex(0.28, c * 1.2, h),
+    '--border': border,
     '--border-light': oklchToHex(0.23, c, h),
     '--text-primary': oklchToHex(0.96, Math.min(c, 0.01), h),
     '--text-secondary': oklchToHex(0.72, Math.min(c, 0.02), h),
@@ -83,7 +85,7 @@ function darkVars(p: ThemeParams): Record<string, string> {
     '--accent-hover': oklchToHex(Math.min(p.accentLightness + 0.05, 0.97), accentChroma, p.accentHue),
     '--accent-light': oklchToHex(0.3, accentChroma * 0.5, p.accentHue),
     '--glass-bg': bgCard,
-    '--glass-border': oklchToHex(0.28, c * 1.2, h),
+    '--glass-border': border,
     '--shadow-glass': '0 1px 3px rgba(0, 0, 0, 0.4)',
     '--shadow-elevated': '0 10px 30px rgba(0, 0, 0, 0.5)',
   }
@@ -115,16 +117,29 @@ function scVars(vars: Record<string, string>, dark: boolean): Record<string, str
 }
 
 export function generateThemeTokens(params: ThemeParams): ThemeTokens {
-  const base = params.dark ? darkVars(params) : lightVars(params)
-  // text-on-accent: 白で 4.5:1 を満たせなければ暗色にする
-  const onAccentDark = oklchToHex(0.18, params.bgChroma, params.bgHue)
-  base['--text-on-accent'] =
-    contrastRatio('#ffffff', base['--accent']) >= 4.5 ? '#ffffff' : onAccentDark
-  const overrides = params.overrides
+  const allOverrides = params.overrides
     ? Object.fromEntries(
         Object.entries(params.overrides).filter((e): e is [string, string] => e[1] !== undefined)
       )
     : {}
-  const cssVars = { ...base, ...scVars(base, params.dark), ...overrides }
+
+  // --sc- 以外の overrides を先に base にマージして派生トークンへ伝播させる
+  const baseOverrides = Object.fromEntries(
+    Object.entries(allOverrides).filter(([k]) => !k.startsWith('--sc-'))
+  )
+  const scOverrides = Object.fromEntries(
+    Object.entries(allOverrides).filter(([k]) => k.startsWith('--sc-'))
+  )
+
+  const base = { ...(params.dark ? darkVars(params) : lightVars(params)), ...baseOverrides }
+
+  // text-on-accent: overrides で明示されていればそれを優先、なければコントラスト判定
+  if (!('--text-on-accent' in baseOverrides)) {
+    const onAccentDark = oklchToHex(0.18, params.bgChroma, params.bgHue)
+    base['--text-on-accent'] =
+      contrastRatio('#ffffff', base['--accent']) >= 4.5 ? '#ffffff' : onAccentDark
+  }
+
+  const cssVars = { ...base, ...scVars(base, params.dark), ...scOverrides }
   return { cssVars, juiceColors: generateJuiceColors(params) }
 }
