@@ -7,6 +7,8 @@ import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { usePagination } from '../../hooks/usePagination'
 import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Check, Xmark, EditPencil } from 'iconoir-react'
 
 interface Props {
@@ -83,7 +85,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2.5">
       <div className="mb-3 flex items-center gap-2">
         {onBack && (
-          <button className="cursor-pointer rounded-[6px] border-0 bg-transparent px-1.5 py-0.5 text-base text-[var(--text-secondary)] transition-all hover:bg-[var(--glass-bg)] hover:text-[var(--text-primary)]" onClick={onBack} aria-label="戻る">←</button>
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="戻る">←</Button>
         )}
         <h3 className="m-0 text-[15px] font-bold text-[var(--text-primary)]">{date}</h3>
       </div>
@@ -154,11 +156,13 @@ export function DayDetail({ date, sessions, onUpdate, onBack }: Props) {
 
       <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
-      <div className="mb-2 mt-auto flex shrink-0 items-center justify-end rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2 text-right text-[11px] text-[var(--text-secondary)]">
-        {sessions.length > 0 && (
-          <span>注いだ時間: <strong>{totalMinutes}分</strong></span>
-        )}
-      </div>
+      <Card className="mb-2 mt-auto shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]">
+        <CardContent className="flex items-center justify-end px-3 py-2 text-right text-[11px]">
+          {sessions.length > 0 && (
+            <span>注いだ時間: <strong>{totalMinutes}分</strong></span>
+          )}
+        </CardContent>
+      </Card>
 
       {contextMenu && (
         <div

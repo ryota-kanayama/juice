@@ -1,7 +1,6 @@
 import { NavArrowLeft, NavArrowRight } from 'iconoir-react'
-
-const navButton =
-  'cursor-pointer rounded-[6px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2.5 py-1 text-[18px] text-[var(--accent)] transition-all [backdrop-filter:blur(4px)] hover:bg-[var(--accent-light)]'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   year: number
@@ -32,11 +31,11 @@ export function MonthView({
   const sessionDateSet = new Set(sessionDates)
 
   return (
-    <div className="select-none bg-transparent p-4">
+    <Card className="select-none p-3">
       <div className="mb-3 flex items-center justify-between">
-        <button className={navButton} onClick={onPrevMonth} aria-label="前月"><NavArrowLeft width={18} height={18} /></button>
+        <Button variant="ghost" size="icon" onClick={onPrevMonth} aria-label="前月"><NavArrowLeft width={18} height={18} /></Button>
         <span className="text-base font-bold text-[var(--text-primary)]">{year}年 {month}月</span>
-        <button className={navButton} onClick={onNextMonth} aria-label="次月"><NavArrowRight width={18} height={18} /></button>
+        <Button variant="ghost" size="icon" onClick={onNextMonth} aria-label="次月"><NavArrowRight width={18} height={18} /></Button>
       </div>
 
       <div className="grid grid-cols-7 gap-[3px]" role="grid">
@@ -87,6 +86,6 @@ export function MonthView({
           )
         })}
       </div>
-    </div>
+    </Card>
   )
 }
