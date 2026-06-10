@@ -64,9 +64,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const workCategoryOptions = suggestions.workCategories.map(v => ({ value: v }))
   const findNameSuggestion = (value: string) => suggestions.names.find(n => n.name === value)
 
-  // 追加ダイアログ内でドロップダウンが開いている数カウンタ（Escape 処理用）
+  // 追加ダイアログ内でドロップダウンが開いている数カウンタ（Escape でダイアログごと閉じないための判定に使う）
   const [addSuggestOpenCount, setAddSuggestOpenCount] = useState(0)
-  // 追加ダイアログ内のドロップダウン開数。Escape でダイアログごと閉じないための判定に使う
   const handleSuggestOpenChange = (open: boolean): void => {
     setAddSuggestOpenCount(c => (open ? c + 1 : Math.max(0, c - 1)))
   }

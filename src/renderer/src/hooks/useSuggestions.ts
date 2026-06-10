@@ -13,7 +13,10 @@ export function useSuggestions(todaySessions: Session[]): Suggestions {
     Promise.all([
       sessionRepository.list(yearMonth),
       sessionRepository.list(previousYearMonth(yearMonth)),
-    ]).then(([current, previous]) => setPastSessions([...current, ...previous]))
+    ])
+      .then(([current, previous]) => setPastSessions([...current, ...previous]))
+      // IPC 障害時は候補なしのまま続行する
+      .catch(() => {})
   }, [])
 
   return useMemo(() => {

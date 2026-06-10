@@ -35,12 +35,15 @@ export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, on
   const onOpenChangeRef = React.useRef(onOpenChange)
   React.useEffect(() => { onOpenChangeRef.current = onOpenChange })
   const visible = open && filtered.length > 0
+  const visibleRef = React.useRef(false)
   React.useEffect(() => {
+    visibleRef.current = visible
     onOpenChangeRef.current?.(visible)
-    return () => {
-      if (visible) onOpenChangeRef.current?.(false)
-    }
   }, [visible])
+  // unmount 時に開いたままなら閉を通知する（呼び出し元の開数カウンタの残留防止）
+  React.useEffect(() => () => {
+    if (visibleRef.current) onOpenChangeRef.current?.(false)
+  }, [])
 
   const select = (option: SuggestOption): void => {
     onSelectOption(option)
