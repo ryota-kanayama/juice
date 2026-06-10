@@ -122,4 +122,29 @@ describe('SessionStore', () => {
     const sessions = await store.getSessions('2026-02')
     expect(sessions).toEqual([])
   })
+
+  it('totalTime のない旧フォーマットは times[] から移行して保持する', async () => {
+    const primaryPath = join(testDir, 'sessions-2026-02.json')
+    const legacy = {
+      sessions: [
+        {
+          id: 'legacy-id',
+          taskId: 'legacy-id',
+          name: '旧データ',
+          projectCode: '',
+          workCategory: '',
+          times: [
+            { startTime: '2026-02-25T10:00:00', endTime: '2026-02-25T10:30:00' },
+            { startTime: '2026-02-25T11:00:00', endTime: '2026-02-25T11:15:00' },
+          ],
+          date: '2026-02-25',
+          color: '#FF9500',
+        },
+      ],
+    }
+    await writeFile(primaryPath, JSON.stringify(legacy), 'utf-8')
+    const sessions = await store.getSessions('2026-02')
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].totalTime).toBe(45)
+  })
 })

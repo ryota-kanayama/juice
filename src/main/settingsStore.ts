@@ -16,7 +16,7 @@ interface Settings {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  themeId: 'rose',
+  themeId: 'slate',
   idleNotificationEnabled: false,
   idleNotificationMinutes: 60,
   elapsedNotificationEnabled: false,
@@ -34,28 +34,37 @@ export class SettingsStore {
 
   private migrateThemeId(id: string): string {
     const map: Record<string, string> = {
-      // 旧テーマ → 新テーマ
-      orange: 'honey',
-      lemon: 'lemon',
-      grape: 'ocean',
-      melon: 'sky',
-      peach: 'coral',
-      berry: 'rose',
-      cocoa: 'amber',
-      blackberry: 'deep',
-      olive: 'night',
-      plum: 'crimson',
-      // 旧旧テーマ
-      juice: 'honey',
-      midnight: 'deep',
+      // 削除したテーマ → 現行5テーマ
+      coral: 'rose',
       ocean: 'sky',
+      honey: 'lemon',
+      crimson: 'graphite',
+      ember: 'graphite',
+      night: 'graphite',
+      deep: 'graphite',
+      midnight: 'graphite',
+      amber: 'graphite',
+      // 旧テーマ
+      orange: 'lemon',
+      grape: 'sky',
+      melon: 'sky',
+      peach: 'rose',
+      berry: 'rose',
+      cocoa: 'graphite',
+      blackberry: 'graphite',
+      olive: 'graphite',
+      plum: 'graphite',
+      // 旧旧テーマ
+      juice: 'lemon',
       forest: 'sky',
-      sakura: 'coral',
-      lavender: 'ocean',
-      charcoal: 'crimson',
-      sunset: 'honey',
+      sakura: 'rose',
+      lavender: 'sky',
+      charcoal: 'graphite',
+      sunset: 'lemon',
     }
-    return map[id] ?? id
+    const VALID = new Set(['slate', 'graphite', 'rose', 'sky', 'lemon'])
+    const mapped = map[id] ?? id
+    return VALID.has(mapped) ? mapped : 'slate'
   }
 
   private get filePath(): string {

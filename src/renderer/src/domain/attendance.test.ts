@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildAttendanceText } from './AttendanceReport'
-import type { Session } from '../../types/session'
+import { buildAttendanceText } from './attendance'
+import type { Session } from '../types/session'
 
 const makeSession = (overrides: Partial<Session> = {}): Session => ({
   id: 'id1',

@@ -1,28 +1,9 @@
 import { useState, useRef, useCallback } from 'react'
 import type { Session } from '../types/session'
-import { formatLocalDateTime } from '../../../shared/sessionUtils'
-
-const JUICE_COLORS = [
-  '#FF6B6B', // いちご
-  '#FF9500', // オレンジ
-  '#F7B731', // レモン
-  '#e17055', // グレープフルーツ
-  '#fd79a8', // もも
-  '#a29bfe', // ぶどう
-  '#45aaf2', // ブルーベリー
-  '#0984e3', // カシス
-  '#26de81', // マスカット
-  '#00b894', // キウイ
-]
-
-function randomColor(): string {
-  return JUICE_COLORS[Math.floor(Math.random() * JUICE_COLORS.length)]
-}
-
-function toDateString(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
+import { formatLocalDateTime, formatLocalDate } from '../../../shared/sessionUtils'
+import { JUICE_COLORS, randomColor } from '../domain/colors'
+import { timerRepository } from '../repositories/timerRepository'
+import { sessionRepository } from '../repositories/sessionRepository'
 
 export interface TimerState {
   isRunning: boolean
@@ -63,7 +44,7 @@ export function useTimer(): TimerState {
     setElapsedSeconds(0)
     setIsRunning(true)
     setActiveSessionId(null)
-    window.electronAPI.timerStarted()
+    timerRepository.started()
     intervalRef.current = setInterval(() => {
       if (startTimeRef.current) {
         setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000))
@@ -83,7 +64,7 @@ export function useTimer(): TimerState {
     setElapsedSeconds(0)
     setIsRunning(true)
     setActiveSessionId(existingSession.id)
-    window.electronAPI.timerStarted()
+    timerRepository.started()
     intervalRef.current = setInterval(() => {
       if (startTimeRef.current) {
         setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000))
@@ -116,7 +97,7 @@ export function useTimer(): TimerState {
         totalTime: existing.totalTime + newIntervalMinutes,
         times: [...existing.times, newInterval],
       }
-      await window.electronAPI.updateSession(resultSession)
+      await sessionRepository.update(resultSession)
     } else {
       // new mode: 新規セッションを作成
       resultSession = {
@@ -127,10 +108,10 @@ export function useTimer(): TimerState {
         workCategory: opts?.workCategory ?? '',
         totalTime: newIntervalMinutes,
         times: [newInterval],
-        date: toDateString(startTimeRef.current),
+        date: formatLocalDate(startTimeRef.current.getTime()),
         color: activeColorRef.current,
       }
-      await window.electronAPI.saveSession(resultSession)
+      await sessionRepository.save(resultSession)
     }
 
     startTimeRef.current = null
@@ -138,7 +119,7 @@ export function useTimer(): TimerState {
     taskIdRef.current = ''
     extendingSessionRef.current = null
     isRunningRef.current = false
-    window.electronAPI.timerStopped()
+    timerRepository.stopped()
     setIsRunning(false)
     setElapsedSeconds(0)
     setActiveSessionId(null)
@@ -156,7 +137,7 @@ export function useTimer(): TimerState {
     taskIdRef.current = ''
     extendingSessionRef.current = null
     isRunningRef.current = false
-    window.electronAPI.timerStopped()
+    timerRepository.stopped()
     setIsRunning(false)
     setElapsedSeconds(0)
     setActiveSessionId(null)
@@ -166,7 +147,7 @@ export function useTimer(): TimerState {
     if (newStartDate.getTime() >= Date.now()) return // 未来の時刻は無視
     startTimeRef.current = newStartDate
     setElapsedSeconds(Math.floor((Date.now() - newStartDate.getTime()) / 1000))
-    window.electronAPI.timerAdjustStartTime(newStartDate.getTime())
+    timerRepository.adjustStartTime(newStartDate.getTime())
   }, [])
 
   return { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime }

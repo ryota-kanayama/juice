@@ -13,6 +13,7 @@ describe('MonthView', () => {
         selectedDate={null}
         onSelectDate={vi.fn()}
         onPrevMonth={vi.fn()}
+        holidays={{}}
         onNextMonth={vi.fn()}
       />
     )
@@ -29,6 +30,7 @@ describe('MonthView', () => {
         selectedDate={null}
         onSelectDate={onSelectDate}
         onPrevMonth={vi.fn()}
+        holidays={{}}
         onNextMonth={vi.fn()}
       />
     )
@@ -48,6 +50,7 @@ describe('MonthView', () => {
         selectedDate={null}
         onSelectDate={vi.fn()}
         onPrevMonth={vi.fn()}
+        holidays={{}}
         onNextMonth={vi.fn()}
       />
     )

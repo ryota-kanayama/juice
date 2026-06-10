@@ -1,12 +1,17 @@
-import { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '../../types/session'
-import { calcSessionMinutes, formatLocalDateTime, formatTimeFromDate, sortSessionsByStart } from '../../../../shared/sessionUtils'
-import styles from './SessionList.module.css'
+import { formatLocalDate, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
+import { applySessionEdit } from '../../domain/session'
+import { dailyStore } from '../../dailyStore'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { usePagination } from '../../hooks/usePagination'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Check, Xmark, Play, EditPencil, Trash, Timer } from 'iconoir-react'
 
 interface AddParams {
@@ -25,39 +30,31 @@ interface Props {
   onDelete?: (sessionId: string) => void
   onAdjustStartTime?: (newStartMs: number) => void
   onAdd?: (params: AddParams) => void
+  onTeleworkStart?: () => void
 }
 
-function getTodayKey(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function getTeleworkKey(): string {
-  return `telework.${getTodayKey()}`
-}
-
-export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd }: Props) {
+export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, onTeleworkStart }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingProjectCode, setEditingProjectCode] = useState('')
   const [editingWorkCategory, setEditingWorkCategory] = useState('')
   const [editingDuration, setEditingDuration] = useState('')
 
-  const todayKey = today ?? getTodayKey()
+  const todayKey = today ?? formatLocalDate(Date.now())
   const [workStart, setWorkStart] = useState<string | null>(
-    () => localStorage.getItem(`workStart.${todayKey}`)
+    () => dailyStore.getWorkStart(todayKey)
   )
   const [workEnd, setWorkEnd] = useState<string | null>(
-    () => localStorage.getItem(`workEnd.${todayKey}`)
+    () => dailyStore.getWorkEnd(todayKey)
   )
 
   // 日付が変わったら workStart/workEnd をリセット
   useEffect(() => {
-    setWorkStart(localStorage.getItem(`workStart.${todayKey}`))
-    setWorkEnd(localStorage.getItem(`workEnd.${todayKey}`))
+    setWorkStart(dailyStore.getWorkStart(todayKey))
+    setWorkEnd(dailyStore.getWorkEnd(todayKey))
   }, [todayKey])
 
-  const [telework, setTelework] = useState(() => localStorage.getItem(getTeleworkKey()) === 'true')
+  const [telework, setTelework] = useState(() => dailyStore.getTelework(todayKey))
 
   const [timePickerMode, setTimePickerMode] = useState<'start' | 'end' | null>(null)
   const [timePickerValue, setTimePickerValue] = useState('')
@@ -67,44 +64,26 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
   const { expandedId, setExpandedId } = useExpandedItem()
 
-  // カスタム順序（localStorage）またはデフォルトの時刻順
-  const orderKey = `sessionOrder.${todayKey}`
+  // カスタム順序（ドラッグ&ドロップ）またはデフォルトの時刻順
   const [customOrder, setCustomOrder] = useState<string[] | null>(
-    () => {
-      const stored = localStorage.getItem(orderKey)
-      return stored ? JSON.parse(stored) : null
-    }
+    () => dailyStore.getSessionOrder(todayKey)
   )
 
   // 日付変更時にカスタム順序をリセット
   useEffect(() => {
-    const stored = localStorage.getItem(orderKey)
-    setCustomOrder(stored ? JSON.parse(stored) : null)
-  }, [orderKey])
+    setCustomOrder(dailyStore.getSessionOrder(todayKey))
+  }, [todayKey])
 
-  const getOrderedSessions = useCallback((): Session[] => {
-    if (!customOrder) return sortSessionsByStart(sessions)
-    const byId = new Map(sessions.map(s => [s.id, s]))
-    const ordered: Session[] = []
-    for (const id of customOrder) {
-      const s = byId.get(id)
-      if (s) { ordered.push(s); byId.delete(id) }
-    }
-    // 新しいセッション（カスタム順序にないもの）を末尾に追加
-    for (const s of sortSessionsByStart([...byId.values()])) {
-      ordered.push(s)
-    }
-    return ordered
-  }, [sessions, customOrder])
-
-  const sortedSessions = getOrderedSessions()
-  const totalMinutes = sessions.reduce((acc, s) => acc + calcSessionMinutes(s), 0)
+  const sortedSessions = orderSessions(sessions, customOrder)
+  const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
   // ドラッグ&ドロップ
   const dragItemRef = useRef<string | null>(null)
   const dragOverItemRef = useRef<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const listRef = useRef<HTMLUListElement | null>(null)
+  const pageChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleDragStart = (sessionId: string) => {
     dragItemRef.current = sessionId
@@ -116,7 +95,40 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     setDragOverId(sessionId)
   }
 
+  // ドラッグ中にリスト上端/下端付近でページ切り替え
+  const handleListDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (!listRef.current || totalPages <= 1 || !dragItemRef.current) return
+
+    const rect = listRef.current.getBoundingClientRect()
+    const x = e.clientX
+    const edgeZone = 40 // px
+
+    const nearLeft = x - rect.left < edgeZone && page > 0
+    const nearRight = rect.right - x < edgeZone && page < totalPages - 1
+
+    if (nearLeft || nearRight) {
+      if (!pageChangeTimerRef.current) {
+        pageChangeTimerRef.current = setTimeout(() => {
+          pageChangeTimerRef.current = null
+          if (nearLeft) changePage(page - 1)
+          else if (nearRight) changePage(page + 1)
+        }, 400)
+      }
+    } else {
+      if (pageChangeTimerRef.current) {
+        clearTimeout(pageChangeTimerRef.current)
+        pageChangeTimerRef.current = null
+      }
+    }
+  }
+
   const handleDragEnd = () => {
+    if (pageChangeTimerRef.current) {
+      clearTimeout(pageChangeTimerRef.current)
+      pageChangeTimerRef.current = null
+    }
+
     const fromId = dragItemRef.current
     const toId = dragOverItemRef.current
     dragItemRef.current = null
@@ -133,7 +145,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     currentOrder.splice(fromIdx, 1)
     currentOrder.splice(toIdx, 0, fromId)
 
-    localStorage.setItem(orderKey, JSON.stringify(currentOrder))
+    dailyStore.setSessionOrder(todayKey, currentOrder)
     setCustomOrder(currentOrder)
   }
 
@@ -160,13 +172,13 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
   const handleTimePickerConfirm = () => {
     if (timePickerMode === 'start') {
-      localStorage.setItem(`workStart.${todayKey}`, timePickerValue)
+      dailyStore.setWorkStart(todayKey, timePickerValue)
       setWorkStart(timePickerValue)
       if (telework) {
-        window.electronAPI.teleworkStart()
+        onTeleworkStart?.()
       }
     } else if (timePickerMode === 'end') {
-      localStorage.setItem(`workEnd.${todayKey}`, timePickerValue)
+      dailyStore.setWorkEnd(todayKey, timePickerValue)
       setWorkEnd(timePickerValue)
     }
     setTimePickerMode(null)
@@ -181,42 +193,27 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     setEditingName(session.name)
     setEditingProjectCode(session.projectCode)
     setEditingWorkCategory(session.workCategory)
-    setEditingDuration(String(calcSessionMinutes(session) + Math.round(runningMs / 60000)))
+    setEditingDuration(String(session.totalTime + Math.round(runningMs / 60000)))
   }
 
   const handleEditCommit = async () => {
     if (!editingKey || !editingName.trim()) { setEditingKey(null); return }
     const session = sessions.find(s => s.id === editingKey)
     if (!session || !onUpdate) { setEditingKey(null); return }
-    let updated: Session = {
-      ...session,
+
+    const parsed = parseInt(editingDuration, 10)
+    const { session: updated, adjustedStartMs } = applySessionEdit(session, {
       name: editingName.trim(),
       projectCode: editingProjectCode.trim(),
       workCategory: editingWorkCategory.trim(),
-    }
-
-    const newTotal = parseInt(editingDuration, 10)
-    if (!isNaN(newTotal) && newTotal >= 1 && session.times.length > 0) {
-      const lastInterval = session.times[session.times.length - 1]
-      if (!lastInterval.endTime) {
-        const desiredElapsed = Math.max(1, newTotal - session.totalTime)
-        const newStartMs = Date.now() - desiredElapsed * 60000
-        updated = { ...updated, times: session.times.map(t =>
-          t === lastInterval ? { ...t, startTime: formatLocalDateTime(newStartMs) } : t
-        ) }
-        setEditingKey(null)
-        try {
-          await onUpdate(updated)
-          onAdjustStartTime?.(newStartMs)
-        } catch { /* IPC errors are logged by main process */ }
-        return
-      } else {
-        updated = { ...updated, totalTime: newTotal }
-      }
-    }
+      totalMinutes: isNaN(parsed) ? null : parsed,
+    })
 
     setEditingKey(null)
-    try { await onUpdate(updated) } catch { /* IPC errors are logged by main process */ }
+    try {
+      await onUpdate(updated)
+      if (adjustedStartMs != null) onAdjustStartTime?.(adjustedStartMs)
+    } catch { /* IPC errors are logged by main process */ }
   }
 
   const handleEditCancel = () => {
@@ -233,59 +230,55 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
   return (
     <div
-      className={styles.container}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2.5"
       onContextMenu={e => {
         if ((e.target as HTMLElement).closest('[data-session-item]')) return
         e.preventDefault()
         setContextMenu({ sessionId: '', x: e.clientX, y: e.clientY })
       }}
     >
-      {timePickerMode && (
-        <div className={styles.timePickerBackdrop} onClick={() => setTimePickerMode(null)}>
-          <div className={styles.timePickerDialog} onClick={e => e.stopPropagation()}>
-            <p className={styles.timePickerTitle}>
-              {timePickerMode === 'start' ? '業務開始時刻' : '業務終了時刻'}
-            </p>
-            <input
-              type="time"
-              className={styles.timePickerInput}
-              value={timePickerValue}
-              onChange={e => setTimePickerValue(e.target.value)}
-              autoFocus
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleTimePickerConfirm()
-                if (e.key === 'Escape') setTimePickerMode(null)
-              }}
-            />
-            {timePickerMode === 'start' && (
-              <label className={styles.teleworkLabel}>
-                <input
-                  type="checkbox"
-                  className={styles.teleworkCheckbox}
-                  checked={telework}
-                  onChange={e => {
-                    const checked = e.target.checked
-                    setTelework(checked)
-                    localStorage.setItem(getTeleworkKey(), String(checked))
-                  }}
-                />
-                <span className={styles.teleworkText}>テレワーク</span>
-              </label>
-            )}
-            <div className={styles.timePickerActions}>
-              <button className={styles.timePickerCancel} onClick={() => setTimePickerMode(null)}>キャンセル</button>
-              <button className={styles.timePickerConfirm} onClick={handleTimePickerConfirm}>確定</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={timePickerMode !== null} onOpenChange={open => { if (!open) setTimePickerMode(null) }}>
+        <DialogContent className="max-w-[220px]" aria-describedby={undefined}>
+          <DialogTitle>{timePickerMode === 'end' ? '業務終了時刻' : '業務開始時刻'}</DialogTitle>
+          <Input
+            type="time"
+            className="h-11 text-center text-xl"
+            value={timePickerValue}
+            onChange={e => setTimePickerValue(e.target.value)}
+            autoFocus
+            onKeyDown={e => { if (e.key === 'Enter') handleTimePickerConfirm() }}
+          />
+          {timePickerMode === 'start' && (
+            <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={telework}
+                onChange={e => {
+                  const checked = e.target.checked
+                  setTelework(checked)
+                  dailyStore.setTelework(todayKey, checked)
+                }}
+              />
+              テレワーク
+            </label>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTimePickerMode(null)}>キャンセル</Button>
+            <Button onClick={handleTimePickerConfirm}>確定</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {sessions.length === 0 ? (
-        <p className={styles.empty}>まだジュースを注いでいません</p>
+        <p className="m-0 flex-1 py-6 text-center text-[13px] text-[var(--text-muted)]">まだジュースを注いでいません</p>
       ) : (
         <ul
-          className={styles.list}
+          ref={listRef}
+          className="m-0 flex min-h-0 flex-1 list-none animate-slide-up flex-col gap-1.5 overflow-y-auto px-0 py-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           key={animKey}
+          onDragOver={handleListDragOver}
           onWheel={e => {
             if (totalPages <= 1) return
             if (e.deltaY > 0 && page < totalPages - 1) changePage(page + 1)
@@ -296,8 +289,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
             <li
               key={session.id}
               data-session-item
-              draggable
-              className={`${styles.item} ${expandedId === session.id ? styles.itemExpanded : ''} ${dragOverId === session.id ? styles.itemDragOver : ''}`}
+              draggable={editingKey !== session.id}
+              className={`group flex cursor-grab items-start gap-2 rounded-[8px] border bg-card px-2.5 py-2 transition-all duration-200 hover:bg-accent active:cursor-grabbing ${expandedId === session.id ? 'bg-accent' : ''} ${dragOverId === session.id ? 'border-[var(--accent)] shadow-[0_0_0_2px_var(--accent-light)]' : 'border-border'}`}
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('button, input')) return
                 setExpandedId(prev => prev === session.id ? null : session.id)
@@ -312,28 +305,28 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               onDragLeave={() => setDragOverId(null)}
               onDragEnd={handleDragEnd}
             >
-              <span className={styles.dot} style={{ background: session.color }} aria-hidden="true" />
-              <div className={styles.info}>
+              <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: session.color }} aria-hidden="true" />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 {editingKey === session.id ? (
-                  <div className={styles.editInputs}>
-                    <input
-                      className={styles.metaInput}
+                  <div className="flex flex-col gap-[3px]">
+                    <Input
+                      className="h-7 text-xs"
                       value={editingProjectCode}
                       onChange={e => setEditingProjectCode(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="PJコード"
                       aria-label="PJコード"
                     />
-                    <input
-                      className={styles.nameInput}
+                    <Input
+                      className="h-7 text-sm font-medium"
                       value={editingName}
                       onChange={e => setEditingName(e.target.value)}
                       onKeyDown={handleKeyDown}
                       aria-label="セッション名"
                       autoFocus
                     />
-                    <input
-                      className={styles.metaInput}
+                    <Input
+                      className="h-7 text-xs"
                       value={editingWorkCategory}
                       onChange={e => setEditingWorkCategory(e.target.value)}
                       onKeyDown={handleKeyDown}
@@ -343,19 +336,19 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                   </div>
                 ) : (
                   <>
-                    <span className={styles.name}>{session.name}</span>
+                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-foreground transition-colors group-hover:text-[var(--accent)]">{session.name}</span>
                     {(session.projectCode || session.workCategory) && (
-                      <div className={styles.metaRow}>
-                        {session.projectCode && <span className={styles.metaTag}>{session.projectCode}</span>}
-                        {session.workCategory && <span className={styles.metaTag}>{session.workCategory}</span>}
+                      <div className="mt-px flex flex-wrap gap-1">
+                        {session.projectCode && <span className="rounded-[6px] border border-border bg-muted px-1.5 text-[11px] leading-[1.6] text-muted-foreground">{session.projectCode}</span>}
+                        {session.workCategory && <span className="rounded-[6px] border border-border bg-muted px-1.5 text-[11px] leading-[1.6] text-muted-foreground">{session.workCategory}</span>}
                       </div>
                     )}
                   </>
                 )}
               </div>
               {editingKey === session.id ? (
-                <input
-                  className={styles.durationInput}
+                <Input
+                  className="h-7 w-16 shrink-0 text-right text-sm font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   value={editingDuration}
                   onChange={e => setEditingDuration(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -364,19 +357,19 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                   min="1"
                 />
               ) : (
-                <span className={styles.duration}>{calcSessionMinutes(session)}分</span>
+                <span className="shrink-0 text-[13px] font-semibold text-[var(--accent)]">{session.totalTime}分</span>
               )}
               {editingKey === session.id ? (
                 <>
-                  <button className={styles.confirmButton} onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
-                  <button className={styles.cancelButton} onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-muted-foreground transition-colors hover:text-[#26de81]" onClick={handleEditCommit} onMouseDown={e => e.preventDefault()} aria-label="保存"><Check width={14} height={14} /></button>
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-muted-foreground transition-colors hover:text-[#e74c3c]" onClick={handleEditCancel} onMouseDown={e => e.preventDefault()} aria-label="キャンセル"><Xmark width={14} height={14} /></button>
                 </>
               ) : (
                 <>
                   {!isRunning && onStartMore && (
-                    <button className={styles.moreButton} onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
+                    <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] font-semibold text-[#26de81] opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
                   )}
-                  <button className={styles.editButton} onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
+                  <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-muted-foreground opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => handleEditStart(session)} aria-label="編集"><EditPencil width={14} height={14} /></button>
                 </>
               )}
             </li>
@@ -386,38 +379,42 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
       <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
-      <div className={styles.total}>
-        <div className={styles.workTimeRow}>
-          {!workEnd && (
-            <button
-              className={workStart ? styles.endButton : styles.startButton}
-              onClick={workStart ? handleWorkEnd : handleWorkStart}
-            >
-              {workStart ? '終了' : '開始'}
-            </button>
+      <Card className="mb-2 mt-2">
+        <CardContent className="flex items-center justify-between px-3 py-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            {!workEnd && (
+              <Button
+                variant={workStart ? 'destructive' : 'outline'}
+                size="sm"
+                className={workStart ? 'h-7' : 'h-7 border-green-600 text-green-600 hover:bg-green-600 hover:text-white'}
+                onClick={workStart ? handleWorkEnd : handleWorkStart}
+              >
+                {workStart ? '終了' : '開始'}
+              </Button>
+            )}
+            <span className="min-w-[90px] text-[11px] text-[var(--text-muted)]">
+              {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
+            </span>
+          </div>
+          {sessions.length > 0 && (
+            <span>今日注いだ時間: <strong>{totalMinutes}分</strong></span>
           )}
-          <span className={styles.workTime}>
-            {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
-          </span>
-        </div>
-        {sessions.length > 0 && (
-          <span>今日注いだ時間: <strong>{totalMinutes}分</strong></span>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
       {contextMenu && (
         <div
           ref={contextMenuRef}
           data-context-menu
-          className={styles.contextMenu}
+          className="fixed z-[1000] min-w-[120px] rounded-[8px] border border-border bg-card py-1 shadow-[var(--shadow-elevated)]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button className={styles.contextMenuItemNormal} onMouseDown={e => e.preventDefault()} onClick={openAddDialog}>
+          <button className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-foreground transition-colors duration-200 hover:bg-accent" onMouseDown={e => e.preventDefault()} onClick={openAddDialog}>
             <Timer width={14} height={14} /> 追加
           </button>
           {contextMenu.sessionId !== '' && (
             <button
-              className={styles.contextMenuItem}
+              className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
               onMouseDown={e => e.preventDefault()}
               onClick={() => {
                 const id = contextMenu.sessionId
@@ -431,62 +428,56 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         </div>
       )}
 
-      {addDialog && (
-        <div className={styles.timePickerBackdrop} onClick={() => setAddDialog(null)}>
-          <div className={styles.addDialog} onClick={e => e.stopPropagation()}>
-            <p className={styles.timePickerTitle}>タイマーを追加</p>
-            <div className={styles.addDialogFields}>
-              <input
-                className={styles.addDialogInput}
-                placeholder="作業名（必須）"
-                value={addDialog.name}
-                onChange={e => setAddDialog(d => d && { ...d, name: e.target.value })}
-                autoFocus
-                onKeyDown={e => { if (e.key === 'Escape') setAddDialog(null) }}
+      <Dialog open={addDialog !== null} onOpenChange={open => { if (!open) setAddDialog(null) }}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>タイマーを追加</DialogTitle>
+          <div className="flex flex-col gap-2">
+            <Input
+              placeholder="作業名（必須）"
+              value={addDialog?.name ?? ''}
+              onChange={e => setAddDialog(d => d && { ...d, name: e.target.value })}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Input
+                className="text-xs"
+                placeholder="PJコード"
+                value={addDialog?.projectCode ?? ''}
+                onChange={e => setAddDialog(d => d && { ...d, projectCode: e.target.value })}
               />
-              <div className={styles.addDialogRow}>
-                <input
-                  className={styles.addDialogInputSmall}
-                  placeholder="PJコード"
-                  value={addDialog.projectCode}
-                  onChange={e => setAddDialog(d => d && { ...d, projectCode: e.target.value })}
-                />
-                <input
-                  className={styles.addDialogInputSmall}
-                  placeholder="作業区分"
-                  value={addDialog.workCategory}
-                  onChange={e => setAddDialog(d => d && { ...d, workCategory: e.target.value })}
-                />
-              </div>
-              <div className={styles.addDialogRow}>
-                <div className={styles.addDialogTimeField}>
-                  <span className={styles.addDialogTimeLabel}>時間</span>
-                  <input
-                    type="number"
-                    min="1"
-                    className={styles.addDialogTimeInput}
-                    placeholder="分"
-                    value={addDialog.totalTime}
-                    onChange={e => setAddDialog(d => d && { ...d, totalTime: e.target.value })}
-                    onKeyDown={e => { if (e.key === 'Enter') handleAddConfirm(); if (e.key === 'Escape') setAddDialog(null) }}
-                  />
-                  <span className={styles.addDialogTimeLabel}>分</span>
-                </div>
-              </div>
+              <Input
+                className="text-xs"
+                placeholder="作業区分"
+                value={addDialog?.workCategory ?? ''}
+                onChange={e => setAddDialog(d => d && { ...d, workCategory: e.target.value })}
+              />
             </div>
-            <div className={styles.timePickerActions}>
-              <button className={styles.timePickerCancel} onClick={() => setAddDialog(null)}>キャンセル</button>
-              <button
-                className={styles.timePickerConfirm}
-                onClick={handleAddConfirm}
-                disabled={!addDialog.name.trim() || !addDialog.totalTime}
-              >
-                追加
-              </button>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">時間</span>
+              <Input
+                type="number"
+                min="1"
+                className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                placeholder="分"
+                value={addDialog?.totalTime ?? ''}
+                onChange={e => setAddDialog(d => d && { ...d, totalTime: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddConfirm() }}
+              />
+              <span className="text-xs text-muted-foreground">分</span>
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialog(null)}>キャンセル</Button>
+            <Button
+              onClick={handleAddConfirm}
+              disabled={!addDialog?.name.trim() || !addDialog?.totalTime}
+            >
+              追加
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {pendingDeleteId && (
         <ConfirmDialog

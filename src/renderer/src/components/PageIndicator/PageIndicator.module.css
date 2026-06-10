@@ -1,13 +1,13 @@
 .pageIndicator {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 0;
+  gap: 5px;
+  padding: 10px 0 4px;
 }
 
 .pageDot {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   border: none;
   padding: 0;

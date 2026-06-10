@@ -1,276 +1,266 @@
-import { useState, useEffect, type ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
-import styles from './SettingsView.module.css'
+import { useSettings } from '../../hooks/useSettings'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Separator } from '@/components/ui/separator'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 type Section = 'theme' | 'notification' | 'account'
 
+const NAV_ITEMS: { id: Section; label: string }[] = [
+  { id: 'theme', label: 'テーマ' },
+  { id: 'notification', label: '通知' },
+  { id: 'account', label: 'アカウント' },
+]
+
+const heading = 'mb-2 mt-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground'
+
+const MINUTE_OPTIONS = [1, 5, 15, 30, 60, 90, 120] as const
+
+function minuteLabel(m: number): string {
+  if (m === 60) return '1時間'
+  if (m === 90) return '1時間30分'
+  if (m === 120) return '2時間'
+  return `${m}分`
+}
+
 export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
-  const [activeThemeId, setActiveThemeId] = useState('rose')
-  const [idleEnabled, setIdleEnabled] = useState(false)
-  const [idleMinutes, setIdleMinutes] = useState(60)
-  const [elapsedEnabled, setElapsedEnabled] = useState(false)
-  const [elapsedMinutes, setElapsedMinutes] = useState(30)
-  const [userName, setUserName] = useState('')
-  const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
-  const [whiteboardEmail, setWhiteboardEmail] = useState('')
-  const [slackProjectCode, setSlackProjectCode] = useState('')
-  const [slackProjectName, setSlackProjectName] = useState('')
-
-  useEffect(() => {
-    window.electronAPI.getTheme().then(setActiveThemeId)
-    window.electronAPI.onThemeChanged(setActiveThemeId)
-    window.electronAPI.getIdleSettings().then(({ enabled, minutes }) => {
-      setIdleEnabled(enabled)
-      setIdleMinutes(minutes)
-    })
-    window.electronAPI.getElapsedSettings().then(({ enabled, minutes }) => {
-      setElapsedEnabled(enabled)
-      setElapsedMinutes(minutes)
-    })
-    window.electronAPI.getUserName().then(setUserName)
-    window.electronAPI.getWhiteboardSettings().then(({ enabled, email }) => {
-      setWhiteboardEnabled(enabled)
-      setWhiteboardEmail(email)
-    })
-    window.electronAPI.getSlackSettings().then(({ projectCode, projectName }) => {
-      setSlackProjectCode(projectCode)
-      setSlackProjectName(projectName)
-    })
-  }, [])
-
-  const handleSelect = (themeId: string) => {
-    // 即時反映（IPC待ちなし）
-    document.documentElement.dataset.theme = themeId
-    setActiveThemeId(themeId)
-    window.electronAPI.setTheme(themeId)
-  }
-
-  const handleIdleToggle = (e: ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked
-    setIdleEnabled(enabled)
-    window.electronAPI.setIdleSettings(enabled, idleMinutes)
-  }
-
-  const handleIdleMinutesChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const minutes = Number(e.target.value)
-    setIdleMinutes(minutes)
-    window.electronAPI.setIdleSettings(idleEnabled, minutes)
-  }
-
-  const handleElapsedToggle = (e: ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked
-    setElapsedEnabled(enabled)
-    window.electronAPI.setElapsedSettings(enabled, elapsedMinutes)
-  }
-
-  const handleElapsedMinutesChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const minutes = Number(e.target.value)
-    setElapsedMinutes(minutes)
-    window.electronAPI.setElapsedSettings(elapsedEnabled, minutes)
-  }
-
-  const handleUserNameChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setUserName(value)
-    window.electronAPI.setUserName(value.trim())
-  }
-
-  const handleWhiteboardToggle = (e: ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked
-    setWhiteboardEnabled(enabled)
-    window.electronAPI.setWhiteboardSettings(enabled, whiteboardEmail)
-  }
-
-  const handleWhiteboardEmailChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const email = e.target.value
-    setWhiteboardEmail(email)
-    window.electronAPI.setWhiteboardSettings(whiteboardEnabled, email.trim())
-  }
-
-  const handleSlackProjectCodeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSlackProjectCode(value)
-    window.electronAPI.setSlackSettings(value.trim(), slackProjectName)
-  }
-
-  const handleSlackProjectNameChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setSlackProjectName(value)
-    window.electronAPI.setSlackSettings(slackProjectCode, value.trim())
-  }
-
-  const navItems: { id: Section; label: string }[] = [
-    { id: 'theme', label: 'テーマ' },
-    { id: 'notification', label: '通知' },
-    { id: 'account', label: 'アカウント' },
-  ]
+  const {
+    activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes,
+    userName, whiteboardEnabled, whiteboardEmail, slackProjectCode, slackProjectName,
+    setTheme, setIdle, setElapsed, setUserName, setWhiteboard, setSlack,
+  } = useSettings()
 
   return (
-    <div className={styles.container}>
-      <nav className={styles.sidebar}>
-        {navItems.map(item => (
-          <button
+    <Tabs
+      value={activeSection}
+      onValueChange={(v) => setActiveSection(v as Section)}
+      orientation="vertical"
+      className="flex h-screen w-full font-[var(--font-family)] antialiased"
+    >
+      <TabsList className="flex h-full w-[120px] shrink-0 flex-col items-stretch justify-start gap-1 rounded-none border-r border-[var(--glass-border)] bg-[var(--glass-bg)] p-2">
+        {NAV_ITEMS.map(item => (
+          <TabsTrigger
             key={item.id}
-            className={`${styles.navItem} ${activeSection === item.id ? styles.navItemActive : ''}`}
-            onClick={() => setActiveSection(item.id)}
+            value={item.id}
+            className="justify-start text-[13px] data-[state=active]:bg-[var(--accent-light)] data-[state=active]:text-[var(--accent)]"
           >
             {item.label}
-          </button>
+          </TabsTrigger>
         ))}
-      </nav>
+      </TabsList>
 
-      <div className={styles.content}>
+      <div className="flex-1 overflow-y-auto bg-[var(--bg)] px-3 py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* ─── テーマ ─── */}
         {activeSection === 'theme' && (
           <>
-            <h2 className={styles.heading}>ライト</h2>
-            <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={handleSelect} />
-            <h2 className={styles.heading} style={{ marginTop: '1.5rem' }}>ダーク</h2>
-            <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={handleSelect} />
+            <h2 className={heading}>ライト</h2>
+            <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={setTheme} />
+            <h2 className={heading} style={{ marginTop: '1.5rem' }}>ダーク</h2>
+            <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={setTheme} />
           </>
         )}
 
-        {activeSection === 'account' && (
-          <>
-            <h2 className={styles.heading}>勤怠連携</h2>
-            <div className={styles.idleRow}>
-              <label className={styles.idleLabel}>
-                ユーザー名
-                <input
-                  type="text"
-                  className={styles.userNameInput}
-                  value={userName}
-                  onChange={handleUserNameChange}
-                  placeholder="Slack ユーザー名"
-                />
-              </label>
-            </div>
-
-            <h2 className={styles.heading} style={{ marginTop: '1.5rem' }}>ホワイトボード連携</h2>
-            <div className={styles.idleRow}>
-              <label className={styles.idleLabel}>
-                <input
-                  type="checkbox"
-                  checked={whiteboardEnabled}
-                  onChange={handleWhiteboardToggle}
-                  className={styles.idleCheckbox}
-                />
-                タイマー開始時に出勤 / 勤怠送信時に退勤
-              </label>
-            </div>
-            {whiteboardEnabled && (
-              <div className={styles.idleRow}>
-                <label className={styles.idleLabel}>
-                  メールアドレス
-                  <input
-                    type="email"
-                    className={styles.userNameInput}
-                    value={whiteboardEmail}
-                    onChange={handleWhiteboardEmailChange}
-                    placeholder="example@jsl.co.jp"
-                  />
-                </label>
-              </div>
-            )}
-
-            <h2 className={styles.heading} style={{ marginTop: '1.5rem' }}>Slack連携</h2>
-            <div className={styles.idleRow}>
-              <label className={styles.idleLabel}>
-                PJコード
-                <input
-                  type="text"
-                  className={styles.userNameInput}
-                  value={slackProjectCode}
-                  onChange={handleSlackProjectCodeChange}
-                  placeholder="PJコード"
-                />
-              </label>
-            </div>
-            <div className={styles.idleRow}>
-              <label className={styles.idleLabel}>
-                プロジェクト名
-                <input
-                  type="text"
-                  className={styles.userNameInput}
-                  value={slackProjectName}
-                  onChange={handleSlackProjectNameChange}
-                  placeholder="プロジェクト名"
-                />
-              </label>
-            </div>
-          </>
-        )}
-
+        {/* ─── 通知 ─── */}
         {activeSection === 'notification' && (
           <>
-            <h2 className={styles.heading}>アイドル通知</h2>
-            <div className={styles.idleRow}>
-              <label className={styles.idleLabel}>
-                <input
-                  type="checkbox"
-                  checked={idleEnabled}
-                  onChange={handleIdleToggle}
-                  className={styles.idleCheckbox}
-                />
-                タイマーを起動していない時に通知する
-              </label>
-            </div>
-            {idleEnabled && (
-              <div className={styles.idleRow}>
-                <label className={styles.idleLabel}>
-                  通知まで待機
-                  <select
-                    value={idleMinutes}
-                    onChange={handleIdleMinutesChange}
-                    className={styles.idleSelect}
-                  >
-                    <option value={1}>1分</option>
-                    <option value={5}>5分</option>
-                    <option value={15}>15分</option>
-                    <option value={30}>30分</option>
-                    <option value={60}>1時間</option>
-                    <option value={90}>1時間30分</option>
-                    <option value={120}>2時間</option>
-                  </select>
-                </label>
-              </div>
-            )}
-            <h2 className={styles.heading} style={{ marginTop: '1.5rem' }}>経過時間通知</h2>
-            <div className={styles.idleRow}>
-              <label className={styles.idleLabel}>
-                <input
-                  type="checkbox"
-                  checked={elapsedEnabled}
-                  onChange={handleElapsedToggle}
-                  className={styles.idleCheckbox}
-                />
-                タイマー起動中に一定時間ごとに通知する
-              </label>
-            </div>
-            {elapsedEnabled && (
-              <div className={styles.idleRow}>
-                <label className={styles.idleLabel}>
-                  通知間隔
-                  <select
-                    value={elapsedMinutes}
-                    onChange={handleElapsedMinutesChange}
-                    className={styles.idleSelect}
-                  >
-                    <option value={1}>1分</option>
-                    <option value={5}>5分</option>
-                    <option value={15}>15分</option>
-                    <option value={30}>30分</option>
-                    <option value={60}>1時間</option>
-                    <option value={90}>1時間30分</option>
-                    <option value={120}>2時間</option>
-                  </select>
-                </label>
-              </div>
-            )}
+            <h2 className={heading}>アイドル通知</h2>
+            <Card className="mb-4">
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between gap-3 p-3.5">
+                  <div>
+                    <Label htmlFor="idle" className="text-[13px] font-medium text-foreground">
+                      アイドル通知
+                    </Label>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      タイマーを起動していない時に通知する
+                    </p>
+                  </div>
+                  <Switch
+                    id="idle"
+                    checked={idleEnabled}
+                    onCheckedChange={(c) => setIdle(c, idleMinutes)}
+                  />
+                </div>
+                {idleEnabled && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between gap-3 p-3.5">
+                      <Label className="text-[13px] font-medium text-foreground">通知まで待機</Label>
+                      <Select
+                        value={String(idleMinutes)}
+                        onValueChange={(v) => setIdle(idleEnabled, Number(v))}
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MINUTE_OPTIONS.map(m => (
+                            <SelectItem key={m} value={String(m)}>
+                              {minuteLabel(m)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <h2 className={heading} style={{ marginTop: '1.5rem' }}>経過時間通知</h2>
+            <Card>
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between gap-3 p-3.5">
+                  <div>
+                    <Label htmlFor="elapsed" className="text-[13px] font-medium text-foreground">
+                      経過時間通知
+                    </Label>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      タイマー起動中に一定時間ごとに通知する
+                    </p>
+                  </div>
+                  <Switch
+                    id="elapsed"
+                    checked={elapsedEnabled}
+                    onCheckedChange={(c) => setElapsed(c, elapsedMinutes)}
+                  />
+                </div>
+                {elapsedEnabled && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between gap-3 p-3.5">
+                      <Label className="text-[13px] font-medium text-foreground">通知間隔</Label>
+                      <Select
+                        value={String(elapsedMinutes)}
+                        onValueChange={(v) => setElapsed(elapsedEnabled, Number(v))}
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MINUTE_OPTIONS.map(m => (
+                            <SelectItem key={m} value={String(m)}>
+                              {minuteLabel(m)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* ─── アカウント ─── */}
+        {activeSection === 'account' && (
+          <>
+            <h2 className={heading}>勤怠連携</h2>
+            <Card className="mb-4">
+              <CardContent className="flex flex-col gap-3 p-3.5">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="username" className="text-[13px] text-foreground">ユーザー名</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    className="h-8"
+                    value={userName}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setUserName(e.target.value)}
+                    placeholder="Slack ユーザー名"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <h2 className={heading} style={{ marginTop: '1.5rem' }}>ホワイトボード連携</h2>
+            <Card className="mb-4">
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between gap-3 p-3.5">
+                  <div>
+                    <Label htmlFor="whiteboard" className="text-[13px] font-medium text-foreground">
+                      ホワイトボード連携
+                    </Label>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      タイマー開始時に出勤 / 勤怠送信時に退勤
+                    </p>
+                  </div>
+                  <Switch
+                    id="whiteboard"
+                    checked={whiteboardEnabled}
+                    onCheckedChange={(c) => setWhiteboard(c, whiteboardEmail)}
+                  />
+                </div>
+                {whiteboardEnabled && (
+                  <>
+                    <Separator />
+                    <div className="flex flex-col gap-1.5 p-3.5">
+                      <Label htmlFor="whiteboard-email" className="text-[13px] text-foreground">
+                        メールアドレス
+                      </Label>
+                      <Input
+                        id="whiteboard-email"
+                        type="email"
+                        className="h-8"
+                        value={whiteboardEmail}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                          setWhiteboard(whiteboardEnabled, e.target.value)
+                        }
+                        placeholder="example@jsl.co.jp"
+                      />
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <h2 className={heading} style={{ marginTop: '1.5rem' }}>Slack連携</h2>
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-3.5">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="slack-pj-code" className="text-[13px] text-foreground">PJコード</Label>
+                  <Input
+                    id="slack-pj-code"
+                    type="text"
+                    className="h-8"
+                    value={slackProjectCode}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      setSlack(e.target.value, slackProjectName)
+                    }
+                    placeholder="PJコード"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="slack-pj-name" className="text-[13px] text-foreground">プロジェクト名</Label>
+                  <Input
+                    id="slack-pj-name"
+                    type="text"
+                    className="h-8"
+                    value={slackProjectName}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                      setSlack(slackProjectCode, e.target.value)
+                    }
+                    placeholder="プロジェクト名"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
-    </div>
+    </Tabs>
   )
 }

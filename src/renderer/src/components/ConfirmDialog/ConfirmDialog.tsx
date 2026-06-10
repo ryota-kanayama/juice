@@ -1,5 +1,11 @@
-import { useEffect } from 'react'
-import styles from './ConfirmDialog.module.css'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog'
 
 interface ConfirmDialogProps {
   message: string
@@ -16,27 +22,17 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onCancel])
-
   return (
-    <div className={styles.backdrop} onClick={onCancel}>
-      <div className={styles.dialog} onClick={e => e.stopPropagation()}>
-        <p className={styles.message}>{message}</p>
-        <div className={styles.actions}>
-          <button className={styles.cancelButton} onClick={onCancel}>
-            {cancelLabel}
-          </button>
-          <button className={styles.confirmButton} onClick={onConfirm}>
+    <AlertDialog open onOpenChange={open => { if (!open) onCancel() }}>
+      <AlertDialogContent aria-describedby={undefined}>
+        <AlertDialogTitle>{message}</AlertDialogTitle>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onCancel}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
             {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

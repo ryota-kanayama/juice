@@ -16,9 +16,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src'),
-        'react': 'preact/compat',
-        'react-dom': 'preact/compat',
-        'react/jsx-runtime': 'preact/jsx-runtime',
+        '@': resolve('src/renderer/src'),
       }
     },
     plugins: [react()],

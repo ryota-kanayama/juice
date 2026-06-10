@@ -1,0 +1,52 @@
+// 設定のデータアクセス: window.electronAPI（IPC）への依存をこの層に閉じ込める。
+
+export const settingsRepository = {
+  getTheme(): Promise<string> {
+    return window.electronAPI.getTheme()
+  },
+  setTheme(themeId: string): Promise<void> {
+    return window.electronAPI.setTheme(themeId)
+  },
+  onThemeChanged(callback: (themeId: string) => void): void {
+    window.electronAPI.onThemeChanged(callback)
+  },
+
+  getIdle(): Promise<{ enabled: boolean; minutes: number }> {
+    return window.electronAPI.getIdleSettings()
+  },
+  setIdle(enabled: boolean, minutes: number): Promise<void> {
+    return window.electronAPI.setIdleSettings(enabled, minutes)
+  },
+
+  getElapsed(): Promise<{ enabled: boolean; minutes: number }> {
+    return window.electronAPI.getElapsedSettings()
+  },
+  setElapsed(enabled: boolean, minutes: number): Promise<void> {
+    return window.electronAPI.setElapsedSettings(enabled, minutes)
+  },
+
+  getUserName(): Promise<string> {
+    return window.electronAPI.getUserName()
+  },
+  setUserName(userName: string): Promise<void> {
+    return window.electronAPI.setUserName(userName)
+  },
+
+  getWhiteboard(): Promise<{ enabled: boolean; email: string }> {
+    return window.electronAPI.getWhiteboardSettings()
+  },
+  setWhiteboard(enabled: boolean, email: string): Promise<void> {
+    return window.electronAPI.setWhiteboardSettings(enabled, email)
+  },
+
+  getSlack(): Promise<{ projectCode: string; projectName: string }> {
+    return window.electronAPI.getSlackSettings()
+  },
+  setSlack(projectCode: string, projectName: string): Promise<void> {
+    return window.electronAPI.setSlackSettings(projectCode, projectName)
+  },
+
+  completeSetup(): Promise<void> {
+    return window.electronAPI.completeSetup()
+  },
+}

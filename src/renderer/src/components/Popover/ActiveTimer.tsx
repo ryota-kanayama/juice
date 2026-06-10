@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import styles from './ActiveTimer.module.css'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 interface Props {
   name: string
@@ -21,38 +23,38 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
   const level = juiceLevel(elapsedSeconds)
 
   return (
-    <div className={styles.container}>
+    <Card className="flex flex-1 w-full flex-col justify-center overflow-hidden rounded-xl bg-[var(--glass-bg)] shadow-[var(--shadow-glass)] [backdrop-filter:blur(var(--glass-blur))] [-webkit-backdrop-filter:blur(var(--glass-blur))]">
       {/* メインビジュアル */}
-      <div className={styles.timerSection}>
-        <p className={styles.name}>{name}</p>
-        <p className={styles.pouring}>ジュースを注いでいます</p>
+      <div className="flex flex-col items-center gap-2.5 px-4 pb-4 pt-7">
+        <p className="m-0 text-base font-bold text-[var(--text-primary)]">{name}</p>
+        <p className="m-0 text-[11px] tracking-[0.05em] text-[var(--text-muted)]">ジュースを注いでいます</p>
 
         {/* 円形波アニメーション */}
-        <div className={styles.circleContainer} aria-hidden="true">
-          <div className={styles.circle} style={{ borderColor: color }}>
+        <div className="flex items-center justify-center py-2" aria-hidden="true">
+          <div className="relative h-[120px] w-[120px] overflow-hidden rounded-full border-2" style={{ borderColor: color }}>
             {/* 泡 — 線のみの円 */}
-            <svg className={styles.bubbleSvg} viewBox="0 0 120 120" style={{ clipPath: `inset(calc(${100 - level}% + 20px) 0 0 0)` }}>
-              <circle className={styles.bubble1} cx="35" cy="0" r="4" fill="none" stroke={color} strokeWidth="1.5" />
-              <circle className={styles.bubble2} cx="75" cy="0" r="3" fill="none" stroke={color} strokeWidth="1.5" />
-              <circle className={styles.bubble3} cx="55" cy="0" r="2.5" fill="none" stroke={color} strokeWidth="1" />
+            <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 120 120" style={{ clipPath: `inset(calc(${100 - level}% + 20px) 0 0 0)` }}>
+              <circle className="animate-bubble-rise-1" cx="35" cy="0" r="4" fill="none" stroke={color} strokeWidth="1.5" />
+              <circle className="animate-bubble-rise-2" cx="75" cy="0" r="3" fill="none" stroke={color} strokeWidth="1.5" />
+              <circle className="animate-bubble-rise-3" cx="55" cy="0" r="2.5" fill="none" stroke={color} strokeWidth="1" />
             </svg>
             {/* 波線 */}
             <svg
-              className={styles.waveSvg}
+              className="absolute left-0 h-5 w-[300%] animate-wave-shift transition-[top] duration-1000 ease-linear"
               data-testid="juice-level"
               style={{ top: `${100 - level}%` }}
               viewBox="0 0 900 20"
               preserveAspectRatio="none"
             >
               <path
-                className={styles.wavePath}
+                className="[vector-effect:non-scaling-stroke]"
                 d="M0,10 q150,10 300,0 t300,0 q150,10 300,0"
                 fill="none"
                 stroke={color}
                 strokeWidth="2"
               />
             </svg>
-            <span className={styles.circleElapsed}>
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-bold leading-[1.2] text-[var(--text-primary)]">
               {Math.floor(elapsedSeconds / 60)}分経過
             </span>
           </div>
@@ -60,18 +62,16 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
       </div>
 
       {/* コントロール */}
-      <div className={styles.controlSection}>
-        <div className={styles.metaInputs}>
-          <input
-            className={styles.metaInput}
+      <div className="flex flex-col items-center gap-2.5 border-t border-[var(--glass-border)] px-4 pb-4 pt-3">
+        <div className="flex w-full gap-1.5">
+          <Input
             value={projectCode}
             onChange={e => setProjectCode(e.target.value)}
             placeholder="PJコード"
             aria-label="PJコード"
             autoFocus
           />
-          <input
-            className={styles.metaInput}
+          <Input
             value={workCategory}
             onChange={e => setWorkCategory(e.target.value)}
             placeholder="作業区分"
@@ -79,10 +79,10 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
           />
         </div>
 
-        <button className={styles.stopButton} onClick={() => onStop(projectCode, workCategory)}>
+        <Button variant="outline" size="lg" onClick={() => onStop(projectCode, workCategory)}>
           やめる
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   )
 }

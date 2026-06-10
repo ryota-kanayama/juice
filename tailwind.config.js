@@ -1,0 +1,96 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  darkMode: 'class',
+  content: ['./src/renderer/index.html', './src/renderer/src/**/*.{ts,tsx}'],
+  corePlugins: {
+    // 既存CSS Modules画面の崩れを防ぐため全体リセットは無効化
+    preflight: false,
+  },
+  theme: {
+    extend: {
+      // shadcn のトークン。既存の --accent/--border 等との衝突を避けるため --sc- 接頭辞。
+      colors: {
+        border: 'hsl(var(--sc-border))',
+        input: 'hsl(var(--sc-input))',
+        ring: 'hsl(var(--sc-ring))',
+        background: 'hsl(var(--sc-background))',
+        foreground: 'hsl(var(--sc-foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--sc-primary))',
+          foreground: 'hsl(var(--sc-primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--sc-secondary))',
+          foreground: 'hsl(var(--sc-secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--sc-destructive))',
+          foreground: 'hsl(var(--sc-destructive-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--sc-muted))',
+          foreground: 'hsl(var(--sc-muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--sc-accent))',
+          foreground: 'hsl(var(--sc-accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--sc-popover))',
+          foreground: 'hsl(var(--sc-popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--sc-card))',
+          foreground: 'hsl(var(--sc-card-foreground))',
+        },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
+      fontFamily: {
+        sans: ['var(--font-family)'],
+      },
+      keyframes: {
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
+        },
+        'bubble-rise': {
+          '0%': { transform: 'translateY(120px)', opacity: '0' },
+          '10%': { opacity: '0.7' },
+          '90%': { opacity: '0.4' },
+          '100%': { transform: 'translateY(0px)', opacity: '0' },
+        },
+        'wave-shift': {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-66.66%)' },
+        },
+        'slide-up': {
+          from: { opacity: '0', transform: 'translateY(20px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'fade-in': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'bubble-rise-1': 'bubble-rise 3.2s ease-in infinite',
+        'bubble-rise-2': 'bubble-rise 2.8s ease-in 1.2s infinite',
+        'bubble-rise-3': 'bubble-rise 3.6s ease-in 0.5s infinite',
+        'wave-shift': 'wave-shift 4s linear infinite',
+        'slide-up': 'slide-up 0.25s ease-out',
+        'fade-in': 'fade-in 0.25s ease',
+      },
+    },
+  },
+  plugins: [require('tailwindcss-animate')],
+}

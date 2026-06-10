@@ -18,9 +18,9 @@ describe('SettingsStore', () => {
     await rm(testDir, { recursive: true, force: true })
   })
 
-  it('設定ファイルが存在しない場合はデフォルトテーマ "rose" を返す', async () => {
+  it('設定ファイルが存在しない場合はデフォルトテーマ "slate" を返す', async () => {
     const themeId = await store.getTheme()
-    expect(themeId).toBe('rose')
+    expect(themeId).toBe('slate')
   })
 
   it('テーマを保存して取得できる', async () => {
@@ -30,28 +30,34 @@ describe('SettingsStore', () => {
   })
 
   it('テーマを変更できる', async () => {
-    await store.setTheme('lemon')
-    await store.setTheme('coral')
+    await store.setTheme('rose')
+    await store.setTheme('sky')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('coral')
+    expect(themeId).toBe('sky')
   })
 
-  it('旧テーマIDが新テーマIDにマイグレーションされる', async () => {
-    await store.setTheme('orange')
+  it('削除した旧テーマIDが現行テーマにマイグレーションされる', async () => {
+    await store.setTheme('honey')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('honey')
+    expect(themeId).toBe('lemon')
   })
 
-  it('旧旧テーマIDもマイグレーションされる', async () => {
+  it('旧ダークテーマIDが graphite にマイグレーションされる', async () => {
     await store.setTheme('midnight')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('deep')
+    expect(themeId).toBe('graphite')
   })
 
-  it('新テーマIDはそのまま返される', async () => {
-    await store.setTheme('crimson')
+  it('未知のテーマIDは slate にフォールバックする', async () => {
+    await store.setTheme('unknown-xyz')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('crimson')
+    expect(themeId).toBe('slate')
+  })
+
+  it('現行テーマIDはそのまま返される', async () => {
+    await store.setTheme('sky')
+    const themeId = await store.getTheme()
+    expect(themeId).toBe('sky')
   })
 
   it('経過時間通知設定のデフォルト値が返る', async () => {

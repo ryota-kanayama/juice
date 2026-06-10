@@ -43,12 +43,6 @@ describe('SessionList — 基本表示', () => {
     expect(screen.getByText(/まだジュースを注いでいません/)).toBeInTheDocument()
   })
 
-  it('時間範囲を表示する', () => {
-    render(<SessionList sessions={sessions} />)
-    expect(screen.getByText(/10:00/)).toBeInTheDocument()
-    expect(screen.getByText(/10:45/)).toBeInTheDocument()
-  })
-
   it('PJコードと作業区分をメタタグで表示する', () => {
     render(<SessionList sessions={sessions} />)
     expect(screen.getByText('P001')).toBeInTheDocument()
@@ -56,40 +50,11 @@ describe('SessionList — 基本表示', () => {
   })
 })
 
-describe('SessionList — times[]複数インターバル表示', () => {
-  it('times配列に複数インターバルがあるとサブリストで表示する', () => {
-    const session = makeSession({
-      times: [
-        { startTime: '2026-02-25T08:07:00', endTime: '2026-02-25T08:46:00' },
-        { startTime: '2026-02-25T08:49:00', endTime: '2026-02-25T09:26:00' },
-      ],
-    })
-    render(<SessionList sessions={[session]} />)
-    expect(screen.getByText(/08:07/)).toBeInTheDocument()
-    expect(screen.getByText(/09:26/)).toBeInTheDocument()
-  })
-
-  it('times配列の合計時間を表示する（76分）', () => {
-    const session = makeSession({
-      times: [
-        { startTime: '2026-02-25T08:07:00', endTime: '2026-02-25T08:46:00' },
-        { startTime: '2026-02-25T08:49:00', endTime: '2026-02-25T09:26:00' },
-      ],
-      totalTime: 76,
-    })
+describe('SessionList — 合計時間表示', () => {
+  it('セッションの合計時間を表示する（76分）', () => {
+    const session = makeSession({ totalTime: 76 })
     render(<SessionList sessions={[session]} />)
     expect(screen.getAllByText(/76分/).length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('endTimeがnullのインターバルは「HH:MM〜」と表示する', () => {
-    const session = makeSession({
-      times: [
-        { startTime: '2026-02-25T10:00:00', endTime: '2026-02-25T10:45:00' },
-        { startTime: '2026-02-25T11:00:00', endTime: null },
-      ],
-    })
-    render(<SessionList sessions={[session]} />)
-    expect(screen.getByText(/11:00〜$/)).toBeInTheDocument()
   })
 })
 
