@@ -50,12 +50,12 @@ function PopoverView() {
     <div className={styles.app}>
       {/* ヘッダー */}
       <header className={styles.header}>
-        <Button variant="ghost" size="icon" aria-label="閉じる" onClick={() => windowRepository.hide()}>
+        <Button variant="ghost" size="icon" aria-label="閉じる" className="[-webkit-app-region:no-drag]" onClick={() => windowRepository.hide()}>
           <Xmark width={16} height={16} />
         </Button>
         <span className={styles.logo}>juice</span>
         <div className={styles.menuWrapper} ref={menuRef}>
-          <Button variant="ghost" size="icon" aria-label="メニュー" onClick={() => setMenuOpen(p => !p)}>
+          <Button variant="ghost" size="icon" aria-label="メニュー" className="[-webkit-app-region:no-drag]" onClick={() => setMenuOpen(p => !p)}>
             <Menu width={16} height={16} />
           </Button>
           {menuOpen && (
