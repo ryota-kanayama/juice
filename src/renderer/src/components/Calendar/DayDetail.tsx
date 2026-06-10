@@ -82,7 +82,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack, suggestions = EMPT
       </div>
 
       {sessions.length === 0 ? (
-        <p className="m-0 text-[13px] text-[var(--text-muted)]">この日はジュースを注いでいません</p>
+        <p className="m-0 flex-1 text-[13px] text-[var(--text-muted)]">この日はジュースを注いでいません</p>
       ) : (
         <ul
           className="m-0 flex min-h-0 flex-1 list-none animate-slide-up flex-col gap-2.5 p-0"
@@ -126,7 +126,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack, suggestions = EMPT
 
       <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
-      <Card className="mb-2 mt-auto shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]">
+      <Card className="mb-2 mt-2 shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]">
         <CardContent className="flex items-center justify-end px-3 py-2 text-right text-[11px]">
           {sessions.length > 0 && (
             <span>注いだ時間: <strong>{totalMinutes}分</strong></span>
