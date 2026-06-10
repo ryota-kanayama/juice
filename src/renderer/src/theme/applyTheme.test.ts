@@ -5,6 +5,10 @@ describe('applyTheme', () => {
   beforeEach(() => {
     document.documentElement.removeAttribute('style')
     delete document.documentElement.dataset.theme
+    // appliedKeys をリセットするため、テスト間でモジュール状態を初期化する
+    applyTheme('milk')
+    document.documentElement.removeAttribute('style')
+    delete document.documentElement.dataset.theme
   })
 
   it('data-theme 属性を設定する', () => {
@@ -34,5 +38,12 @@ describe('applyTheme', () => {
     const milkBg = document.documentElement.style.getPropertyValue('--bg')
     applyTheme('graphite')
     expect(document.documentElement.style.getPropertyValue('--bg')).not.toBe(milkBg)
+  })
+
+  it('ダーク→ライト切替で shadow 変数の残留が掃除される', () => {
+    applyTheme('graphite')
+    expect(document.documentElement.style.getPropertyValue('--shadow-glass')).not.toBe('')
+    applyTheme('milk')
+    expect(document.documentElement.style.getPropertyValue('--shadow-glass')).toBe('')
   })
 })
