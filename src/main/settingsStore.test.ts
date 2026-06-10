@@ -18,46 +18,51 @@ describe('SettingsStore', () => {
     await rm(testDir, { recursive: true, force: true })
   })
 
-  it('設定ファイルが存在しない場合はデフォルトテーマ "slate" を返す', async () => {
+  it('設定ファイルが存在しない場合はデフォルトテーマ "milk" を返す', async () => {
     const themeId = await store.getTheme()
-    expect(themeId).toBe('slate')
+    expect(themeId).toBe('milk')
   })
 
   it('テーマを保存して取得できる', async () => {
-    await store.setTheme('sky')
+    await store.setTheme('soda')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('sky')
+    expect(themeId).toBe('soda')
   })
 
   it('テーマを変更できる', async () => {
-    await store.setTheme('rose')
-    await store.setTheme('sky')
+    await store.setTheme('berry')
+    await store.setTheme('soda')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('sky')
+    expect(themeId).toBe('soda')
   })
 
-  it('削除した旧テーマIDが現行テーマにマイグレーションされる', async () => {
-    await store.setTheme('honey')
+  it.each([
+    ['slate', 'milk'],
+    ['rose', 'berry'],
+    ['sky', 'soda'],
+    ['lemon', 'mandarin'],
+    ['graphite', 'graphite'],
+  ])('旧テーマID %s は %s に移行される', async (oldId, newId) => {
+    await store.setTheme(oldId)
     const themeId = await store.getTheme()
-    expect(themeId).toBe('lemon')
+    expect(themeId).toBe(newId)
   })
 
-  it('旧ダークテーマIDが graphite にマイグレーションされる', async () => {
-    await store.setTheme('midnight')
-    const themeId = await store.getTheme()
-    expect(themeId).toBe('graphite')
+  it('新テーマID はそのまま返る', async () => {
+    await store.setTheme('cassis')
+    expect(await store.getTheme()).toBe('cassis')
   })
 
-  it('未知のテーマIDは slate にフォールバックする', async () => {
+  it('未知のテーマIDは milk にフォールバックする', async () => {
     await store.setTheme('unknown-xyz')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('slate')
+    expect(themeId).toBe('milk')
   })
 
   it('現行テーマIDはそのまま返される', async () => {
-    await store.setTheme('sky')
+    await store.setTheme('soda')
     const themeId = await store.getTheme()
-    expect(themeId).toBe('sky')
+    expect(themeId).toBe('soda')
   })
 
   it('経過時間通知設定のデフォルト値が返る', async () => {

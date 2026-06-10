@@ -16,7 +16,7 @@ interface Settings {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  themeId: 'slate',
+  themeId: 'milk',
   idleNotificationEnabled: false,
   idleNotificationMinutes: 60,
   elapsedNotificationEnabled: false,
@@ -34,37 +34,41 @@ export class SettingsStore {
 
   private migrateThemeId(id: string): string {
     const map: Record<string, string> = {
-      // 削除したテーマ → 現行5テーマ
-      coral: 'rose',
-      ocean: 'sky',
-      honey: 'lemon',
+      // 2026-06 リアーキテクチャ前の5テーマ → 新テーマ
+      slate: 'milk',
+      rose: 'berry',
+      sky: 'soda',
+      lemon: 'mandarin',
+      // それ以前の旧テーマ（旧マップの行き先を新テーマに付け替え）
+      coral: 'berry',
+      ocean: 'soda',
+      honey: 'mandarin',
       crimson: 'graphite',
       ember: 'graphite',
       night: 'graphite',
       deep: 'graphite',
-      midnight: 'graphite',
       amber: 'graphite',
-      // 旧テーマ
-      orange: 'lemon',
-      grape: 'sky',
-      melon: 'sky',
-      peach: 'rose',
-      berry: 'rose',
-      cocoa: 'graphite',
-      blackberry: 'graphite',
-      olive: 'graphite',
-      plum: 'graphite',
-      // 旧旧テーマ
-      juice: 'lemon',
-      forest: 'sky',
-      sakura: 'rose',
-      lavender: 'sky',
+      orange: 'mandarin',
+      melon: 'matcha',
+      peach: 'berry',
+      cocoa: 'espresso',
+      blackberry: 'cassis',
+      olive: 'matcha',
+      plum: 'cassis',
+      juice: 'mandarin',
+      forest: 'matcha',
+      sakura: 'berry',
+      lavender: 'grape',
       charcoal: 'graphite',
-      sunset: 'lemon',
+      sunset: 'mandarin',
+      // grape / berry / midnight は新テーマとして復活したためマップから除外
     }
-    const VALID = new Set(['slate', 'graphite', 'rose', 'sky', 'lemon'])
+    const VALID = new Set([
+      'milk', 'oatmilk', 'matcha', 'soda', 'grape', 'mandarin', 'berry',
+      'graphite', 'midnight', 'cassis', 'espresso',
+    ])
     const mapped = map[id] ?? id
-    return VALID.has(mapped) ? mapped : 'slate'
+    return VALID.has(mapped) ? mapped : 'milk'
   }
 
   private get filePath(): string {
