@@ -9,6 +9,7 @@ import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { usePagination } from '../../hooks/usePagination'
 import { Input } from '@/components/ui/input'
+import { TimeField } from '@/components/ui/time-field'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -214,14 +215,15 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
       <Dialog open={endPickerOpen} onOpenChange={open => { if (!open) setEndPickerOpen(false) }}>
         <DialogContent className="max-w-[220px]" aria-describedby={undefined}>
           <DialogTitle>業務終了時刻</DialogTitle>
-          <Input
-            type="time"
-            className="h-11 text-center text-xl"
-            value={timePickerValue}
-            onChange={e => setTimePickerValue(e.target.value)}
-            autoFocus
-            onKeyDown={e => { if (e.key === 'Enter') handleTimePickerConfirm() }}
-          />
+          <div onKeyDown={e => { if (e.key === 'Enter') handleTimePickerConfirm() }}>
+            <TimeField
+              aria-label="業務終了時刻"
+              className="h-11 w-full justify-center text-xl"
+              value={timePickerValue}
+              onChange={setTimePickerValue}
+              autoFocus
+            />
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEndPickerOpen(false)}>キャンセル</Button>
             <Button onClick={handleTimePickerConfirm}>確定</Button>

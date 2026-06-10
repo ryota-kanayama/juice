@@ -155,3 +155,25 @@ describe('SessionList — 追加ボタン', () => {
     expect(onStartMore).toHaveBeenCalledWith(expect.objectContaining({ id: '1' }))
   })
 })
+
+describe('SessionList — 業務終了', () => {
+  it('終了→時刻を変更→確定で onWorkEnd が "HH:mm" で呼ばれる', () => {
+    const onWorkEnd = vi.fn()
+    render(<SessionList sessions={[makeSession()]} workStart="09:00" onWorkEnd={onWorkEnd} />)
+    fireEvent.click(screen.getByRole('button', { name: '終了' }))
+    fireEvent.change(screen.getByLabelText('時'), { target: { value: '18' } })
+    fireEvent.change(screen.getByLabelText('分'), { target: { value: '30' } })
+    fireEvent.click(screen.getByRole('button', { name: '確定' }))
+    expect(onWorkEnd).toHaveBeenCalledWith('18:30')
+  })
+
+  it('時刻セグメントでの Enter がラッパー経由で確定し onWorkEnd を呼ぶ', () => {
+    const onWorkEnd = vi.fn()
+    render(<SessionList sessions={[makeSession()]} workStart="09:00" onWorkEnd={onWorkEnd} />)
+    fireEvent.click(screen.getByRole('button', { name: '終了' }))
+    fireEvent.change(screen.getByLabelText('時'), { target: { value: '18' } })
+    fireEvent.change(screen.getByLabelText('分'), { target: { value: '30' } })
+    fireEvent.keyDown(screen.getByLabelText('分'), { key: 'Enter' })
+    expect(onWorkEnd).toHaveBeenCalledWith('18:30')
+  })
+})
