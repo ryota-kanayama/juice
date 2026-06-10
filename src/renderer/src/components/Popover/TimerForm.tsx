@@ -28,6 +28,7 @@ export function TimerForm({ onStart }: Props) {
               placeholder="どんなジュースにしますか？"
               type="text"
               aria-label="ジュースの種類"
+              className="min-w-0 px-2.5 text-[13px]"
               autoFocus
             />
             <Button type="submit" disabled={!name.trim()}>

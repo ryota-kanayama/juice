@@ -276,7 +276,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
       ) : (
         <ul
           ref={listRef}
-          className="m-0 flex min-h-0 flex-1 list-none animate-slide-up flex-col gap-1.5 overflow-y-auto py-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="m-0 flex min-h-0 flex-1 list-none animate-slide-up flex-col gap-1.5 overflow-y-auto px-0 py-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           key={animKey}
           onDragOver={handleListDragOver}
           onWheel={e => {
