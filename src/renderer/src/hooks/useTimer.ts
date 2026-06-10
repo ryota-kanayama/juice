@@ -85,7 +85,7 @@ export function useTimer(): TimerState {
 
     let resultSession: Session
 
-    const newIntervalMinutes = Math.max(1, Math.round((Date.now() - startTimeRef.current.getTime()) / 60000))
+    const newIntervalMinutes = Math.round((Date.now() - startTimeRef.current.getTime()) / 60000)
 
     if (extendingSessionRef.current) {
       // extend mode: 既存セッションの times に追記し totalTime を加算

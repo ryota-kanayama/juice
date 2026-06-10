@@ -59,6 +59,38 @@ describe('useTimer', () => {
     expect(mockUpdateSession).not.toHaveBeenCalled()
   })
 
+  it('30秒未満で止めると totalTime が 0 になる（四捨五入）', async () => {
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.start('テスト作業') })
+    act(() => { vi.advanceTimersByTime(20000) })
+    let session: Session | null = null
+    await act(async () => { session = await result.current.stop() })
+    expect(session!.totalTime).toBe(0)
+  })
+
+  it('30秒以上で止めると totalTime が 1 に四捨五入される', async () => {
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.start('テスト作業') })
+    act(() => { vi.advanceTimersByTime(40000) })
+    let session: Session | null = null
+    await act(async () => { session = await result.current.stop() })
+    expect(session!.totalTime).toBe(1)
+  })
+
+  it('extend モードでも 30秒未満なら totalTime は加算されない', async () => {
+    const existingSession: Session = {
+      id: 'ext-id', taskId: 'ext-id', name: '延長', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-02-27T08:00:00', endTime: '2026-02-27T09:00:00' }],
+      date: '2026-02-27', color: '#FF9500', totalTime: 60,
+    }
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.startMore(existingSession) })
+    act(() => { vi.advanceTimersByTime(20000) })
+    let session: Session | null = null
+    await act(async () => { session = await result.current.stop() })
+    expect(session!.totalTime).toBe(60)
+  })
+
   it('colorを指定して開始すると同じcolorがセッションに含まれる', async () => {
     const { result } = renderHook(() => useTimer())
     act(() => { result.current.start('テスト作業', '#FF9500') })
