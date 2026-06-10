@@ -39,7 +39,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const [endPickerOpen, setEndPickerOpen] = useState(false)
   const [timePickerValue, setTimePickerValue] = useState('')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
-  // 下書きは閉じても保持し、追加成功時のみクリアする（アプリ起動中のみメモリ保持）
+  // 追加ダイアログは毎回空で開く（過去の入力は候補機能で呼び出せるため下書きは保持しない）
   const [addDraft, setAddDraft] = useState<SessionFormValues>(EMPTY_FORM)
   // 編集ダイアログ。開くたびに対象セッションの値で初期化する
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
@@ -135,6 +135,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   }
 
   const openAddDialog = () => {
+    setAddDraft(EMPTY_FORM)
     setAddDialogOpen(true)
     setContextMenu(null)
   }
@@ -142,7 +143,6 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const handleAddConfirm = () => {
     if (!addDraft.name.trim() || !addDraft.totalTime) return
     onAdd?.({ ...addDraft, name: addDraft.name.trim() })
-    setAddDraft(EMPTY_FORM)
     setAddDialogOpen(false)
   }
 

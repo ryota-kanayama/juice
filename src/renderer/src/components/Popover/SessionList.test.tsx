@@ -197,13 +197,13 @@ describe('SessionList — 追加ボタン', () => {
   })
 })
 
-describe('SessionList — 追加フォームの下書き保持', () => {
+describe('SessionList — 追加フォームの初期化', () => {
   async function openAddDialog(container: HTMLElement, user: ReturnType<typeof userEvent.setup>) {
     fireEvent.contextMenu(container.firstChild as Element)
     await user.click(screen.getByRole('button', { name: '追加' }))
   }
 
-  it('途中まで入力して閉じ、再度開くと下書きが保持される', async () => {
+  it('途中まで入力して閉じても、再度開くと空になる（下書きは保持しない）', async () => {
     const user = userEvent.setup()
     const { container } = render(<SessionList sessions={[]} onAdd={vi.fn()} />)
 
@@ -213,11 +213,11 @@ describe('SessionList — 追加フォームの下書き保持', () => {
     await user.click(screen.getByRole('button', { name: 'キャンセル' }))
 
     await openAddDialog(container, user)
-    expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('仕様検討')
-    expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P999')
+    expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('')
+    expect(screen.getByPlaceholderText('PJコード')).toHaveValue('')
   })
 
-  it('追加に成功すると下書きはクリアされる', async () => {
+  it('追加に成功した後も空で開く', async () => {
     const user = userEvent.setup()
     const onAdd = vi.fn()
     const { container } = render(<SessionList sessions={[]} onAdd={onAdd} />)
