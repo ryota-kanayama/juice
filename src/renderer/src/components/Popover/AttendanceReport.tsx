@@ -18,7 +18,7 @@ export function AttendanceReport({ sessions }: Props) {
     useAttendanceReport(sessions)
 
   return (
-    <Card className="flex min-h-0 flex-1 flex-col bg-[var(--glass-bg)] p-3 [backdrop-filter:blur(12px)]">
+    <Card className="flex min-h-0 flex-1 flex-col rounded-xl bg-[var(--glass-bg)] p-3 [backdrop-filter:blur(12px)]">
       <div className="mb-3 flex items-center gap-2">
         <Label htmlFor="break" className="text-xs text-muted-foreground">休憩</Label>
         <Input

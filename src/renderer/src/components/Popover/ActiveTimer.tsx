@@ -23,7 +23,7 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
   const level = juiceLevel(elapsedSeconds)
 
   return (
-    <Card className="flex flex-1 w-full flex-col justify-center overflow-hidden bg-[var(--glass-bg)] shadow-[var(--shadow-glass)] [backdrop-filter:blur(var(--glass-blur))] [-webkit-backdrop-filter:blur(var(--glass-blur))]">
+    <Card className="flex flex-1 w-full flex-col justify-center overflow-hidden rounded-xl bg-[var(--glass-bg)] shadow-[var(--shadow-glass)] [backdrop-filter:blur(var(--glass-blur))] [-webkit-backdrop-filter:blur(var(--glass-blur))]">
       {/* メインビジュアル */}
       <div className="flex flex-col items-center gap-2.5 px-4 pb-4 pt-7">
         <p className="m-0 text-base font-bold text-[var(--text-primary)]">{name}</p>

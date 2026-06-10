@@ -27,26 +27,6 @@
   flex-shrink: 0;
 }
 
-.headerButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  color: var(--text-secondary);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-  -webkit-app-region: no-drag;
-}
-
-.headerButton:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
 .logo {
   font-size: 16px;
   font-weight: 800;
@@ -111,59 +91,6 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-}
-
-/* ====== ボトムタブバー（フローティングピル型） ====== */
-.tabBar {
-  display: flex;
-  align-items: stretch;
-  flex-shrink: 0;
-  margin: 0 12px 10px;
-  border-radius: var(--radius-lg);
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  overflow: hidden;
-}
-
-.tabItem {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 8px 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: var(--transition-smooth);
-  position: relative;
-  border-radius: var(--radius-md);
-  margin: 3px;
-}
-
-.tabItem:hover {
-  color: var(--text-secondary);
-  background: var(--glass-bg);
-}
-
-.tabActive {
-  color: var(--accent);
-  background: var(--accent-light);
-}
-
-.tabIcon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.tabLabel {
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1;
 }
 
 /* ====== タイマーページ ====== */

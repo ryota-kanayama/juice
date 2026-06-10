@@ -91,21 +91,21 @@ function PopoverView() {
       <nav className="flex shrink-0 items-stretch gap-1 border-t border-border bg-card p-1">
         <button
           onClick={() => setCurrentPage('timer')}
-          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'timer' ? 'bg-accent text-[var(--accent)]' : 'text-muted-foreground hover:bg-accent/50'}`}
+          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'timer' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
           <Timer width={18} height={18} />
           タイマー
         </button>
         <button
           onClick={() => setCurrentPage('calendar')}
-          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'calendar' ? 'bg-accent text-[var(--accent)]' : 'text-muted-foreground hover:bg-accent/50'}`}
+          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'calendar' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
           <Calendar width={18} height={18} />
           カレンダー
         </button>
         <button
           onClick={() => setCurrentPage('attendance')}
-          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'attendance' ? 'bg-accent text-[var(--accent)]' : 'text-muted-foreground hover:bg-accent/50'}`}
+          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'attendance' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
           <SendDiagonal width={18} height={18} />
           勤怠
