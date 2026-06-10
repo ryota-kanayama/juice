@@ -12,6 +12,7 @@ import { SetupView } from './components/Setup/SetupView'
 import { CalendarPage } from './components/Calendar/CalendarPage'
 import { windowRepository } from './repositories/windowRepository'
 import { Menu, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
+import { Button } from '@/components/ui/button'
 
 type Page = 'timer' | 'calendar' | 'attendance'
 
@@ -49,14 +50,14 @@ function PopoverView() {
     <div className={styles.app}>
       {/* ヘッダー */}
       <header className={styles.header}>
-        <button className={styles.headerButton} onClick={() => windowRepository.hide()}>
+        <Button variant="ghost" size="icon" aria-label="閉じる" onClick={() => windowRepository.hide()}>
           <Xmark width={16} height={16} />
-        </button>
+        </Button>
         <span className={styles.logo}>juice</span>
         <div className={styles.menuWrapper} ref={menuRef}>
-          <button className={styles.headerButton} onClick={() => setMenuOpen(p => !p)}>
+          <Button variant="ghost" size="icon" aria-label="メニュー" onClick={() => setMenuOpen(p => !p)}>
             <Menu width={16} height={16} />
-          </button>
+          </Button>
           {menuOpen && (
             <div className={styles.menuPopup}>
               <button
@@ -87,27 +88,27 @@ function PopoverView() {
       </main>
 
       {/* ボトムナビゲーション */}
-      <nav className={styles.tabBar}>
+      <nav className="flex shrink-0 items-stretch gap-1 border-t border-border bg-card p-1">
         <button
-          className={`${styles.tabItem} ${currentPage === 'timer' ? styles.tabActive : ''}`}
           onClick={() => setCurrentPage('timer')}
+          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'timer' ? 'bg-accent text-[var(--accent)]' : 'text-muted-foreground hover:bg-accent/50'}`}
         >
           <Timer width={18} height={18} />
-          <span className={styles.tabLabel}>タイマー</span>
+          タイマー
         </button>
         <button
-          className={`${styles.tabItem} ${currentPage === 'calendar' ? styles.tabActive : ''}`}
           onClick={() => setCurrentPage('calendar')}
+          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'calendar' ? 'bg-accent text-[var(--accent)]' : 'text-muted-foreground hover:bg-accent/50'}`}
         >
           <Calendar width={18} height={18} />
-          <span className={styles.tabLabel}>カレンダー</span>
+          カレンダー
         </button>
         <button
-          className={`${styles.tabItem} ${currentPage === 'attendance' ? styles.tabActive : ''}`}
           onClick={() => setCurrentPage('attendance')}
+          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'attendance' ? 'bg-accent text-[var(--accent)]' : 'text-muted-foreground hover:bg-accent/50'}`}
         >
           <SendDiagonal width={18} height={18} />
-          <span className={styles.tabLabel}>勤怠</span>
+          勤怠
         </button>
       </nav>
     </div>
