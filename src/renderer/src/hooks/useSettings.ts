@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { settingsRepository } from '../repositories/settingsRepository'
+import { applyTheme } from '../theme/applyTheme'
+import { DEFAULT_THEME_ID } from '../theme/themeParams'
 
 export interface SettingsState {
   activeThemeId: string
@@ -22,7 +24,7 @@ export interface SettingsState {
 
 /** 設定画面のオーケストレーション。各設定の読み出し・即時反映・永続化を統括。 */
 export function useSettings(): SettingsState {
-  const [activeThemeId, setActiveThemeId] = useState('rose')
+  const [activeThemeId, setActiveThemeId] = useState(DEFAULT_THEME_ID)
   const [idleEnabled, setIdleEnabled] = useState(false)
   const [idleMinutes, setIdleMinutes] = useState(60)
   const [elapsedEnabled, setElapsedEnabled] = useState(false)
@@ -61,7 +63,7 @@ export function useSettings(): SettingsState {
 
     setTheme: (themeId): void => {
       // 即時反映（IPC待ちなし）
-      document.documentElement.dataset.theme = themeId
+      applyTheme(themeId)
       setActiveThemeId(themeId)
       settingsRepository.setTheme(themeId)
     },

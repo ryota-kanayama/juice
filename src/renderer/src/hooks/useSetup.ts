@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { settingsRepository } from '../repositories/settingsRepository'
+import { applyTheme } from '../theme/applyTheme'
+import { DEFAULT_THEME_ID } from '../theme/themeParams'
 
 export interface SetupState {
   activeThemeId: string
@@ -11,7 +13,7 @@ export interface SetupState {
 
 /** セットアップウィザードのオーケストレーション。テーマ即時反映と完了処理を統括。 */
 export function useSetup(): SetupState {
-  const [activeThemeId, setActiveThemeId] = useState('rose')
+  const [activeThemeId, setActiveThemeId] = useState(DEFAULT_THEME_ID)
   const [userName, setUserNameState] = useState('')
 
   useEffect(() => {
@@ -24,7 +26,8 @@ export function useSetup(): SetupState {
     userName,
     setUserName: setUserNameState,
     setTheme: (themeId): void => {
-      document.documentElement.dataset.theme = themeId
+      // 即時反映（IPC待ちなし）
+      applyTheme(themeId)
       setActiveThemeId(themeId)
       settingsRepository.setTheme(themeId)
     },
