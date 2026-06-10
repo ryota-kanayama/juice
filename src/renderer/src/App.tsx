@@ -10,6 +10,8 @@ import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
 import { SetupView } from './components/Setup/SetupView'
 import { CalendarPage } from './components/Calendar/CalendarPage'
+import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
+import { useWorkday } from './hooks/useWorkday'
 import { windowRepository } from './repositories/windowRepository'
 import { Menu, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
@@ -115,8 +117,9 @@ function PopoverView() {
   )
 }
 
-function TimerPage({ sessions }: { sessions: SessionsState }) {
+export function TimerPage({ sessions }: { sessions: SessionsState }) {
   const { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
+  const workday = useWorkday(sessions.today)
   const [activeTimerName, setActiveTimerName] = useState('')
   const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
   const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
@@ -174,6 +177,15 @@ function TimerPage({ sessions }: { sessions: SessionsState }) {
             onStop={handleStop}
           />
         </div>
+      ) : !workday.workStart ? (
+        /* 業務開始前: オーバーレイで覆う */
+        <div className={styles.idleContent}>
+          <WorkStartOverlay
+            date={sessions.today}
+            onStart={workday.startWork}
+            onTeleworkStart={sessions.startTelework}
+          />
+        </div>
       ) : (
         /* 待機時: スクロール可能なコンテナ */
         <div className={styles.idleContent}>
@@ -187,7 +199,9 @@ function TimerPage({ sessions }: { sessions: SessionsState }) {
             onDelete={handleDelete}
             onAdjustStartTime={ms => adjustStartTime(new Date(ms))}
             onAdd={sessions.add}
-            onTeleworkStart={sessions.startTelework}
+            workStart={workday.workStart}
+            workEnd={workday.workEnd}
+            onWorkEnd={workday.endWork}
           />
         </div>
       )}

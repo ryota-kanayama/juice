@@ -30,10 +30,12 @@ interface Props {
   onDelete?: (sessionId: string) => void
   onAdjustStartTime?: (newStartMs: number) => void
   onAdd?: (params: AddParams) => void
-  onTeleworkStart?: () => void
+  workStart?: string | null
+  workEnd?: string | null
+  onWorkEnd?: (time: string) => void
 }
 
-export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, onTeleworkStart }: Props) {
+export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, workStart = null, workEnd = null, onWorkEnd }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingProjectCode, setEditingProjectCode] = useState('')
@@ -41,22 +43,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const [editingDuration, setEditingDuration] = useState('')
 
   const todayKey = today ?? formatLocalDate(Date.now())
-  const [workStart, setWorkStart] = useState<string | null>(
-    () => dailyStore.getWorkStart(todayKey)
-  )
-  const [workEnd, setWorkEnd] = useState<string | null>(
-    () => dailyStore.getWorkEnd(todayKey)
-  )
 
-  // 日付が変わったら workStart/workEnd をリセット
-  useEffect(() => {
-    setWorkStart(dailyStore.getWorkStart(todayKey))
-    setWorkEnd(dailyStore.getWorkEnd(todayKey))
-  }, [todayKey])
-
-  const [telework, setTelework] = useState(() => dailyStore.getTelework(todayKey))
-
-  const [timePickerMode, setTimePickerMode] = useState<'start' | 'end' | null>(null)
+  const [endPickerOpen, setEndPickerOpen] = useState(false)
   const [timePickerValue, setTimePickerValue] = useState('')
   const [addDialog, setAddDialog] = useState<AddParams | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
@@ -160,28 +148,14 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     setAddDialog(null)
   }
 
-  const handleWorkStart = () => {
-    setTimePickerValue(formatTimeFromDate(new Date()))
-    setTimePickerMode('start')
-  }
-
   const handleWorkEnd = () => {
     setTimePickerValue(formatTimeFromDate(new Date()))
-    setTimePickerMode('end')
+    setEndPickerOpen(true)
   }
 
   const handleTimePickerConfirm = () => {
-    if (timePickerMode === 'start') {
-      dailyStore.setWorkStart(todayKey, timePickerValue)
-      setWorkStart(timePickerValue)
-      if (telework) {
-        onTeleworkStart?.()
-      }
-    } else if (timePickerMode === 'end') {
-      dailyStore.setWorkEnd(todayKey, timePickerValue)
-      setWorkEnd(timePickerValue)
-    }
-    setTimePickerMode(null)
+    onWorkEnd?.(timePickerValue)
+    setEndPickerOpen(false)
   }
 
   const handleEditStart = (session: Session) => {
@@ -237,9 +211,9 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         setContextMenu({ sessionId: '', x: e.clientX, y: e.clientY })
       }}
     >
-      <Dialog open={timePickerMode !== null} onOpenChange={open => { if (!open) setTimePickerMode(null) }}>
+      <Dialog open={endPickerOpen} onOpenChange={open => { if (!open) setEndPickerOpen(false) }}>
         <DialogContent className="max-w-[220px]" aria-describedby={undefined}>
-          <DialogTitle>{timePickerMode === 'end' ? '業務終了時刻' : '業務開始時刻'}</DialogTitle>
+          <DialogTitle>業務終了時刻</DialogTitle>
           <Input
             type="time"
             className="h-11 text-center text-xl"
@@ -248,23 +222,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
             autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleTimePickerConfirm() }}
           />
-          {timePickerMode === 'start' && (
-            <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-primary"
-                checked={telework}
-                onChange={e => {
-                  const checked = e.target.checked
-                  setTelework(checked)
-                  dailyStore.setTelework(todayKey, checked)
-                }}
-              />
-              テレワーク
-            </label>
-          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTimePickerMode(null)}>キャンセル</Button>
+            <Button variant="outline" onClick={() => setEndPickerOpen(false)}>キャンセル</Button>
             <Button onClick={handleTimePickerConfirm}>確定</Button>
           </DialogFooter>
         </DialogContent>
@@ -382,14 +341,14 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
       <Card className="mb-2 mt-2">
         <CardContent className="flex items-center justify-between px-3 py-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5">
-            {!workEnd && (
+            {workStart && !workEnd && (
               <Button
-                variant={workStart ? 'destructive' : 'outline'}
+                variant="destructive"
                 size="sm"
-                className={workStart ? 'h-7' : 'h-7 border-green-600 text-green-600 hover:bg-green-600 hover:text-white'}
-                onClick={workStart ? handleWorkEnd : handleWorkStart}
+                className="h-7"
+                onClick={handleWorkEnd}
               >
-                {workStart ? '終了' : '開始'}
+                終了
               </Button>
             )}
             <span className="min-w-[90px] text-[11px] text-[var(--text-muted)]">
