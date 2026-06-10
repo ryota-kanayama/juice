@@ -108,7 +108,7 @@
   justify-content: space-between;
   gap: 8px;
   background: var(--gradient-accent);
-  color: #fff;
+  color: var(--text-on-accent);
   font-size: 12px;
   padding: 8px 14px;
   flex-shrink: 0;
@@ -117,7 +117,7 @@
 .midnightBanner button {
   background: none;
   border: none;
-  color: #fff;
+  color: var(--text-on-accent);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;

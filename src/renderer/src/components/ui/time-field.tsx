@@ -18,7 +18,7 @@ const pad = (n: number): string => String(n).padStart(2, '0')
 const wrap = (n: number, max: number): number => ((n % max) + max) % max
 
 const segCls =
-  'w-[2.6ch] rounded-[5px] py-0.5 bg-transparent text-center outline-none tabular-nums [font-size:inherit] selection:bg-transparent selection:text-white focus:bg-[var(--accent)] focus:text-white'
+  'w-[2.6ch] rounded-[5px] py-0.5 bg-transparent text-center outline-none tabular-nums [font-size:inherit] selection:bg-transparent selection:text-[var(--text-on-accent)] focus:bg-[var(--accent)] focus:text-[var(--text-on-accent)]'
 
 export function TimeField({
   value,

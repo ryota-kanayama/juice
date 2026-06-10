@@ -63,6 +63,8 @@
   --glass-border: #E4E4E7;
   --gradient-accent: linear-gradient(135deg, var(--accent), var(--accent-secondary, var(--accent)));
   --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* accent を背景にしたときの文字色（明色アクセントのダークテーマでは暗色にする） */
+  --text-on-accent: #FFFFFF;
 }
 
 /* ===== Light: Slate (neutral, default) ===== */
@@ -96,10 +98,11 @@
   --text-primary: #FAFAFA;
   --text-secondary: #A1A1AA;
   --text-muted: #71717A;
-  --accent: #3F3F46;
-  --accent-secondary: #52525B;
-  --accent-hover: #52525B;
+  --accent: #FAFAFA;
+  --accent-secondary: #E4E4E7;
+  --accent-hover: #E4E4E7;
   --accent-light: #27272A;
+  --text-on-accent: #18181B;
   --glass-bg: #18181B;
   --glass-border: #27272A;
   --shadow-glass: 0 1px 3px rgba(0, 0, 0, 0.4);
