@@ -65,137 +65,20 @@
   --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   /* accent を背景にしたときの文字色（明色アクセントのダークテーマでは暗色にする） */
   --text-on-accent: #FFFFFF;
-}
-
-/* ===== Light: Slate (neutral, default) ===== */
-:root,
-[data-theme="slate"] {
-  --bg: #FAFAFA;
-  --bg-card: #FFFFFF;
-  --bg-tag: #F4F4F5;
-  --bg-hover: #F4F4F5;
-  --border: #E4E4E7;
-  --border-light: #F1F1F3;
-  --text-primary: #18181B;
-  --text-secondary: #52525B;
-  --text-muted: #71717A;
-  --accent: #18181B;
-  --accent-secondary: #27272A;
-  --accent-hover: #27272A;
-  --accent-light: #F4F4F5;
-  --glass-bg: #FFFFFF;
-  --glass-border: #E4E4E7;
-}
-
-/* ===== Dark: Graphite (neutral) ===== */
-[data-theme="graphite"] {
-  --bg: #09090B;
-  --bg-card: #18181B;
-  --bg-tag: #27272A;
-  --bg-hover: #27272A;
-  --border: #27272A;
-  --border-light: #1F1F22;
-  --text-primary: #FAFAFA;
-  --text-secondary: #A1A1AA;
-  --text-muted: #71717A;
-  --accent: #FAFAFA;
-  --accent-secondary: #E4E4E7;
-  --accent-hover: #E4E4E7;
-  --accent-light: #27272A;
-  --text-on-accent: #18181B;
-  --glass-bg: #18181B;
-  --glass-border: #27272A;
-  --shadow-glass: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-elevated: 0 10px 30px rgba(0, 0, 0, 0.5);
-
-  --sc-background: 240 10% 3.9%;
-  --sc-foreground: 0 0% 98%;
-  --sc-card: 240 6% 10%;
-  --sc-card-foreground: 0 0% 98%;
-  --sc-popover: 240 6% 10%;
-  --sc-popover-foreground: 0 0% 98%;
-  --sc-primary: 0 0% 98%;
-  --sc-primary-foreground: 240 6% 10%;
-  --sc-secondary: 240 4% 16%;
-  --sc-secondary-foreground: 0 0% 98%;
-  --sc-muted: 240 4% 16%;
-  --sc-muted-foreground: 240 5% 65%;
-  --sc-accent: 240 4% 16%;
-  --sc-accent-foreground: 0 0% 98%;
-  --sc-destructive: 0 62.8% 30.6%;
-  --sc-destructive-foreground: 0 0% 98%;
-  --sc-border: 240 4% 16%;
-  --sc-input: 240 4% 16%;
-  --sc-ring: 240 5% 84%;
-}
-
-/* ===== Light: Rose (neutral surface + rose accent) ===== */
-[data-theme="rose"] {
-  --bg: #FAFAFA;
-  --bg-card: #FFFFFF;
-  --bg-tag: #F4F4F5;
-  --bg-hover: #F4F4F5;
-  --border: #E4E4E7;
-  --border-light: #F1F1F3;
-  --text-primary: #18181B;
-  --text-secondary: #52525B;
-  --text-muted: #71717A;
-  --accent: #E8546C;
-  --accent-secondary: #D4405A;
-  --accent-hover: #D04A60;
-  --accent-light: #FFE0E5;
-  --glass-bg: #FFFFFF;
-  --glass-border: #E4E4E7;
-
-  --sc-primary: 350 76% 62%;
-  --sc-primary-foreground: 0 0% 100%;
-  --sc-ring: 350 76% 62%;
-}
-
-/* ===== Light: Sky (neutral surface + sky accent) ===== */
-[data-theme="sky"] {
-  --bg: #FAFAFA;
-  --bg-card: #FFFFFF;
-  --bg-tag: #F4F4F5;
-  --bg-hover: #F4F4F5;
-  --border: #E4E4E7;
-  --border-light: #F1F1F3;
-  --text-primary: #18181B;
-  --text-secondary: #52525B;
-  --text-muted: #71717A;
-  --accent: #4A9FE8;
-  --accent-secondary: #3580D0;
-  --accent-hover: #3890D8;
-  --accent-light: #D8ECFF;
-  --glass-bg: #FFFFFF;
-  --glass-border: #E4E4E7;
-
-  --sc-primary: 208 77% 60%;
-  --sc-primary-foreground: 0 0% 100%;
-  --sc-ring: 208 77% 60%;
-}
-
-/* ===== Light: Lemon (neutral surface + lemon accent) ===== */
-[data-theme="lemon"] {
-  --bg: #FAFAFA;
-  --bg-card: #FFFFFF;
-  --bg-tag: #F4F4F5;
-  --bg-hover: #F4F4F5;
-  --border: #E4E4E7;
-  --border-light: #F1F1F3;
-  --text-primary: #18181B;
-  --text-secondary: #52525B;
-  --text-muted: #71717A;
-  --accent: #B8860B;
-  --accent-secondary: #9A6F08;
-  --accent-hover: #A6790A;
-  --accent-light: #FBF1C7;
-  --glass-bg: #FFFFFF;
-  --glass-border: #E4E4E7;
-
-  --sc-primary: 43 89% 38%;
-  --sc-primary-foreground: 0 0% 100%;
-  --sc-ring: 43 89% 38%;
+  /* フォールバック（Milk 相当）。applyTheme が実行されると上書きされる */
+  --bg: #f6f6f8;
+  --bg-card: #fdfdfe;
+  --bg-tag: #ececee;
+  --bg-hover: #ececee;
+  --border: #e1e1e2;
+  --border-light: #eeeeef;
+  --text-primary: #1a1a1c;
+  --text-secondary: #4d4d4f;
+  --text-muted: #717173;
+  --accent: #212124;
+  --accent-secondary: #131316;
+  --accent-hover: #161618;
+  --accent-light: #e8e8e9;
 }
 
 html, body {
