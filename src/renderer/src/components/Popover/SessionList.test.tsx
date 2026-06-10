@@ -222,6 +222,24 @@ describe('SessionList — 入力候補', () => {
   })
 })
 
+describe('SessionList — 追加ダイアログの Escape 2段階動作', () => {
+  it('追加ダイアログでドロップダウン表示中の Escape はダイアログを閉じず、2回目で閉じる', async () => {
+    render(<SessionList sessions={[]} onAdd={vi.fn()} suggestions={TEST_SUGGESTIONS} />)
+    fireEvent.contextMenu(screen.getByText('まだジュースを注いでいません'))
+    await userEvent.click(screen.getByText('追加'))
+    // 作業名にフォーカスしてドロップダウンを開く
+    await userEvent.click(screen.getByPlaceholderText('作業名（必須）'))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    // 1回目: ドロップダウンだけ閉じる
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('作業名（必須）')).toBeInTheDocument()
+    // 2回目: ダイアログが閉じる
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByPlaceholderText('作業名（必須）')).not.toBeInTheDocument()
+  })
+})
+
 describe('SessionList — 業務終了', () => {
   it('終了→時刻を変更→確定で onWorkEnd が "HH:mm" で呼ばれる', () => {
     const onWorkEnd = vi.fn()

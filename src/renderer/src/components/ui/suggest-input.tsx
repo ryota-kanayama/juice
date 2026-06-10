@@ -37,6 +37,9 @@ export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, on
   const visible = open && filtered.length > 0
   React.useEffect(() => {
     onOpenChangeRef.current?.(visible)
+    return () => {
+      if (visible) onOpenChangeRef.current?.(false)
+    }
   }, [visible])
 
   const select = (option: SuggestOption): void => {

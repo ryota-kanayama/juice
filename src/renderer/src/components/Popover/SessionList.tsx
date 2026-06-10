@@ -66,6 +66,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
   // 追加ダイアログ内でドロップダウンが開いている数カウンタ（Escape 処理用）
   const [addSuggestOpenCount, setAddSuggestOpenCount] = useState(0)
+  // 追加ダイアログ内のドロップダウン開数。Escape でダイアログごと閉じないための判定に使う
+  const handleSuggestOpenChange = (open: boolean): void => {
+    setAddSuggestOpenCount(c => (open ? c + 1 : Math.max(0, c - 1)))
+  }
 
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
   const { expandedId, setExpandedId } = useExpandedItem()
@@ -441,7 +445,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                   workCategory: meta ? meta.workCategory : d.workCategory,
                 }))
               }}
-              onOpenChange={open => setAddSuggestOpenCount(c => open ? c + 1 : Math.max(0, c - 1))}
+              onOpenChange={handleSuggestOpenChange}
               autoFocus
             />
             <div className="flex gap-2">
@@ -452,7 +456,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 onChange={e => setAddDraft(d => ({ ...d, projectCode: e.target.value }))}
                 options={projectCodeOptions}
                 onSelectOption={o => setAddDraft(d => ({ ...d, projectCode: o.value }))}
-                onOpenChange={open => setAddSuggestOpenCount(c => open ? c + 1 : Math.max(0, c - 1))}
+                onOpenChange={handleSuggestOpenChange}
               />
               <SuggestInput
                 className="text-xs"
@@ -461,7 +465,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 onChange={e => setAddDraft(d => ({ ...d, workCategory: e.target.value }))}
                 options={workCategoryOptions}
                 onSelectOption={o => setAddDraft(d => ({ ...d, workCategory: o.value }))}
-                onOpenChange={open => setAddSuggestOpenCount(c => open ? c + 1 : Math.max(0, c - 1))}
+                onOpenChange={handleSuggestOpenChange}
               />
             </div>
             <div className="flex items-center gap-2">
