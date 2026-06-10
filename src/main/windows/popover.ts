@@ -16,7 +16,8 @@ export function setLastTrayBounds(bounds: { x: number; y: number; width: number;
 function createPopoverWindow(settingsStore: SettingsStore): BrowserWindow {
   const win = new BrowserWindow({
     width: 320,
-    height: 520,
+    // PJコード・作業区分のチップ付きセッション4件 + フォーム + フッターが収まる高さ
+    height: 530,
     show: false,
     frame: false,
     resizable: false,

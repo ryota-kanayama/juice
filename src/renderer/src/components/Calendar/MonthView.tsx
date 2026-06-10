@@ -88,7 +88,7 @@ export function MonthView({
               aria-label={`${month}月${day}日${hasSession ? '（記録あり）' : ''}`}
             >
               {day}
-              {hasSession && <span className={`absolute bottom-[2px] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${isSelected ? 'bg-white' : 'bg-[var(--accent)]'}`} aria-hidden="true" />}
+              {hasSession && <span className={`absolute top-[calc(50%+8px)] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${isSelected ? 'bg-white' : 'bg-[var(--accent)]'}`} aria-hidden="true" />}
             </button>
           )
         })}

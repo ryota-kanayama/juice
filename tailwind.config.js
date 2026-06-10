@@ -68,8 +68,14 @@ module.exports = {
           '100%': { transform: 'translateY(0px)', opacity: '0' },
         },
         'wave-shift': {
+          // viewBox 120 の user 単位で 1 周期(=120)ぶん横スクロール
           from: { transform: 'translateX(0)' },
-          to: { transform: 'translateX(-66.66%)' },
+          to: { transform: 'translateX(-120px)' },
+        },
+        slosh: {
+          // 中心まわりに左右へ傾けて液体が揺れているように見せる
+          '0%, 100%': { transform: 'rotate(-3deg)' },
+          '50%': { transform: 'rotate(3deg)' },
         },
         'slide-up': {
           from: { opacity: '0', transform: 'translateY(20px)' },
@@ -83,10 +89,11 @@ module.exports = {
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'bubble-rise-1': 'bubble-rise 3.2s ease-in infinite',
-        'bubble-rise-2': 'bubble-rise 2.8s ease-in 1.2s infinite',
-        'bubble-rise-3': 'bubble-rise 3.6s ease-in 0.5s infinite',
+        'bubble-rise-1': 'bubble-rise 4.5s ease-in infinite',
+        'bubble-rise-2': 'bubble-rise 4s ease-in 1.2s infinite',
+        'bubble-rise-3': 'bubble-rise 5s ease-in 0.5s infinite',
         'wave-shift': 'wave-shift 4s linear infinite',
+        slosh: 'slosh 2.5s ease-in-out infinite',
         'slide-up': 'slide-up 0.25s ease-out',
         'fade-in': 'fade-in 0.25s ease',
       },

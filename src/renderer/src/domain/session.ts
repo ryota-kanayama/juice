@@ -26,9 +26,9 @@ export function applySessionEdit(
   }
 
   const { totalMinutes } = edit
-  if (totalMinutes != null && totalMinutes >= 1 && session.times.length > 0) {
+  if (totalMinutes != null && totalMinutes >= 1) {
     const lastInterval = session.times[session.times.length - 1]
-    if (!lastInterval.endTime) {
+    if (lastInterval && !lastInterval.endTime) {
       // 稼働中: 合計が指定値になるよう最後の区間の開始時刻を調整
       const desiredElapsed = Math.max(1, totalMinutes - session.totalTime)
       const newStartMs = Date.now() - desiredElapsed * 60000

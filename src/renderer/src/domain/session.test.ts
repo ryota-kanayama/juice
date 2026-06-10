@@ -114,13 +114,14 @@ describe('applySessionEdit', () => {
     expect(adjustedStartMs).toBeUndefined()
   })
 
-  it('times が空のセッションでは時間も変更しない（手動追加セッション）', () => {
+  it('times が空のセッション（手動追加）でも totalTime を変更できる', () => {
     const manual = makeSession({ times: [], totalTime: 60 })
     const { session, adjustedStartMs } = applySessionEdit(manual, {
       name: '作業A', projectCode: 'P', workCategory: '開発',
       totalMinutes: 90,
     })
-    expect(session.totalTime).toBe(60)
+    expect(session.totalTime).toBe(90)
+    expect(session.times).toEqual([])
     expect(adjustedStartMs).toBeUndefined()
   })
 })
