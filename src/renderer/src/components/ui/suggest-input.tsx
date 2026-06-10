@@ -13,11 +13,13 @@ interface SuggestInputProps extends React.ComponentProps<'input'> {
   onSelectOption: (option: SuggestOption) => void
   /** ドロップダウンの開閉状態が変わったときに呼ばれる */
   onOpenChange?: (open: boolean) => void
+  /** true のとき候補リストを上方向に開く */
+  dropUp?: boolean
 }
 
 const MAX_OPTIONS = 8
 
-export function SuggestInput({ options, onSelectOption, onOpenChange, onKeyDown, onFocus, onBlur, onChange, ...props }: SuggestInputProps) {
+export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, onKeyDown, onFocus, onBlur, onChange, ...props }: SuggestInputProps) {
   const [open, setOpen] = React.useState(false)
   const [highlight, setHighlight] = React.useState(-1)
 
@@ -86,7 +88,10 @@ export function SuggestInput({ options, onSelectOption, onOpenChange, onKeyDown,
       {open && filtered.length > 0 && (
         <ul
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 m-0 mt-1 list-none max-h-60 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-[var(--shadow-elevated)]"
+          className={cn(
+            'absolute left-0 right-0 z-50 m-0 list-none max-h-60 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-[var(--shadow-elevated)]',
+            dropUp ? 'bottom-full mb-1' : 'top-full mt-1'
+          )}
         >
           {filtered.map((option, i) => (
             <li

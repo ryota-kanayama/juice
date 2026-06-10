@@ -108,6 +108,21 @@ describe('SuggestInput', () => {
     expect(onKeyDown).not.toHaveBeenCalled()
   })
 
+  it('dropUp 指定で候補リストが上方向に開く', async () => {
+    render(
+      <SuggestInput
+        value=""
+        onChange={() => {}}
+        options={OPTIONS}
+        onSelectOption={() => {}}
+        dropUp
+        aria-label="テスト入力"
+      />
+    )
+    await userEvent.click(screen.getByLabelText('テスト入力'))
+    expect(screen.getByRole('listbox').className).toContain('bottom-full')
+  })
+
   it('ドロップダウンの開閉が onOpenChange で通知される', async () => {
     const onOpenChange = vi.fn()
     render(

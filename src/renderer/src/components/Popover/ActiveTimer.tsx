@@ -80,6 +80,7 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
             placeholder="PJコード"
             aria-label="PJコード"
             autoFocus
+            dropUp
           />
           <SuggestInput
             value={workCategory}
@@ -88,6 +89,7 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
             onSelectOption={o => setWorkCategory(o.value)}
             placeholder="作業区分"
             aria-label="作業区分"
+            dropUp
           />
         </div>
 
