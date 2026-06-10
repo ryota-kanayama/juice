@@ -5,7 +5,9 @@ import { formatHex, clampChroma } from 'culori'
 /** OKLCH 値を sRGB に丸めて hex 文字列にする */
 export function oklchToHex(l: number, c: number, h: number): string {
   const clamped = clampChroma({ mode: 'oklch', l, c, h }, 'oklch')
-  return formatHex(clamped)
+  // formatHex は Color を受け取ると string を返すが、型シグネチャ上 string | undefined になり得るため
+  // ?? でフォールバックを保証する
+  return formatHex(clamped) ?? '#000000'
 }
 
 /** hex → WCAG 相対輝度 */
