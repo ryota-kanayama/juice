@@ -30,15 +30,22 @@ export function MonthView({
 
   const sessionDateSet = new Set(sessionDates)
 
+  // 曜日見出し(auto) + 週の行(均等)で残り高さを埋める
+  const numWeekRows = Math.ceil(cells.length / 7)
+
   return (
-    <Card className="select-none p-3">
+    <Card className="flex flex-1 flex-col select-none p-3">
       <div className="mb-3 flex items-center justify-between">
         <Button variant="ghost" size="icon" onClick={onPrevMonth} aria-label="前月"><NavArrowLeft width={18} height={18} /></Button>
         <span className="text-base font-bold text-[var(--text-primary)]">{year}年 {month}月</span>
         <Button variant="ghost" size="icon" onClick={onNextMonth} aria-label="次月"><NavArrowRight width={18} height={18} /></Button>
       </div>
 
-      <div className="grid grid-cols-7 gap-[3px]" role="grid">
+      <div
+        className="grid flex-1 grid-cols-7 gap-[3px]"
+        style={{ gridTemplateRows: `auto repeat(${numWeekRows}, minmax(0, 1fr))` }}
+        role="grid"
+      >
         {['日', '月', '火', '水', '木', '金', '土'].map((d, i) => (
           <div
             key={d}
@@ -68,7 +75,7 @@ export function MonthView({
             <button
               key={dateStr}
               className={[
-                'relative cursor-pointer rounded-[6px] border-0 py-[7px] text-center text-[13px] leading-none transition-all',
+                'relative flex h-full min-h-[32px] cursor-pointer items-center justify-center rounded-[6px] border-0 text-[13px] leading-none transition-all',
                 hasSession ? 'font-semibold' : '',
                 isSelected
                   ? 'bg-[image:var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)]'
