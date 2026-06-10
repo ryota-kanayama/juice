@@ -57,6 +57,13 @@ describe('ActiveTimer', () => {
     expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
   })
 
+  it('色キーを渡すと CSS 変数に解決される', () => {
+    render(
+      <ActiveTimer name="テスト" elapsedSeconds={0} color="strawberry" onStop={vi.fn()} />
+    )
+    expect(screen.getByTestId('juice-level')).toHaveStyle({ fill: 'var(--juice-strawberry)' })
+  })
+
   it('PJコードの候補を選択すると入力に反映される', async () => {
     render(
       <ActiveTimer
