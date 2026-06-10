@@ -41,11 +41,19 @@ describe('ActiveTimer', () => {
     expect(screen.getByRole('textbox', { name: '作業区分' })).toHaveValue('設計')
   })
 
-  it('elapsedSecondsが900の時、波が最上部（top: 0%）になる', () => {
+  it('elapsedSecondsが900の時、液面が最上部（surfaceY: 0）になる', () => {
     const { container } = render(
       <ActiveTimer name="テスト" elapsedSeconds={900} color="#FF9500" onStop={vi.fn()} />
     )
     const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel).toHaveStyle({ top: '0%' })
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
+  })
+
+  it('elapsedSecondsが0の時、液面が最下部（surfaceY: 120）になる', () => {
+    const { container } = render(
+      <ActiveTimer name="テスト" elapsedSeconds={0} color="#FF9500" onStop={vi.fn()} />
+    )
+    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
   })
 })
