@@ -176,6 +176,8 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
             color={activeColor}
             initialProjectCode={activeTimerProjectCode}
             initialWorkCategory={activeTimerWorkCategory}
+            projectCodeSuggestions={suggestions.projectCodes}
+            workCategorySuggestions={suggestions.workCategories}
             onStop={handleStop}
           />
         </div>

@@ -56,4 +56,36 @@ describe('ActiveTimer', () => {
     const juiceLevel = container.querySelector('[data-testid="juice-level"]')
     expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
   })
+
+  it('PJコードの候補を選択すると入力に反映される', async () => {
+    render(
+      <ActiveTimer
+        name="テスト"
+        elapsedSeconds={60}
+        color="#ff6b6b"
+        onStop={vi.fn()}
+        projectCodeSuggestions={['P001', 'P002']}
+        workCategorySuggestions={['設計']}
+      />
+    )
+    await userEvent.click(screen.getByLabelText('PJコード'))
+    await userEvent.click(screen.getByText('P002'))
+    expect(screen.getByLabelText('PJコード')).toHaveValue('P002')
+  })
+
+  it('作業区分の候補を選択すると入力に反映される', async () => {
+    render(
+      <ActiveTimer
+        name="テスト"
+        elapsedSeconds={60}
+        color="#ff6b6b"
+        onStop={vi.fn()}
+        projectCodeSuggestions={[]}
+        workCategorySuggestions={['設計', '会議']}
+      />
+    )
+    await userEvent.click(screen.getByLabelText('作業区分'))
+    await userEvent.click(screen.getByText('会議'))
+    expect(screen.getByLabelText('作業区分')).toHaveValue('会議')
+  })
 })

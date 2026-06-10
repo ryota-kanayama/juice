@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Input } from '@/components/ui/input'
+import { SuggestInput } from '@/components/ui/suggest-input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
@@ -9,6 +9,8 @@ interface Props {
   color: string
   initialProjectCode?: string
   initialWorkCategory?: string
+  projectCodeSuggestions?: string[]
+  workCategorySuggestions?: string[]
   onStop: (projectCode: string, workCategory: string) => void
 }
 
@@ -17,7 +19,7 @@ function juiceLevel(seconds: number): number {
   return Math.min((seconds / 900) * 100, 100)
 }
 
-export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, initialWorkCategory, onStop }: Props) {
+export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, initialWorkCategory, projectCodeSuggestions = [], workCategorySuggestions = [], onStop }: Props) {
   const [projectCode, setProjectCode] = useState(initialProjectCode ?? '')
   const [workCategory, setWorkCategory] = useState(initialWorkCategory ?? '')
   const level = juiceLevel(elapsedSeconds)
@@ -70,16 +72,20 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
       {/* コントロール */}
       <div className="flex flex-col items-center gap-2.5 border-t border-[var(--glass-border)] px-4 pb-4 pt-3">
         <div className="flex w-full gap-1.5">
-          <Input
+          <SuggestInput
             value={projectCode}
             onChange={e => setProjectCode(e.target.value)}
+            options={projectCodeSuggestions.map(v => ({ value: v }))}
+            onSelectOption={o => setProjectCode(o.value)}
             placeholder="PJコード"
             aria-label="PJコード"
             autoFocus
           />
-          <Input
+          <SuggestInput
             value={workCategory}
             onChange={e => setWorkCategory(e.target.value)}
+            options={workCategorySuggestions.map(v => ({ value: v }))}
+            onSelectOption={o => setWorkCategory(o.value)}
             placeholder="作業区分"
             aria-label="作業区分"
           />
