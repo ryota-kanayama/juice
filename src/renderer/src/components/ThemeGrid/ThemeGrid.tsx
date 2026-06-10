@@ -22,11 +22,18 @@ export function ThemeGrid({ themes, activeThemeId, onSelect, size = 'default' }:
           onClick={() => onSelect(theme.id)}
         >
           <div className={styles.dots}>
-            <span className={styles.dot} style={{ background: theme.accent }} />
+            <span
+              className={styles.dot}
+              style={{
+                background: theme.gradient
+                  ? `linear-gradient(135deg, ${theme.accent}, ${theme.accentSecondary ?? theme.accent})`
+                  : theme.accent,
+              }}
+            />
             <span className={styles.dot} style={{ background: theme.textPrimary }} />
           </div>
           <span className={`${styles.label} ${isCompact ? styles.labelCompact : ''}`} style={{ color: theme.textPrimary }}>
-            {theme.name}
+            {theme.emoji} {theme.name}
           </span>
           {activeThemeId === theme.id && (
             <span className={styles.check} style={{ color: theme.accent }}>
