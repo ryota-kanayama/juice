@@ -192,6 +192,36 @@ describe('SessionList — 追加フォームの下書き保持', () => {
   })
 })
 
+const TEST_SUGGESTIONS = {
+  names: [
+    { name: '資料作成', projectCode: 'P001', workCategory: '設計' },
+  ],
+  projectCodes: ['P001', 'P002'],
+  workCategories: ['設計', '会議'],
+}
+
+describe('SessionList — 入力候補', () => {
+  it('追加ダイアログで作業名候補を選択すると PJコード・作業区分も埋まる', async () => {
+    render(<SessionList sessions={[]} onAdd={vi.fn()} suggestions={TEST_SUGGESTIONS} />)
+    fireEvent.contextMenu(screen.getByText('まだジュースを注いでいません'))
+    await userEvent.click(screen.getByText('追加'))
+    await userEvent.click(screen.getByPlaceholderText('作業名（必須）'))
+    await userEvent.click(screen.getByText('資料作成'))
+    expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('資料作成')
+    expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P001')
+    expect(screen.getByPlaceholderText('作業区分')).toHaveValue('設計')
+  })
+
+  it('追加ダイアログで PJコード候補を選択できる', async () => {
+    render(<SessionList sessions={[]} onAdd={vi.fn()} suggestions={TEST_SUGGESTIONS} />)
+    fireEvent.contextMenu(screen.getByText('まだジュースを注いでいません'))
+    await userEvent.click(screen.getByText('追加'))
+    await userEvent.click(screen.getByPlaceholderText('PJコード'))
+    await userEvent.click(screen.getByText('P002'))
+    expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P002')
+  })
+})
+
 describe('SessionList — 業務終了', () => {
   it('終了→時刻を変更→確定で onWorkEnd が "HH:mm" で呼ばれる', () => {
     const onWorkEnd = vi.fn()

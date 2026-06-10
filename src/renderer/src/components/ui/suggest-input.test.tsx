@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useState } from 'react'
+import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SuggestInput, type SuggestOption } from './suggest-input'
@@ -138,6 +139,28 @@ describe('SuggestInput', () => {
     await userEvent.click(screen.getByLabelText('テスト入力'))
     expect(onOpenChange).toHaveBeenLastCalledWith(true)
     await userEvent.keyboard('{Escape}')
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('候補が絞り込みで0件になると onOpenChange(false) が通知される', async () => {
+    const onOpenChange = vi.fn()
+    function ZeroHarness() {
+      const [value, setValue] = useState('')
+      return (
+        <SuggestInput
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          options={OPTIONS}
+          onSelectOption={() => {}}
+          onOpenChange={onOpenChange}
+          aria-label="テスト入力"
+        />
+      )
+    }
+    render(<ZeroHarness />)
+    await userEvent.click(screen.getByLabelText('テスト入力'))
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    await userEvent.type(screen.getByLabelText('テスト入力'), 'zzz')
     expect(onOpenChange).toHaveBeenLastCalledWith(false)
   })
 })

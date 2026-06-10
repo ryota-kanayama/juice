@@ -31,15 +31,17 @@ export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, on
   // Fix 2: filtered の範囲外を指さないようにする
   const safeHighlight = highlight < filtered.length ? highlight : -1
 
-  // Fix 4: open 変更を外部通知するヘルパー
-  const setOpenAndNotify = (next: boolean): void => {
-    setOpen(next)
-    onOpenChange?.(next)
-  }
+  // 可視状態（open && filtered.length > 0）の変化を外部通知する
+  const onOpenChangeRef = React.useRef(onOpenChange)
+  React.useEffect(() => { onOpenChangeRef.current = onOpenChange })
+  const visible = open && filtered.length > 0
+  React.useEffect(() => {
+    onOpenChangeRef.current?.(visible)
+  }, [visible])
 
   const select = (option: SuggestOption): void => {
     onSelectOption(option)
-    setOpenAndNotify(false)
+    setOpen(false)
     setHighlight(-1)
   }
 
@@ -67,7 +69,7 @@ export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, on
         return
       }
       if (e.key === 'Escape') {
-        setOpenAndNotify(false)
+        setOpen(false)
         setHighlight(-1)
         return
       }
@@ -80,9 +82,9 @@ export function SuggestInput({ options, onSelectOption, onOpenChange, dropUp, on
       <Input
         {...props}
         autoComplete="off"
-        onFocus={e => { setOpenAndNotify(true); onFocus?.(e) }}
-        onBlur={e => { setOpenAndNotify(false); setHighlight(-1); onBlur?.(e) }}
-        onChange={e => { setOpenAndNotify(true); setHighlight(-1); onChange?.(e) }}
+        onFocus={e => { setOpen(true); onFocus?.(e) }}
+        onBlur={e => { setOpen(false); setHighlight(-1); onBlur?.(e) }}
+        onChange={e => { setOpen(true); setHighlight(-1); onChange?.(e) }}
         onKeyDown={handleKeyDown}
       />
       {open && filtered.length > 0 && (

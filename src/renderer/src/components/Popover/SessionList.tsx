@@ -9,6 +9,8 @@ import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { usePagination } from '../../hooks/usePagination'
 import { Input } from '@/components/ui/input'
+import { SuggestInput } from '@/components/ui/suggest-input'
+import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
 import { TimeField } from '@/components/ui/time-field'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -34,9 +36,10 @@ interface Props {
   workStart?: string | null
   workEnd?: string | null
   onWorkEnd?: (time: string) => void
+  suggestions?: Suggestions
 }
 
-export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, workStart = null, workEnd = null, onWorkEnd }: Props) {
+export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, workStart = null, workEnd = null, onWorkEnd, suggestions = EMPTY_SUGGESTIONS }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const [editingProjectCode, setEditingProjectCode] = useState('')
@@ -52,6 +55,17 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const EMPTY_ADD_DRAFT: AddParams = { name: '', projectCode: '', workCategory: '', totalTime: '' }
   const [addDraft, setAddDraft] = useState<AddParams>(EMPTY_ADD_DRAFT)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  const nameOptions = suggestions.names.map(s => ({
+    value: s.name,
+    sub: [s.projectCode, s.workCategory].filter(Boolean).join(' / ') || undefined,
+  }))
+  const projectCodeOptions = suggestions.projectCodes.map(v => ({ value: v }))
+  const workCategoryOptions = suggestions.workCategories.map(v => ({ value: v }))
+  const findNameSuggestion = (value: string) => suggestions.names.find(n => n.name === value)
+
+  // 追加ダイアログ内でドロップダウンが開いている数カウンタ（Escape 処理用）
+  const [addSuggestOpenCount, setAddSuggestOpenCount] = useState(0)
 
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
   const { expandedId, setExpandedId } = useExpandedItem()
@@ -257,7 +271,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               draggable={editingKey !== session.id}
               className={`group flex cursor-grab items-start gap-2 rounded-[8px] border bg-card px-2.5 py-2 transition-all duration-200 hover:bg-accent active:cursor-grabbing ${expandedId === session.id ? 'bg-accent' : ''} ${dragOverId === session.id ? 'border-[var(--accent)] shadow-[0_0_0_2px_var(--accent-light)]' : 'border-border'}`}
               onClick={(e) => {
-                if ((e.target as HTMLElement).closest('button, input')) return
+                if ((e.target as HTMLElement).closest('button, input, [role="listbox"]')) return
                 setExpandedId(prev => prev === session.id ? null : session.id)
               }}
               onContextMenu={e => {
@@ -274,26 +288,39 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 {editingKey === session.id ? (
                   <div className="flex flex-col gap-[3px]">
-                    <Input
+                    <SuggestInput
                       className="h-7 text-xs"
                       value={editingProjectCode}
                       onChange={e => setEditingProjectCode(e.target.value)}
+                      options={projectCodeOptions}
+                      onSelectOption={o => setEditingProjectCode(o.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="PJコード"
                       aria-label="PJコード"
                     />
-                    <Input
+                    <SuggestInput
                       className="h-7 text-sm font-medium"
                       value={editingName}
                       onChange={e => setEditingName(e.target.value)}
+                      options={nameOptions}
+                      onSelectOption={o => {
+                        const meta = findNameSuggestion(o.value)
+                        setEditingName(o.value)
+                        if (meta) {
+                          setEditingProjectCode(meta.projectCode)
+                          setEditingWorkCategory(meta.workCategory)
+                        }
+                      }}
                       onKeyDown={handleKeyDown}
                       aria-label="セッション名"
                       autoFocus
                     />
-                    <Input
+                    <SuggestInput
                       className="h-7 text-xs"
                       value={editingWorkCategory}
                       onChange={e => setEditingWorkCategory(e.target.value)}
+                      options={workCategoryOptions}
+                      onSelectOption={o => setEditingWorkCategory(o.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="作業区分"
                       aria-label="作業区分"
@@ -394,27 +421,47 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
       )}
 
       <Dialog open={addDialogOpen} onOpenChange={open => { if (!open) setAddDialogOpen(false) }}>
-        <DialogContent aria-describedby={undefined}>
+        <DialogContent
+          aria-describedby={undefined}
+          onEscapeKeyDown={e => { if (addSuggestOpenCount > 0) e.preventDefault() }}
+        >
           <DialogTitle>タイマーを追加</DialogTitle>
           <div className="flex flex-col gap-2">
-            <Input
+            <SuggestInput
               placeholder="作業名（必須）"
               value={addDraft.name}
               onChange={e => setAddDraft(d => ({ ...d, name: e.target.value }))}
+              options={nameOptions}
+              onSelectOption={o => {
+                const meta = findNameSuggestion(o.value)
+                setAddDraft(d => ({
+                  ...d,
+                  name: o.value,
+                  projectCode: meta ? meta.projectCode : d.projectCode,
+                  workCategory: meta ? meta.workCategory : d.workCategory,
+                }))
+              }}
+              onOpenChange={open => setAddSuggestOpenCount(c => open ? c + 1 : Math.max(0, c - 1))}
               autoFocus
             />
             <div className="flex gap-2">
-              <Input
+              <SuggestInput
                 className="text-xs"
                 placeholder="PJコード"
                 value={addDraft.projectCode}
                 onChange={e => setAddDraft(d => ({ ...d, projectCode: e.target.value }))}
+                options={projectCodeOptions}
+                onSelectOption={o => setAddDraft(d => ({ ...d, projectCode: o.value }))}
+                onOpenChange={open => setAddSuggestOpenCount(c => open ? c + 1 : Math.max(0, c - 1))}
               />
-              <Input
+              <SuggestInput
                 className="text-xs"
                 placeholder="作業区分"
                 value={addDraft.workCategory}
                 onChange={e => setAddDraft(d => ({ ...d, workCategory: e.target.value }))}
+                options={workCategoryOptions}
+                onSelectOption={o => setAddDraft(d => ({ ...d, workCategory: o.value }))}
+                onOpenChange={open => setAddSuggestOpenCount(c => open ? c + 1 : Math.max(0, c - 1))}
               />
             </div>
             <div className="flex items-center gap-2">
