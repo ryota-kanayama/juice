@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SuggestInput, type SuggestOption } from './suggest-input'
 
@@ -95,5 +95,34 @@ describe('SuggestInput', () => {
     render(<Harness options={[]} />)
     await userEvent.click(screen.getByLabelText('テスト入力'))
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('IME 変換中の Enter は候補確定も伝播もしない', async () => {
+    const onSelect = vi.fn()
+    const onKeyDown = vi.fn()
+    render(<Harness options={OPTIONS} onSelectOption={onSelect} onKeyDown={onKeyDown} />)
+    const input = screen.getByLabelText('テスト入力')
+    await userEvent.click(input)
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229, isComposing: true })
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(onKeyDown).not.toHaveBeenCalled()
+  })
+
+  it('ドロップダウンの開閉が onOpenChange で通知される', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <SuggestInput
+        value=""
+        onChange={() => {}}
+        options={OPTIONS}
+        onSelectOption={() => {}}
+        onOpenChange={onOpenChange}
+        aria-label="テスト入力"
+      />
+    )
+    await userEvent.click(screen.getByLabelText('テスト入力'))
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    await userEvent.keyboard('{Escape}')
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
   })
 })

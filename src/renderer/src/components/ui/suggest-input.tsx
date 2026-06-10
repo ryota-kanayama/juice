@@ -11,11 +11,13 @@ interface SuggestInputProps extends React.ComponentProps<'input'> {
   options: SuggestOption[]
   /** 候補リストから明示的に選択したときだけ呼ばれる */
   onSelectOption: (option: SuggestOption) => void
+  /** ドロップダウンの開閉状態が変わったときに呼ばれる */
+  onOpenChange?: (open: boolean) => void
 }
 
 const MAX_OPTIONS = 8
 
-export function SuggestInput({ options, onSelectOption, onKeyDown, onFocus, onBlur, onChange, ...props }: SuggestInputProps) {
+export function SuggestInput({ options, onSelectOption, onOpenChange, onKeyDown, onFocus, onBlur, onChange, ...props }: SuggestInputProps) {
   const [open, setOpen] = React.useState(false)
   const [highlight, setHighlight] = React.useState(-1)
 
@@ -24,31 +26,46 @@ export function SuggestInput({ options, onSelectOption, onKeyDown, onFocus, onBl
     .filter(o => o.value.toLowerCase().includes(query))
     .slice(0, MAX_OPTIONS)
 
+  // Fix 2: filtered の範囲外を指さないようにする
+  const safeHighlight = highlight < filtered.length ? highlight : -1
+
+  // Fix 4: open 変更を外部通知するヘルパー
+  const setOpenAndNotify = (next: boolean): void => {
+    setOpen(next)
+    onOpenChange?.(next)
+  }
+
   const select = (option: SuggestOption): void => {
     onSelectOption(option)
-    setOpen(false)
+    setOpenAndNotify(false)
     setHighlight(-1)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    // Fix 1: IME 変換中のキー操作には反応しない
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
+
     if (open && filtered.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setHighlight(h => (h + 1) % filtered.length)
+        // Fix 2: 移動の起点を safeHighlight にする
+        setHighlight((safeHighlight + 1) % filtered.length)
         return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setHighlight(h => (h <= 0 ? filtered.length - 1 : h - 1))
+        // Fix 2: 移動の起点を safeHighlight にする
+        setHighlight(safeHighlight <= 0 ? filtered.length - 1 : safeHighlight - 1)
         return
       }
-      if (e.key === 'Enter' && highlight >= 0) {
+      // Fix 2: highlight < filtered.length も確認
+      if (e.key === 'Enter' && safeHighlight >= 0 && safeHighlight < filtered.length) {
         e.preventDefault()
-        select(filtered[highlight])
+        select(filtered[safeHighlight])
         return
       }
       if (e.key === 'Escape') {
-        setOpen(false)
+        setOpenAndNotify(false)
         setHighlight(-1)
         return
       }
@@ -61,24 +78,25 @@ export function SuggestInput({ options, onSelectOption, onKeyDown, onFocus, onBl
       <Input
         {...props}
         autoComplete="off"
-        onFocus={e => { setOpen(true); onFocus?.(e) }}
-        onBlur={e => { setOpen(false); setHighlight(-1); onBlur?.(e) }}
-        onChange={e => { setOpen(true); setHighlight(-1); onChange?.(e) }}
+        onFocus={e => { setOpenAndNotify(true); onFocus?.(e) }}
+        onBlur={e => { setOpenAndNotify(false); setHighlight(-1); onBlur?.(e) }}
+        onChange={e => { setOpenAndNotify(true); setHighlight(-1); onChange?.(e) }}
         onKeyDown={handleKeyDown}
       />
       {open && filtered.length > 0 && (
         <ul
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 m-0 mt-1 list-none overflow-hidden rounded-md border border-border bg-card p-1 shadow-[var(--shadow-elevated)]"
+          className="absolute left-0 right-0 top-full z-50 m-0 mt-1 list-none max-h-60 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-[var(--shadow-elevated)]"
         >
           {filtered.map((option, i) => (
             <li
-              key={option.value}
+              // Fix 3: value 重複時の key 衝突を防ぐ
+              key={`${option.value} ${option.sub ?? ''}`}
               role="option"
-              aria-selected={i === highlight}
+              aria-selected={i === safeHighlight}
               className={cn(
                 'cursor-pointer rounded-[6px] px-2 py-1 text-[13px]',
-                i === highlight ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-foreground'
+                i === safeHighlight ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-foreground'
               )}
               onMouseDown={e => { e.preventDefault(); select(option) }}
               onMouseEnter={() => setHighlight(i)}
