@@ -71,12 +71,15 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const listRef = useRef<HTMLUListElement | null>(null)
   const pageChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleDragStart = (sessionId: string) => {
+  const handleDragStart = (e: React.DragEvent, sessionId: string) => {
     dragItemRef.current = sessionId
+    // 既定の copy 効果（緑のプラスマーク）を出さず移動として扱う
+    e.dataTransfer.effectAllowed = 'move'
   }
 
   const handleDragOver = (e: React.DragEvent, sessionId: string) => {
     e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
     dragOverItemRef.current = sessionId
     setDragOverId(sessionId)
   }
@@ -84,6 +87,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   // ドラッグ中にリスト上端/下端付近でページ切り替え
   const handleListDragOver = (e: React.DragEvent) => {
     e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
     if (!listRef.current || totalPages <= 1 || !dragItemRef.current) return
 
     const rect = listRef.current.getBoundingClientRect()
@@ -253,7 +257,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 e.stopPropagation()
                 setContextMenu({ sessionId: session.id, x: e.clientX, y: e.clientY })
               }}
-              onDragStart={() => handleDragStart(session.id)}
+              onDragStart={(e) => handleDragStart(e, session.id)}
               onDragOver={(e) => handleDragOver(e, session.id)}
               onDragLeave={() => setDragOverId(null)}
               onDragEnd={handleDragEnd}
