@@ -33,8 +33,10 @@ export class AuthStore {
   async getStatus(): Promise<AuthStatus> {
     const token = await this.getToken()
     if (!token) return { signedIn: false }
+    const parts = token.split('.')
+    if (parts.length !== 3) return { signedIn: false }
     try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf-8'))
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'))
       if (typeof payload.exp !== 'number' || payload.exp * 1000 <= Date.now()) {
         return { signedIn: false }
       }

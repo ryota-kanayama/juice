@@ -67,6 +67,11 @@ describe('AuthStore', () => {
     expect(await store.getStatus()).toEqual({ signedIn: false })
   })
 
+  it('JWT 形式でないトークンは signedIn: false', async () => {
+    await store.saveToken('not-a-jwt')
+    expect(await store.getStatus()).toEqual({ signedIn: false })
+  })
+
   it('壊れたファイルでも例外を投げず signedIn: false', async () => {
     const { writeFile } = await import('fs/promises')
     await writeFile(join(dir, 'auth.enc'), 'broken')
