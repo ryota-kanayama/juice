@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Juice timer auth / API proxy
+
+Parameters:
+  SlackClientId:
+    Type: String
+    NoEcho: true
+  SlackClientSecret:
+    Type: String
+    NoEcho: true
+  AllowedTeamId:
+    Type: String
+  SessionSecret:
+    Type: String
+    NoEcho: true
+
+Resources:
+  JuiceProxyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: juice-proxy
+      Runtime: nodejs20.x
+      Handler: handler.handler
+      CodeUri: ./
+      MemorySize: 128
+      Timeout: 10
+      ReservedConcurrentExecutions: 5
+      FunctionUrlConfig:
+        AuthType: NONE
+      Environment:
+        Variables:
+          SLACK_CLIENT_ID: !Ref SlackClientId
+          SLACK_CLIENT_SECRET: !Ref SlackClientSecret
+          ALLOWED_TEAM_ID: !Ref AllowedTeamId
+          SESSION_SECRET: !Ref SessionSecret
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handler.ts
+        Target: node20
+        Format: cjs
+        Minify: false
+
+Outputs:
+  FunctionUrl:
+    Description: Juice アプリの MAIN_VITE_PROXY_URL に設定する URL
+    Value: !GetAtt JuiceProxyFunctionUrl.FunctionUrl

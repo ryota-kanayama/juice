@@ -1,0 +1,9 @@
+{
+  "name": "juice-lambda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Juice の認証・API プロキシ Lambda",
+  "devDependencies": {
+    "esbuild": "^0.21.5"
+  }
+}
