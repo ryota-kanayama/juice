@@ -9,6 +9,7 @@ export interface SettingsState {
   idleMinutes: number
   elapsedEnabled: boolean
   elapsedMinutes: number
+  pomodoroEnabled: boolean
   userName: string
   whiteboardEnabled: boolean
   whiteboardEmail: string
@@ -17,6 +18,7 @@ export interface SettingsState {
   setTheme: (themeId: string) => void
   setIdle: (enabled: boolean, minutes: number) => void
   setElapsed: (enabled: boolean, minutes: number) => void
+  setPomodoro: (enabled: boolean) => void
   setUserName: (userName: string) => void
   setWhiteboard: (enabled: boolean, email: string) => void
   setSlack: (projectCode: string, projectName: string) => void
@@ -29,6 +31,7 @@ export function useSettings(): SettingsState {
   const [idleMinutes, setIdleMinutes] = useState(60)
   const [elapsedEnabled, setElapsedEnabled] = useState(false)
   const [elapsedMinutes, setElapsedMinutes] = useState(30)
+  const [pomodoroEnabled, setPomodoroEnabled] = useState(false)
   const [userName, setUserNameState] = useState('')
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
   const [whiteboardEmail, setWhiteboardEmail] = useState('')
@@ -46,6 +49,9 @@ export function useSettings(): SettingsState {
       setElapsedEnabled(enabled)
       setElapsedMinutes(minutes)
     })
+    settingsRepository.getPomodoro().then(({ enabled }) => {
+      setPomodoroEnabled(enabled)
+    })
     settingsRepository.getUserName().then(setUserNameState)
     settingsRepository.getWhiteboard().then(({ enabled, email }) => {
       setWhiteboardEnabled(enabled)
@@ -58,7 +64,7 @@ export function useSettings(): SettingsState {
   }, [])
 
   return {
-    activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes,
+    activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
     userName, whiteboardEnabled, whiteboardEmail, slackProjectCode, slackProjectName,
 
     setTheme: (themeId): void => {
@@ -76,6 +82,10 @@ export function useSettings(): SettingsState {
       setElapsedEnabled(enabled)
       setElapsedMinutes(minutes)
       settingsRepository.setElapsed(enabled, minutes)
+    },
+    setPomodoro: (enabled): void => {
+      setPomodoroEnabled(enabled)
+      settingsRepository.setPomodoro(enabled)
     },
     setUserName: (value): void => {
       setUserNameState(value)
