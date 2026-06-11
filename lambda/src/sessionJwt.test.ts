@@ -46,4 +46,16 @@ describe('sessionJwt', () => {
     expect(verifySessionJwt('garbage', SECRET, NOW)).toBeNull()
     expect(verifySessionJwt('', SECRET, NOW)).toBeNull()
   })
+
+  it('署名に base64url 外の文字が混入したトークンは null（可鍛性防止）', () => {
+    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
+    expect(verifySessionJwt(`${token}!`, SECRET, NOW)).toBeNull()
+    expect(verifySessionJwt(`${token}=`, SECRET, NOW)).toBeNull()
+  })
+
+  it('署名パートが空のトークンは null', () => {
+    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
+    const [h, p] = token.split('.')
+    expect(verifySessionJwt(`${h}.${p}.`, SECRET, NOW)).toBeNull()
+  })
 })

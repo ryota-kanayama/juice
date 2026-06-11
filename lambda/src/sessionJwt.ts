@@ -37,6 +37,7 @@ export function verifySessionJwt(
 ): SessionClaims | null {
   const parts = token.split('.')
   if (parts.length !== 3) return null
+  if (!parts.every(p => /^[A-Za-z0-9_-]+$/.test(p))) return null
   const expected = hmac(`${parts[0]}.${parts[1]}`, secret)
   const actual = Buffer.from(parts[2], 'base64url')
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null
