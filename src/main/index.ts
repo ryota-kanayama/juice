@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, nativeImage } from 'electron'
 import { join } from 'path'
 import os from 'os'
 import { SessionStore } from './sessionStore'
@@ -24,6 +24,12 @@ const sessionStore = new SessionStore(dataDir)
 const settingsStore = new SettingsStore(dataDir)
 
 app.whenReady().then(async () => {
+  // 開発時もDockにアプリアイコンを表示する（パッケージ版はバンドルの icns が使われる）
+  const dockIcon = nativeImage.createFromPath(join(__dirname, '../../resources/icon.png'))
+  if (!dockIcon.isEmpty()) {
+    app.dock?.setIcon(dockIcon)
+  }
+
   registerIpcHandlers(sessionStore, settingsStore)
 
   // 初回セットアップ判定
