@@ -119,7 +119,7 @@ function PopoverView() {
 }
 
 export function TimerPage({ sessions }: { sessions: SessionsState }) {
-  const { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
+  const { isRunning, elapsedSeconds, baseSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
   const workday = useWorkday(sessions.today)
   const suggestions = useSuggestions(sessions.todaySessions)
   const [activeTimerName, setActiveTimerName] = useState('')
@@ -173,6 +173,7 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
           <ActiveTimer
             name={activeTimerName}
             elapsedSeconds={elapsedSeconds}
+            baseSeconds={baseSeconds}
             color={activeColor}
             initialProjectCode={activeTimerProjectCode}
             initialWorkCategory={activeTimerWorkCategory}
