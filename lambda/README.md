@@ -5,7 +5,8 @@ Slack OIDC サインインとセッション JWT 発行を行う Lambda。
 
 ## 前提
 
-- AWS CLI と SAM CLI がセットアップ済み（`brew install awscli aws-sam-cli`）
+- Terraform と AWS CLI がセットアップ済み（`brew install terraform awscli`）
+- AWS 認証情報が設定済み（`aws configure`）
 - 会社ワークスペースに Slack アプリを作成できる権限
 
 ## 1. Slack アプリの作成
@@ -23,25 +24,28 @@ Slack OIDC サインインとセッション JWT 発行を行う Lambda。
 ```bash
 cd lambda
 npm install
-openssl rand -hex 32   # SESSION_SECRET を生成して控える
-sam build
-sam deploy --guided
+npm run build          # esbuild で dist/handler.js を生成
+
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+openssl rand -hex 32   # session_secret に使う値を生成
+# terraform.tfvars に実値を記入する:
+#   slack_client_id / slack_client_secret: 手順1で控えた値
+#   allowed_team_id: ワークスペースの team ID
+#     （ブラウザで Slack を開いた URL app.slack.com/client/TXXXXXXX/...
+#      の T 始まりの部分）
+#   session_secret: 上で生成した値
+
+terraform init
+terraform apply        # 実行計画を確認して yes
 ```
 
-`--guided` の質問には以下を入力:
+`terraform.tfvars` は秘密を含むため gitignore 済み。
+リージョンは既定で `ap-northeast-1`（変える場合は `region` 変数）。
 
-- Stack Name: `juice-proxy`
-- Region: `ap-northeast-1`
-- Parameter SlackClientId / SlackClientSecret: 手順1で控えた値
-- Parameter AllowedTeamId: ワークスペースの team ID
-  （ブラウザで Slack を開いた URL `app.slack.com/client/TXXXXXXX/...`
-  の `T` 始まりの部分）
-- Parameter SessionSecret: 生成した値
-- 残りはデフォルトで OK（`samconfig.toml` に保存され、gitignore 済み）
+apply 完了時の Outputs に **function_url** が表示される。
 
-デプロイ完了時の Outputs に **FunctionUrl** が表示される。
-
-※ FunctionUrl は末尾スラッシュ付き（`https://xxx.on.aws/`）で出力される。
+※ function_url は末尾スラッシュ付き（`https://xxx.on.aws/`）で出力される。
 以降の `<FunctionUrl>` 表記はこの末尾スラッシュ付き URL をそのまま使う
 （手順4の `.env` だけは末尾スラッシュを取り除いて設定する）。
 
@@ -85,6 +89,7 @@ open dist-release/mac-arm64/Juice.app
 
 - **コスト監視**: AWS Budgets で月 $5 のアラートを設定しておく
   （Console → Budgets → Create budget）
-- **キーローテーション**: `sam deploy` の parameter overrides を
-  変更して再デプロイ
-- **全セッション失効**: SessionSecret を変更して再デプロイ
+- **コード更新**: `npm run build` → `terraform apply`
+- **キーローテーション**: `terraform.tfvars` を変更して `terraform apply`
+- **全セッション失効**: `session_secret` を変更して `terraform apply`
+- **全リソース削除**: `terraform destroy`
