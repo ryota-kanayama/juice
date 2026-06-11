@@ -61,6 +61,7 @@ docs
 tsconfig.*.tsbuildinfo
 
 .markdownlint-cli2.jsonc
+.markdownlint.json
 
 # brainstorming artifacts
 .superpowers/
