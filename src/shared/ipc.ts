@@ -28,6 +28,13 @@ export interface PomodoroSettings {
   enabled: boolean
 }
 
+export interface AuthStatus {
+  signedIn: boolean
+  name?: string
+  /** ISO 8601。signedIn が true のときのみ */
+  expiresAt?: string
+}
+
 /**
  * IPC リクエスト/レスポンスのマップ。
  * key = チャンネル名、value = [引数, 戻り値] のタプル。
@@ -72,6 +79,11 @@ export interface IpcContract {
   'window:hide': [void, void]
   'window:resize': [{ width: number; height: number }, void]
 
+  // auth
+  'auth:start': [void, void]
+  'auth:getStatus': [void, AuthStatus]
+  'auth:signOut': [void, void]
+
   // misc
   'setup:complete': [void, void]
   'holidays:get': [void, Record<string, string>]
@@ -88,6 +100,7 @@ export type IpcReturn<C extends IpcChannel> = IpcContract[C][1]
  */
 export interface IpcEventContract {
   'theme-changed': string
+  'auth-changed': AuthStatus
 }
 
 export type IpcEventName = keyof IpcEventContract
