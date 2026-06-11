@@ -29,6 +29,7 @@ function makeAuthStore() {
 beforeEach(() => {
   vi.stubEnv('MAIN_VITE_PROXY_URL', 'https://proxy.test')
   openExternal.mockClear()
+  showNotification.mockClear()
   send.mockClear()
   _resetForTest()
 })
@@ -70,11 +71,13 @@ describe('handleAuthCallback', () => {
     )
     expect(handled).toBe(false)
     expect(store.saveToken).not.toHaveBeenCalled()
+    expect(showNotification).toHaveBeenCalled()
   })
 
   it('サインイン開始前のコールバックは無視する', async () => {
     const store = makeAuthStore()
     expect(await handleAuthCallback('juice://auth?token=a.b.c&state=x', store as never)).toBe(false)
+    expect(showNotification).not.toHaveBeenCalled()
   })
 
   it('state は一度使うと無効（リプレイ防止）', async () => {
@@ -92,5 +95,6 @@ describe('handleAuthCallback', () => {
     const store = makeAuthStore()
     expect(await handleAuthCallback('https://evil.test/auth', store as never)).toBe(false)
     expect(await handleAuthCallback('juice://other?token=a&state=b', store as never)).toBe(false)
+    expect(showNotification).not.toHaveBeenCalled()
   })
 })
