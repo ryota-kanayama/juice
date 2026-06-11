@@ -13,11 +13,11 @@ mac:
         - arm64
         - x64
   icon: resources/icon.icns
-
-protocols:
-  - name: Juice
-    schemes:
-      - juice
+  protocols:
+    - name: Juice
+      schemes:
+        - juice
+      role: Viewer
 
 dmg:
   title: Juice

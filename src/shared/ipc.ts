@@ -80,6 +80,8 @@ export interface IpcContract {
   'window:resize': [{ width: number; height: number }, void]
 
   // auth
+  // auth:start はブラウザで OIDC サインインを開始する（戻り値なし）。
+  // 完了・失敗は 'auth-changed' イベントで通知される。
   'auth:start': [void, void]
   'auth:getStatus': [void, AuthStatus]
   'auth:signOut': [void, void]
