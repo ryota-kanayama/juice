@@ -1,19 +1,24 @@
-// セッションの色（ジュースの色）パレット。
+// セッションの色（ジュースの色）。今後は色キーを保存し、表示時に現テーマの
+// パレット（--juice-* CSS変数）へ解決する。過去データの hex はそのまま表示する。
 
-export const JUICE_COLORS = [
-  '#FF6B6B', // いちご
-  '#FF9500', // オレンジ
-  '#F7B731', // レモン
-  '#e17055', // グレープフルーツ
-  '#fd79a8', // もも
-  '#a29bfe', // ぶどう
-  '#45aaf2', // ブルーベリー
-  '#0984e3', // カシス
-  '#26de81', // マスカット
-  '#00b894', // キウイ
-]
+import { JUICE_KEYS, type JuiceKey } from '../theme/themeTokens'
 
-/** パレットからランダムに1色選ぶ */
-export function randomColor(): string {
-  return JUICE_COLORS[Math.floor(Math.random() * JUICE_COLORS.length)]
+export const JUICE_COLOR_KEYS: readonly JuiceKey[] = JUICE_KEYS
+
+/** パレットからランダムに1キー選ぶ */
+export function randomColor(): JuiceKey {
+  return JUICE_COLOR_KEYS[Math.floor(Math.random() * JUICE_COLOR_KEYS.length)]
+}
+
+/**
+ * セッションの color 値を CSS で使える色に解決する。
+ * - '#...'（旧データの hex）はそのまま
+ * - キーは現テーマのジュース色 CSS 変数に解決
+ */
+export function resolveJuiceColor(value: string): string {
+  if (value.startsWith('#')) return value
+  if ((JUICE_COLOR_KEYS as readonly string[]).includes(value)) {
+    return `var(--juice-${value})`
+  }
+  return `var(--juice-${JUICE_COLOR_KEYS[0]})`
 }

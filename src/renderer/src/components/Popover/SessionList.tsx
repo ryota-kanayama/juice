@@ -13,6 +13,7 @@ import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
 import { TimeField } from '@/components/ui/time-field'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { resolveJuiceColor } from '../../domain/colors'
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Play, EditPencil, Trash, Timer } from 'iconoir-react'
 
@@ -257,7 +258,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               onDragLeave={() => setDragOverId(null)}
               onDragEnd={handleDragEnd}
             >
-              <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: session.color }} aria-hidden="true" />
+              <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: resolveJuiceColor(session.color) }} aria-hidden="true" />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-foreground transition-colors group-hover:text-[var(--accent)]">{session.name}</span>
                 {(session.projectCode || session.workCategory) && (

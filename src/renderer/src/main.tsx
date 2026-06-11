@@ -3,12 +3,8 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { dailyStore } from './dailyStore'
 import { settingsRepository } from './repositories/settingsRepository'
+import { applyTheme } from './theme/applyTheme'
 import './assets/index.css'
-
-// テーマを適用する関数
-function applyTheme(themeId: string): void {
-  document.documentElement.dataset.theme = themeId
-}
 
 // 古い日付キーを掃除
 dailyStore.pruneOldKeys()

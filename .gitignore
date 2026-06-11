@@ -27,6 +27,8 @@ out
 # electron-builder output
 *.dmg
 *.snap
+# vitest のスナップショットは *.snap（electron-builder パッケージ）の例外として管理する
+!**/__snapshots__/**
 *.deb
 *.rpm
 *.AppImage

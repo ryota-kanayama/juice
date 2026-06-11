@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { SuggestInput } from '@/components/ui/suggest-input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { resolveJuiceColor } from '../../domain/colors'
 
 interface Props {
   name: string
@@ -22,6 +23,7 @@ function juiceLevel(seconds: number): number {
 export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, initialWorkCategory, projectCodeSuggestions = [], workCategorySuggestions = [], onStop }: Props) {
   const [projectCode, setProjectCode] = useState(initialProjectCode ?? '')
   const [workCategory, setWorkCategory] = useState(initialWorkCategory ?? '')
+  const resolvedColor = resolveJuiceColor(color)
   const level = juiceLevel(elapsedSeconds)
   // 液面の y 座標（0=満杯/上端、120=空/下端）。
   // 山の高さを不均一にした 1 周期(=120px, 30px幅の山4つ)を 3 つ並べて x=-120..240 を埋め、
@@ -41,7 +43,7 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
 
         {/* 円形波アニメーション */}
         <div className="flex items-center justify-center py-2" aria-hidden="true">
-          <div className="relative h-[120px] w-[120px] overflow-hidden rounded-full border-2" style={{ borderColor: color }}>
+          <div className="relative h-[120px] w-[120px] overflow-hidden rounded-full border-2" style={{ borderColor: resolvedColor }}>
             {/* ジュース本体 + 上昇する泡（マスクで泡の形にジュースを打ち抜き背景を透過） */}
             <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 120 120" aria-hidden="true">
               <defs>
@@ -57,7 +59,7 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
                 {/* 外側 g で中心まわりに左右へ傾けて揺らし（スロッシュ）、内側 g で横スクロール */}
                 <g className="animate-slosh" style={{ transformBox: 'view-box', transformOrigin: '60px 60px' }}>
                   <g className="animate-wave-shift">
-                    <path data-testid="juice-level" d={wavePath} fill={color} />
+                    <path data-testid="juice-level" d={wavePath} style={{ fill: resolvedColor }} />
                   </g>
                 </g>
               </g>

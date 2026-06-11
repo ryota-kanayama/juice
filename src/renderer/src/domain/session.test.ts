@@ -6,6 +6,7 @@ import {
   hasRunningInterval,
 } from './session'
 import type { Session } from '../types/session'
+import { JUICE_COLOR_KEYS } from './colors'
 
 // 2026-05-20 12:00:00 ローカル時刻を Date.now の基準にする
 const NOW_MS = new Date('2026-05-20T12:00:00').getTime()
@@ -139,8 +140,8 @@ describe('createManualSession', () => {
     expect(session.date).toBe('2026-05-20')
     // id === taskId（新規セッション）
     expect(session.id).toBe(session.taskId)
-    // 色はパレットから1色
-    expect(session.color).toMatch(/^#[0-9a-f]{6}$/i)
+    // 色はパレットのキーから1つ
+    expect(JUICE_COLOR_KEYS).toContain(session.color)
   })
 
   it('totalMinutes < 1 は最低1分にクランプする', () => {

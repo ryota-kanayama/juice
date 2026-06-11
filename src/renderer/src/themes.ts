@@ -1,22 +1,36 @@
+// テーマピッカー用メタデータ。実体は theme/themeParams.ts のパラメータから導出する。
+
+import { THEME_PARAMS } from './theme/themeParams'
+import { generateThemeTokens } from './theme/themeTokens'
+
 export interface ThemeMeta {
   id: string
   name: string
+  emoji: string
   bg: string
   accent: string
   accentSecondary?: string
   textPrimary: string
   dark?: boolean
+  gradient?: boolean
 }
 
-export const THEMES: ThemeMeta[] = [
-  // ニュートラル（shadcn系）
-  { id: 'slate', name: 'Slate', bg: '#FAFAFA', accent: '#18181B', accentSecondary: '#27272A', textPrimary: '#18181B' },
-  // ニュートラル面 + アクセント
-  { id: 'rose',  name: 'Rose',  bg: '#FAFAFA', accent: '#E8546C', accentSecondary: '#D4405A', textPrimary: '#18181B' },
-  { id: 'sky',   name: 'Sky',   bg: '#FAFAFA', accent: '#4A9FE8', accentSecondary: '#3580D0', textPrimary: '#18181B' },
-  { id: 'lemon', name: 'Lemon', bg: '#FAFAFA', accent: '#E8C820', accentSecondary: '#D0A800', textPrimary: '#18181B' },
-]
+function toMeta(dark: boolean): ThemeMeta[] {
+  return THEME_PARAMS.filter(p => p.dark === dark).map(p => {
+    const { cssVars } = generateThemeTokens(p)
+    return {
+      id: p.id,
+      name: p.name,
+      emoji: p.emoji,
+      bg: cssVars['--bg'],
+      accent: cssVars['--accent'],
+      accentSecondary: cssVars['--accent-secondary'],
+      textPrimary: cssVars['--text-primary'],
+      dark: p.dark || undefined,
+      gradient: p.gradient,
+    }
+  })
+}
 
-export const DARK_THEMES: ThemeMeta[] = [
-  { id: 'graphite', name: 'Graphite', bg: '#18181B', accent: '#FAFAFA', accentSecondary: '#E4E4E7', textPrimary: '#FAFAFA', dark: true },
-]
+export const THEMES: ThemeMeta[] = toMeta(false)
+export const DARK_THEMES: ThemeMeta[] = toMeta(true)

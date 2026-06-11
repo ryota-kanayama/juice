@@ -11,6 +11,7 @@ import { usePagination } from '../../hooks/usePagination'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { EditPencil } from 'iconoir-react'
+import { resolveJuiceColor } from '../../domain/colors'
 
 interface Props {
   date: string | null
@@ -108,7 +109,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack, suggestions = EMPT
                 setContextMenu({ sessionId: session.id, x: e.clientX, y: e.clientY })
               }}
             >
-              <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: session.color }} aria-hidden="true" />
+              <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: resolveJuiceColor(session.color) }} aria-hidden="true" />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-foreground">{session.name}</span>
                 {(session.projectCode || session.workCategory) && (
