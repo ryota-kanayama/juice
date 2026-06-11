@@ -7,6 +7,7 @@ interface Settings {
   idleNotificationMinutes: number
   elapsedNotificationEnabled: boolean
   elapsedNotificationMinutes: number
+  pomodoroEnabled: boolean
   userName: string
   setupCompleted: boolean
   whiteboardEnabled: boolean
@@ -21,6 +22,7 @@ const DEFAULT_SETTINGS: Settings = {
   idleNotificationMinutes: 60,
   elapsedNotificationEnabled: false,
   elapsedNotificationMinutes: 30,
+  pomodoroEnabled: false,
   userName: '',
   setupCompleted: false,
   whiteboardEnabled: false,
@@ -126,6 +128,16 @@ export class SettingsStore {
   async setElapsedSettings(enabled: boolean, minutes: number): Promise<void> {
     const s = await this.readAll()
     await this.writeAll({ ...s, elapsedNotificationEnabled: enabled, elapsedNotificationMinutes: minutes })
+  }
+
+  async getPomodoroSettings(): Promise<{ enabled: boolean }> {
+    const s = await this.readAll()
+    return { enabled: s.pomodoroEnabled }
+  }
+
+  async setPomodoroSettings(enabled: boolean): Promise<void> {
+    const s = await this.readAll()
+    await this.writeAll({ ...s, pomodoroEnabled: enabled })
   }
 
   async getUserName(): Promise<string> {

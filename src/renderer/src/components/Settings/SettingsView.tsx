@@ -38,9 +38,9 @@ function minuteLabel(m: number): string {
 export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
   const {
-    activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes,
+    activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
     userName, whiteboardEnabled, whiteboardEmail, slackProjectCode, slackProjectName,
-    setTheme, setIdle, setElapsed, setUserName, setWhiteboard, setSlack,
+    setTheme, setIdle, setElapsed, setPomodoro, setUserName, setWhiteboard, setSlack,
   } = useSettings()
 
   return (
@@ -161,6 +161,27 @@ export function SettingsView() {
                     </div>
                   </>
                 )}
+              </CardContent>
+            </Card>
+
+            <h2 className={heading} style={{ marginTop: '1.5rem' }}>ポモドーロタイマー</h2>
+            <Card>
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between gap-3 p-3.5">
+                  <div>
+                    <Label htmlFor="pomodoro" className="text-[13px] font-medium text-foreground">
+                      ポモドーロタイマー
+                    </Label>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      25分ごとに5分の休憩を通知する
+                    </p>
+                  </div>
+                  <Switch
+                    id="pomodoro"
+                    checked={pomodoroEnabled}
+                    onCheckedChange={setPomodoro}
+                  />
+                </div>
               </CardContent>
             </Card>
           </>

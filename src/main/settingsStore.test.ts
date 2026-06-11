@@ -93,4 +93,20 @@ describe('SettingsStore', () => {
     const settings = await store.getWhiteboardSettings()
     expect(settings).toEqual({ enabled: true, email: 'test@jsl.co.jp' })
   })
+
+  it('ポモドーロ設定のデフォルトは無効', async () => {
+    const s = await store.getPomodoroSettings()
+    expect(s).toEqual({ enabled: false })
+  })
+
+  it('ポモドーロ設定を保存して取得できる', async () => {
+    await store.setPomodoroSettings(true)
+    expect(await store.getPomodoroSettings()).toEqual({ enabled: true })
+  })
+
+  it('ポモドーロ設定を変更できる', async () => {
+    await store.setPomodoroSettings(true)
+    await store.setPomodoroSettings(false)
+    expect(await store.getPomodoroSettings()).toEqual({ enabled: false })
+  })
 })

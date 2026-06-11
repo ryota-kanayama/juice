@@ -25,6 +25,13 @@ export const settingsRepository = {
     return window.electronAPI.setElapsedSettings(enabled, minutes)
   },
 
+  getPomodoro(): Promise<{ enabled: boolean }> {
+    return window.electronAPI.getPomodoroSettings()
+  },
+  setPomodoro(enabled: boolean): Promise<void> {
+    return window.electronAPI.setPomodoroSettings(enabled)
+  },
+
   getUserName(): Promise<string> {
     return window.electronAPI.getUserName()
   },

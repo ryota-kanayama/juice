@@ -24,6 +24,10 @@ export interface SlackSettings {
   projectName: string
 }
 
+export interface PomodoroSettings {
+  enabled: boolean
+}
+
 /**
  * IPC リクエスト/レスポンスのマップ。
  * key = チャンネル名、value = [引数, 戻り値] のタプル。
@@ -44,6 +48,8 @@ export interface IpcContract {
   'settings:setIdleSettings': [ToggleSettings, void]
   'settings:getElapsedSettings': [void, ToggleSettings]
   'settings:setElapsedSettings': [ToggleSettings, void]
+  'settings:getPomodoroSettings': [void, PomodoroSettings]
+  'settings:setPomodoroSettings': [PomodoroSettings, void]
   'settings:getUserName': [void, string]
   'settings:setUserName': [userName: string, void]
 
