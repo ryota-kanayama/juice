@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AccountSection } from './AccountSection'
 
@@ -45,7 +45,9 @@ describe('AccountSection', () => {
     render(<AccountSection />)
     await screen.findByRole('button', { name: 'Slack でサインイン' })
     const listener = api.onAuthChanged.mock.calls[0][0]
-    listener({ signedIn: true, name: '金山' })
+    act(() => {
+      listener({ signedIn: true, name: '金山' })
+    })
     await waitFor(() => expect(screen.getByText(/金山/)).toBeInTheDocument())
   })
 })

@@ -6,13 +6,15 @@ export function useAuthStatus() {
   const [status, setStatus] = useState<AuthStatus>({ signedIn: false })
 
   useEffect(() => {
-    window.electronAPI.getAuthStatus().then(setStatus)
+    let alive = true
+    window.electronAPI.getAuthStatus().then((s) => { if (alive) setStatus(s) })
     window.electronAPI.onAuthChanged(setStatus)
+    return () => { alive = false }
   }, [])
 
   return {
     status,
     signIn: (): void => { window.electronAPI.signInWithSlack() },
-    signOut: (): void => { window.electronAPI.signOutSlack() },
+    signOut: (): void => { window.electronAPI.signOutSlack().catch(console.error) },
   }
 }
