@@ -4,12 +4,27 @@ import { formatLocalDateTime, formatLocalDate } from '../../../shared/sessionUti
 import { JUICE_COLOR_KEYS, randomColor } from '../domain/colors'
 import { timerRepository } from '../repositories/timerRepository'
 import { sessionRepository } from '../repositories/sessionRepository'
+import { settingsRepository } from '../repositories/settingsRepository'
+
+/** ジュースが満杯になるまでの秒数。経過時間通知ONならその間隔、OFFなら25分（ポモドーロの作業時間と同じ） */
+const DEFAULT_FILL_SECONDS = 1500
+
+async function resolveFillSeconds(): Promise<number> {
+  try {
+    const { enabled, minutes } = await settingsRepository.getElapsed()
+    return enabled ? minutes * 60 : DEFAULT_FILL_SECONDS
+  } catch {
+    return DEFAULT_FILL_SECONDS
+  }
+}
 
 export interface TimerState {
   isRunning: boolean
   elapsedSeconds: number
   /** 延長時に引き継ぐ累計秒（表示用オフセット）。新規タイマーでは0 */
   baseSeconds: number
+  /** ジュース水位が満杯になるまでの秒数（タイマー開始時の設定で決まる） */
+  fillSeconds: number
   activeColor: string
   activeSessionId: string | null
   start: (name: string, color?: string) => void
@@ -23,6 +38,7 @@ export function useTimer(): TimerState {
   const [isRunning, setIsRunning] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [baseSeconds, setBaseSeconds] = useState(0)
+  const [fillSeconds, setFillSeconds] = useState(DEFAULT_FILL_SECONDS)
   const [activeColor, setActiveColor] = useState<string>(JUICE_COLOR_KEYS[0])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
@@ -48,6 +64,8 @@ export function useTimer(): TimerState {
     setElapsedSeconds(0)
     setIsRunning(true)
     setActiveSessionId(null)
+    setFillSeconds(DEFAULT_FILL_SECONDS)
+    resolveFillSeconds().then(setFillSeconds)
     timerRepository.started()
     intervalRef.current = setInterval(() => {
       if (startTimeRef.current) {
@@ -69,6 +87,8 @@ export function useTimer(): TimerState {
     setElapsedSeconds(0)
     setIsRunning(true)
     setActiveSessionId(existingSession.id)
+    setFillSeconds(DEFAULT_FILL_SECONDS)
+    resolveFillSeconds().then(setFillSeconds)
     timerRepository.started()
     intervalRef.current = setInterval(() => {
       if (startTimeRef.current) {
@@ -157,5 +177,5 @@ export function useTimer(): TimerState {
     timerRepository.adjustStartTime(newStartDate.getTime())
   }, [])
 
-  return { isRunning, elapsedSeconds, baseSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime }
+  return { isRunning, elapsedSeconds, baseSeconds, fillSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime }
 }

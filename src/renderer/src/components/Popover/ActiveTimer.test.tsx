@@ -41,9 +41,9 @@ describe('ActiveTimer', () => {
     expect(screen.getByRole('textbox', { name: '作業区分' })).toHaveValue('設計')
   })
 
-  it('elapsedSecondsが900の時、液面が最上部（surfaceY: 0）になる', () => {
+  it('elapsedSecondsが1500（デフォルト満杯秒数）の時、液面が最上部（surfaceY: 0）になる', () => {
     const { container } = render(
-      <ActiveTimer name="テスト" elapsedSeconds={900} color="#FF9500" onStop={vi.fn()} />
+      <ActiveTimer name="テスト" elapsedSeconds={1500} color="#FF9500" onStop={vi.fn()} />
     )
     const juiceLevel = container.querySelector('[data-testid="juice-level"]')
     expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
@@ -121,5 +121,37 @@ describe('ActiveTimer', () => {
     )
     const juiceLevel = container.querySelector('[data-testid="juice-level"]')
     expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
+  })
+
+  it('fillSeconds=1800のとき、elapsedSeconds=1800で液面が最上部になる', () => {
+    const { container } = render(
+      <ActiveTimer name="テスト" elapsedSeconds={1800} fillSeconds={1800} color="#FF9500" onStop={vi.fn()} />
+    )
+    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
+  })
+
+  it('fillSeconds=1800のとき、elapsedSeconds=900で液面が50%（surfaceY: 60）になる', () => {
+    const { container } = render(
+      <ActiveTimer name="テスト" elapsedSeconds={900} fillSeconds={1800} color="#FF9500" onStop={vi.fn()} />
+    )
+    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,60 /)
+  })
+
+  it('fillSeconds=0でもNaNにならず液面は最下部になる', () => {
+    const { container } = render(
+      <ActiveTimer name="テスト" elapsedSeconds={60} fillSeconds={0} color="#FF9500" onStop={vi.fn()} />
+    )
+    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
+  })
+
+  it('elapsedSecondsがfillSecondsを超えても液面は最上部のまま', () => {
+    const { container } = render(
+      <ActiveTimer name="テスト" elapsedSeconds={3000} color="#FF9500" onStop={vi.fn()} />
+    )
+    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
   })
 })
