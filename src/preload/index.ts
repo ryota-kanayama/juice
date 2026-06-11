@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setIdleSettings: (enabled: boolean, minutes: number) => invoke('settings:setIdleSettings', { enabled, minutes }),
   getElapsedSettings: () => invoke('settings:getElapsedSettings', undefined),
   setElapsedSettings: (enabled: boolean, minutes: number) => invoke('settings:setElapsedSettings', { enabled, minutes }),
+  getPomodoroSettings: () => invoke('settings:getPomodoroSettings', undefined),
+  setPomodoroSettings: (enabled: boolean) => invoke('settings:setPomodoroSettings', { enabled }),
 
   getUserName: () => invoke('settings:getUserName', undefined),
   setUserName: (userName: string) => invoke('settings:setUserName', userName),

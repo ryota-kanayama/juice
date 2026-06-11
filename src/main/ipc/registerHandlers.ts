@@ -10,6 +10,7 @@ import { broadcastThemeToAll } from '../windows/themeBroadcast'
 import { startIdleCheck } from '../notifications/idle'
 import { recordActivity } from '../notifications/activity'
 import { onTimerStarted, onTimerStopped, onTimerAdjustStartTime, reschedule } from '../notifications/elapsed'
+import * as pomodoro from '../notifications/pomodoro'
 import { sendAttendance } from '../integrations/attendance'
 import { sendSlackTeleworkStart } from '../integrations/slack'
 import { sendWhiteboardTeleworkStart } from '../integrations/whiteboard'
@@ -55,6 +56,11 @@ export function registerIpcHandlers(
     await settingsStore.setElapsedSettings(enabled, minutes)
     reschedule(settingsStore)
   })
+  handle('settings:getPomodoroSettings', () => settingsStore.getPomodoroSettings())
+  handle('settings:setPomodoroSettings', async (_, { enabled }) => {
+    await settingsStore.setPomodoroSettings(enabled)
+    pomodoro.reschedule(settingsStore)
+  })
 
   // settings: userName / integrations
   handle('settings:getUserName', () => settingsStore.getUserName())
@@ -71,9 +77,18 @@ export function registerIpcHandlers(
   })
 
   // timer signals
-  handle('timer:started', () => onTimerStarted(settingsStore))
-  handle('timer:stopped', () => onTimerStopped())
-  handle('timer:adjustStartTime', (_, newStartMs) => onTimerAdjustStartTime(newStartMs, settingsStore))
+  handle('timer:started', () => {
+    onTimerStarted(settingsStore)
+    pomodoro.onTimerStarted(settingsStore)
+  })
+  handle('timer:stopped', () => {
+    onTimerStopped()
+    pomodoro.onTimerStopped()
+  })
+  handle('timer:adjustStartTime', (_, newStartMs) => {
+    onTimerAdjustStartTime(newStartMs, settingsStore)
+    pomodoro.onTimerAdjustStartTime(newStartMs, settingsStore)
+  })
 
   // attendance
   handle('attendance:send', (_, text) => sendAttendance(settingsStore, text))
