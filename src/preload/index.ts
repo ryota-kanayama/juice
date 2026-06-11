@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
-  IpcChannel, IpcArg, IpcReturn, IpcEventName, IpcEventPayload,
+  IpcChannel, IpcArg, IpcReturn, IpcEventName, IpcEventPayload, AuthStatus,
 } from '../shared/ipc'
 
 // 型付き invoke ラッパー: IpcContract に登録のないチャンネル / 不一致な引数はコンパイルエラー
@@ -54,6 +54,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // window
   hideWindow: () => invoke('window:hide', undefined),
   resizeWindow: (width: number, height: number) => invoke('window:resize', { width, height }),
+
+  // auth
+  signInWithSlack: () => invoke('auth:start', undefined),
+  getAuthStatus: () => invoke('auth:getStatus', undefined),
+  signOutSlack: () => invoke('auth:signOut', undefined),
+  onAuthChanged: (callback: (status: AuthStatus) => void) => on('auth-changed', callback),
 
   // misc
   completeSetup: () => invoke('setup:complete', undefined),

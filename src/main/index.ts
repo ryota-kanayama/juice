@@ -3,10 +3,13 @@ import { join } from 'path'
 import os from 'os'
 import { SessionStore } from './sessionStore'
 import { SettingsStore } from './settingsStore'
+import { AuthStore } from './auth/authStore'
+import { handleAuthCallback } from './auth/signIn'
 import { createSetupWindow } from './windows/setup'
 import { createTray } from './windows/tray'
 import { startIdleCheck } from './notifications/idle'
 import { registerIpcHandlers } from './ipc/registerHandlers'
+import { logger } from './logger'
 
 // 複数インスタンスの起動を防ぐ（プロダクション向け）
 if (!app.requestSingleInstanceLock()) {
@@ -22,6 +25,14 @@ process.on('SIGINT', () => app.quit())
 const dataDir = join(os.homedir(), 'Library', 'Application Support', 'Juice')
 const sessionStore = new SessionStore(dataDir)
 const settingsStore = new SettingsStore(dataDir)
+const authStore = new AuthStore(app.getPath('userData'))
+
+// juice:// カスタムスキーム（Slack サインインのコールバック受信）
+app.setAsDefaultProtocolClient('juice')
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleAuthCallback(url, authStore).catch(err => logger.error('auth callback failed:', err))
+})
 
 app.whenReady().then(async () => {
   // 開発時もDockにアプリアイコンを表示する（パッケージ版はバンドルの icns が使われる）
@@ -30,7 +41,7 @@ app.whenReady().then(async () => {
     app.dock?.setIcon(dockIcon)
   }
 
-  registerIpcHandlers(sessionStore, settingsStore)
+  registerIpcHandlers(sessionStore, settingsStore, authStore)
 
   // 初回セットアップ判定
   const needsSetup = !(await settingsStore.isSetupCompleted()) && !(await settingsStore.getUserName())

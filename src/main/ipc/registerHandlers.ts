@@ -1,6 +1,8 @@
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import type { SessionStore } from '../sessionStore'
 import type { SettingsStore } from '../settingsStore'
+import type { AuthStore } from '../auth/authStore'
+import { startSignIn } from '../auth/signIn'
 import { logger } from '../logger'
 import { handle } from './handle'
 import { hidePopover, resizePopover } from '../windows/popover'
@@ -21,6 +23,7 @@ import { shell } from 'electron'
 export function registerIpcHandlers(
   sessionStore: SessionStore,
   settingsStore: SettingsStore,
+  authStore: AuthStore,
 ): void {
   // sessions
   handle('sessions:get', (_, yearMonth) => sessionStore.getSessions(yearMonth))
@@ -105,6 +108,17 @@ export function registerIpcHandlers(
     app.dock?.hide()
     createTray(settingsStore)
     startIdleCheck(settingsStore)
+  })
+
+  // auth
+  handle('auth:start', () => { startSignIn() })
+  handle('auth:getStatus', () => authStore.getStatus())
+  handle('auth:signOut', async () => {
+    await authStore.clearToken()
+    const status = await authStore.getStatus()
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('auth-changed', status)
+    }
   })
 
   // misc
