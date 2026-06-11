@@ -50,8 +50,10 @@ resource "aws_lambda_function" "juice_proxy" {
   memory_size      = 128
   timeout          = 10
 
-  # flood されても課金が頭打ちになるようにする（社内ツール規模）
-  reserved_concurrent_executions = 5
+  # 予約済み同時実行数は設定しない:
+  # 新規アカウントは上限10で、予約すると未予約分が最低値10を割るため設定不可。
+  # アカウント上限自体が flood 時の頭打ちとして機能する。
+  # 上限引き上げを申請した場合は reserved_concurrent_executions = 5 を復活させること。
 
   environment {
     variables = {
