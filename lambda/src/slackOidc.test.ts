@@ -12,7 +12,7 @@ const OPTS = {
 function mockFetchSequence(responses: object[]): ReturnType<typeof vi.fn> {
   const fn = vi.fn()
   for (const r of responses) {
-    fn.mockResolvedValueOnce({ json: () => Promise.resolve(r) })
+    fn.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(r) })
   }
   vi.stubGlobal('fetch', fn)
   return fn
@@ -75,5 +75,12 @@ describe('fetchSlackIdentity', () => {
     ])
     const result = await fetchSlackIdentity(OPTS)
     expect(result).toEqual({ sub: 'U123', name: 'U123', teamId: 'T999' })
+  })
+
+  it('fetch が network error で reject しても throw せず error を返す', async () => {
+    const fn = vi.fn().mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND'))
+    vi.stubGlobal('fetch', fn)
+    const result = await fetchSlackIdentity(OPTS)
+    expect(result).toEqual({ error: 'network: getaddrinfo ENOTFOUND' })
   })
 })

@@ -48,29 +48,33 @@ export async function fetchSlackIdentity(opts: {
   code: string
   redirectUri: string
 }): Promise<SlackIdentity | SlackOidcError> {
-  const tokenRes = await fetch('https://slack.com/api/openid.connect.token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: opts.clientId,
-      client_secret: opts.clientSecret,
-      code: opts.code,
-      redirect_uri: opts.redirectUri,
-    }),
-  })
-  const token = (await tokenRes.json()) as TokenResponse
-  if (!token.ok || !token.access_token) {
-    return { error: `token: ${token.error ?? 'unknown'}` }
-  }
+  try {
+    const tokenRes = await fetch('https://slack.com/api/openid.connect.token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: opts.clientId,
+        client_secret: opts.clientSecret,
+        code: opts.code,
+        redirect_uri: opts.redirectUri,
+      }),
+    })
+    const token = (await tokenRes.json()) as TokenResponse
+    if (!token.ok || !token.access_token) {
+      return { error: `token: ${token.error ?? 'unknown'}` }
+    }
 
-  const userRes = await fetch('https://slack.com/api/openid.connect.userInfo', {
-    headers: { Authorization: `Bearer ${token.access_token}` },
-  })
-  const user = (await userRes.json()) as UserInfoResponse
-  const teamId = user['https://slack.com/team_id']
-  if (!user.ok || !user.sub || !teamId) {
-    return { error: `userInfo: ${user.error ?? 'unknown'}` }
+    const userRes = await fetch('https://slack.com/api/openid.connect.userInfo', {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+    })
+    const user = (await userRes.json()) as UserInfoResponse
+    const teamId = user['https://slack.com/team_id']
+    if (!user.ok || !user.sub || !teamId) {
+      return { error: `userInfo: ${user.error ?? 'unknown'}` }
+    }
+    return { sub: user.sub, name: user.name || user.sub, teamId }
+  } catch (e) {
+    return { error: `network: ${e instanceof Error ? e.message : 'unknown'}` }
   }
-  return { sub: user.sub, name: user.name ?? user.sub, teamId }
 }
