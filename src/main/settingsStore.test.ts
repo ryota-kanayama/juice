@@ -103,4 +103,10 @@ describe('SettingsStore', () => {
     await store.setPomodoroSettings(true)
     expect(await store.getPomodoroSettings()).toEqual({ enabled: true })
   })
+
+  it('ポモドーロ設定を変更できる', async () => {
+    await store.setPomodoroSettings(true)
+    await store.setPomodoroSettings(false)
+    expect(await store.getPomodoroSettings()).toEqual({ enabled: false })
+  })
 })
