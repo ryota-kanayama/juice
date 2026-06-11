@@ -41,6 +41,10 @@ sam deploy --guided
 
 デプロイ完了時の Outputs に **FunctionUrl** が表示される。
 
+※ FunctionUrl は末尾スラッシュ付き（`https://xxx.on.aws/`）で出力される。
+以降の `<FunctionUrl>` 表記はこの末尾スラッシュ付き URL をそのまま使う
+（手順4の `.env` だけは末尾スラッシュを取り除いて設定する）。
+
 ## 3. Slack アプリに Redirect URL を設定
 
 **OAuth & Permissions** → Redirect URLs に
