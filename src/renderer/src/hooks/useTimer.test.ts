@@ -5,6 +5,7 @@ import type { Session } from '../types/session'
 
 const mockSaveSession = vi.fn().mockResolvedValue(undefined)
 const mockUpdateSession = vi.fn().mockResolvedValue(undefined)
+const mockGetElapsedSettings = vi.fn()
 vi.stubGlobal('electronAPI', {
   saveSession: mockSaveSession,
   updateSession: mockUpdateSession,
@@ -16,6 +17,7 @@ vi.stubGlobal('electronAPI', {
   deleteSession: vi.fn().mockResolvedValue(undefined),
   timerStarted: vi.fn().mockResolvedValue(undefined),
   timerStopped: vi.fn().mockResolvedValue(undefined),
+  getElapsedSettings: mockGetElapsedSettings,
 })
 
 describe('useTimer', () => {
@@ -23,6 +25,7 @@ describe('useTimer', () => {
     vi.useFakeTimers()
     mockSaveSession.mockClear()
     mockUpdateSession.mockClear()
+    mockGetElapsedSettings.mockReset().mockResolvedValue({ enabled: false, minutes: 30 })
   })
 
   afterEach(() => {
@@ -236,6 +239,65 @@ describe('useTimer', () => {
       act(() => { result.current.startMore(existing) })
       act(() => { result.current.cancel() })
       expect(result.current.baseSeconds).toBe(0)
+    })
+  })
+
+  describe('fillSeconds（ジュース満杯秒数）', () => {
+    const existing: Session = {
+      id: 'id-1',
+      taskId: 'task-1',
+      name: '既存作業',
+      projectCode: 'P001',
+      workCategory: '設計',
+      times: [{ startTime: '2026-06-11T09:00:00', endTime: '2026-06-11T09:25:00' }],
+      date: '2026-06-11',
+      color: 'strawberry',
+      totalTime: 25,
+    }
+
+    it('初期値は1500（25分）', () => {
+      const { result } = renderHook(() => useTimer())
+      expect(result.current.fillSeconds).toBe(1500)
+    })
+
+    it('経過時間通知OFFでstartすると1500', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      expect(result.current.fillSeconds).toBe(1500)
+    })
+
+    it('経過時間通知ON（30分）でstartすると1800', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      expect(result.current.fillSeconds).toBe(1800)
+    })
+
+    it('経過時間通知ON（60分）でstartMoreすると3600', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 60 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.startMore(existing) })
+      expect(result.current.fillSeconds).toBe(3600)
+    })
+
+    it('設定読み込みに失敗してもタイマーは開始され1500になる', async () => {
+      mockGetElapsedSettings.mockRejectedValue(new Error('read error'))
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      expect(result.current.isRunning).toBe(true)
+      expect(result.current.fillSeconds).toBe(1500)
+    })
+
+    it('通知ONで開始→OFFに変更→再startで1500に戻る', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      expect(result.current.fillSeconds).toBe(1800)
+      act(() => { result.current.cancel() })
+      mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
+      await act(async () => { result.current.start('テスト2') })
+      expect(result.current.fillSeconds).toBe(1500)
     })
   })
 })
