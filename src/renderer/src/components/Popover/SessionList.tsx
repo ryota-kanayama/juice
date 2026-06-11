@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { resolveJuiceColor } from '../../domain/colors'
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { Play, EditPencil, Trash, Timer } from 'iconoir-react'
 
 interface Props {
@@ -274,7 +275,14 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               </div>
               <span className="shrink-0 text-[13px] font-semibold text-[var(--accent)]">{session.totalTime}分</span>
               {!isRunning && onStartMore && (
-                <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] font-semibold text-[#26de81] opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
+                <TooltipProvider delayDuration={450}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] font-semibold text-[#26de81] opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100" onClick={() => onStartMore(session)} aria-label="追加で注ぐ"><Play width={14} height={14} /></button>
+                    </TooltipTrigger>
+                    <TooltipContent>追加で注ぐ</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </li>
           ))}
