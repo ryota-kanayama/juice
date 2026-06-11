@@ -4,6 +4,7 @@
   "private": true,
   "description": "Juice の認証・API プロキシ Lambda",
   "devDependencies": {
+    "@types/node": "^20.11.5",
     "esbuild": "^0.21.5"
   }
 }

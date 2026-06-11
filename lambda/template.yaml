@@ -11,6 +11,7 @@ Parameters:
     NoEcho: true
   AllowedTeamId:
     Type: String
+    NoEcho: true
   SessionSecret:
     Type: String
     NoEcho: true
