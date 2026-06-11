@@ -26,7 +26,7 @@ const NAV_ITEMS: { id: Section; label: string }[] = [
 
 const heading = 'mb-2 mt-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground'
 
-const MINUTE_OPTIONS = [1, 5, 15, 30, 60, 90, 120] as const
+const MINUTE_OPTIONS = [5, 15, 30, 60, 90, 120] as const
 
 function minuteLabel(m: number): string {
   if (m === 60) return '1時間'
