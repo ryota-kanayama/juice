@@ -29,18 +29,23 @@ function scheduleNext(settingsStore: SettingsStore): void {
   const delay = pos < WORK_MS ? WORK_MS - pos : CYCLE_MS - pos
 
   boundaryTimeout = setTimeout(async () => {
-    const settings = await settingsStore.getPomodoroSettings()
-    if (cycleStartTime && settings.enabled && Notification.isSupported()) {
-      // スリープ等で発火が遅れるケースに備え、フェーズは発火時点の経過時間から判定する
-      const firedPos = (Date.now() - cycleStartTime.getTime()) % CYCLE_MS
-      const notif = new Notification({
-        title: 'Juice',
-        body: firedPos >= WORK_MS ? BREAK_MESSAGE : RESUME_MESSAGE,
-      })
-      notif.on('click', () => showPopoverFromNotification(settingsStore))
-      notif.show()
+    try {
+      const settings = await settingsStore.getPomodoroSettings()
+      if (cycleStartTime && settings.enabled && Notification.isSupported()) {
+        // スリープ等で発火が遅れるケースに備え、フェーズは発火時点の経過時間から判定する
+        const firedPos = (Date.now() - cycleStartTime.getTime()) % CYCLE_MS
+        const notif = new Notification({
+          title: 'Juice',
+          body: firedPos >= WORK_MS ? BREAK_MESSAGE : RESUME_MESSAGE,
+        })
+        notif.on('click', () => showPopoverFromNotification(settingsStore))
+        notif.show()
+      }
+    } catch {
+      // 設定読み込み失敗時は通知をスキップして次サイクルを継続
+    } finally {
+      scheduleNext(settingsStore)
     }
-    scheduleNext(settingsStore)
   }, delay)
 }
 

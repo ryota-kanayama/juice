@@ -12,7 +12,9 @@ vi.mock('electron', () => ({
     constructor(opts: { title: string; body: string }) {
       notificationCtor(opts)
     }
-    on(): void {}
+    on(): void {
+      // no-op
+    }
     show(): void {
       showMock()
     }
@@ -134,5 +136,25 @@ describe('pomodoro notifications', () => {
     await vi.advanceTimersByTimeAsync(25 * MINUTE)
 
     expect(showMock).not.toHaveBeenCalled()
+  })
+
+  it('設定読み込みに失敗してもサイクルが継続する', async () => {
+    let failOnce = true
+    const store = {
+      getPomodoroSettings: vi.fn(async () => {
+        if (failOnce) {
+          failOnce = false
+          throw new Error('read error')
+        }
+        return { enabled: true }
+      }),
+    } as unknown as SettingsStore
+    onTimerStarted(store)
+
+    await vi.advanceTimersByTimeAsync(25 * MINUTE) // ここで読み込み失敗
+    expect(showMock).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(5 * MINUTE) // 次の境界では成功
+    expect(showMock).toHaveBeenCalledTimes(1)
   })
 })
