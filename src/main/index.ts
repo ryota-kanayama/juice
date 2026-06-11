@@ -27,6 +27,7 @@ const sessionStore = new SessionStore(dataDir)
 const settingsStore = new SettingsStore(dataDir)
 const authStore = new AuthStore(app.getPath('userData'))
 
+// 開発時は汎用 Electron.app に紐づくため juice:// の E2E はパッケージ版で確認する
 // juice:// カスタムスキーム（Slack サインインのコールバック受信）
 app.setAsDefaultProtocolClient('juice')
 app.on('open-url', (event, url) => {

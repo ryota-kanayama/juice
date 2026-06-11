@@ -1,7 +1,8 @@
 import { randomBytes } from 'crypto'
-import { BrowserWindow, Notification, shell } from 'electron'
+import { Notification, shell } from 'electron'
 import { logger } from '../logger'
 import type { AuthStore } from './authStore'
+import { broadcastAuthToAll } from '../windows/authBroadcast'
 
 const STATE_TTL_MS = 10 * 60 * 1000
 
@@ -46,9 +47,7 @@ export async function handleAuthCallback(rawUrl: string, authStore: AuthStore): 
 
   await authStore.saveToken(token)
   const status = await authStore.getStatus()
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send('auth-changed', status)
-  }
+  broadcastAuthToAll(status)
   new Notification({ title: 'Juice', body: `Slack にサインインしました（${status.name ?? ''}）` }).show()
   return true
 }

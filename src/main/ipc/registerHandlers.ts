@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app } from 'electron'
 import type { SessionStore } from '../sessionStore'
 import type { SettingsStore } from '../settingsStore'
 import type { AuthStore } from '../auth/authStore'
@@ -9,6 +9,7 @@ import { hidePopover, resizePopover } from '../windows/popover'
 import { getSetupWindow } from '../windows/setup'
 import { createTray } from '../windows/tray'
 import { broadcastThemeToAll } from '../windows/themeBroadcast'
+import { broadcastAuthToAll } from '../windows/authBroadcast'
 import { startIdleCheck } from '../notifications/idle'
 import { recordActivity } from '../notifications/activity'
 import { onTimerStarted, onTimerStopped, onTimerAdjustStartTime, reschedule } from '../notifications/elapsed'
@@ -111,14 +112,12 @@ export function registerIpcHandlers(
   })
 
   // auth
-  handle('auth:start', () => { startSignIn() })
+  handle('auth:start', () => startSignIn())
   handle('auth:getStatus', () => authStore.getStatus())
   handle('auth:signOut', async () => {
     await authStore.clearToken()
     const status = await authStore.getStatus()
-    for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send('auth-changed', status)
-    }
+    broadcastAuthToAll(status)
   })
 
   // misc
