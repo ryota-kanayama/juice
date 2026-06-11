@@ -95,4 +95,31 @@ describe('ActiveTimer', () => {
     await userEvent.click(screen.getByText('会議'))
     expect(screen.getByLabelText('作業区分')).toHaveValue('会議')
   })
+
+  it('baseSecondsがあると累計込みの分数を表示する（25分 + 2分 = 27分）', () => {
+    render(
+      <ActiveTimer
+        name="テスト"
+        elapsedSeconds={120}
+        baseSeconds={1500}
+        color="#FF9500"
+        onStop={vi.fn()}
+      />
+    )
+    expect(screen.getByText('27分経過')).toBeInTheDocument()
+  })
+
+  it('baseSecondsはジュースの水位に影響しない（elapsed=0なら液面は最下部のまま）', () => {
+    const { container } = render(
+      <ActiveTimer
+        name="テスト"
+        elapsedSeconds={0}
+        baseSeconds={1500}
+        color="#FF9500"
+        onStop={vi.fn()}
+      />
+    )
+    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
+  })
 })
