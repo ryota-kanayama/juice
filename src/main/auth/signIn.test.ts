@@ -10,6 +10,7 @@ vi.mock('electron', () => ({
   shell: { openExternal: (...args: unknown[]) => openExternal(...args) },
   Notification: class {
     constructor(opts: unknown) { showNotification(opts) }
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     show() {}
   },
   BrowserWindow: {
