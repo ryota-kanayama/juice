@@ -8,6 +8,8 @@ import { sessionRepository } from '../repositories/sessionRepository'
 export interface TimerState {
   isRunning: boolean
   elapsedSeconds: number
+  /** 延長時に引き継ぐ累計秒（表示用オフセット）。新規タイマーでは0 */
+  baseSeconds: number
   activeColor: string
   activeSessionId: string | null
   start: (name: string, color?: string) => void
@@ -20,6 +22,7 @@ export interface TimerState {
 export function useTimer(): TimerState {
   const [isRunning, setIsRunning] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [baseSeconds, setBaseSeconds] = useState(0)
   const [activeColor, setActiveColor] = useState<string>(JUICE_COLOR_KEYS[0])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
@@ -41,6 +44,7 @@ export function useTimer(): TimerState {
     activeColorRef.current = c
     isRunningRef.current = true
     setActiveColor(c)
+    setBaseSeconds(0)
     setElapsedSeconds(0)
     setIsRunning(true)
     setActiveSessionId(null)
@@ -61,6 +65,7 @@ export function useTimer(): TimerState {
     activeColorRef.current = existingSession.color
     isRunningRef.current = true
     setActiveColor(existingSession.color)
+    setBaseSeconds(existingSession.totalTime * 60)
     setElapsedSeconds(0)
     setIsRunning(true)
     setActiveSessionId(existingSession.id)
@@ -121,6 +126,7 @@ export function useTimer(): TimerState {
     isRunningRef.current = false
     timerRepository.stopped()
     setIsRunning(false)
+    setBaseSeconds(0)
     setElapsedSeconds(0)
     setActiveSessionId(null)
     return resultSession
@@ -139,6 +145,7 @@ export function useTimer(): TimerState {
     isRunningRef.current = false
     timerRepository.stopped()
     setIsRunning(false)
+    setBaseSeconds(0)
     setElapsedSeconds(0)
     setActiveSessionId(null)
   }, [])
@@ -150,5 +157,5 @@ export function useTimer(): TimerState {
     timerRepository.adjustStartTime(newStartDate.getTime())
   }, [])
 
-  return { isRunning, elapsedSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime }
+  return { isRunning, elapsedSeconds, baseSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime }
 }

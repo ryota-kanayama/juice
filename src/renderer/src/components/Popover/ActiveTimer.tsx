@@ -7,6 +7,8 @@ import { resolveJuiceColor } from '../../domain/colors'
 interface Props {
   name: string
   elapsedSeconds: number
+  /** 延長時に引き継ぐ累計秒。表示にのみ加算され、水位アニメーションには影響しない */
+  baseSeconds?: number
   color: string
   initialProjectCode?: string
   initialWorkCategory?: string
@@ -20,7 +22,7 @@ function juiceLevel(seconds: number): number {
   return Math.min((seconds / 900) * 100, 100)
 }
 
-export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, initialWorkCategory, projectCodeSuggestions = [], workCategorySuggestions = [], onStop }: Props) {
+export function ActiveTimer({ name, elapsedSeconds, baseSeconds = 0, color, initialProjectCode, initialWorkCategory, projectCodeSuggestions = [], workCategorySuggestions = [], onStop }: Props) {
   const [projectCode, setProjectCode] = useState(initialProjectCode ?? '')
   const [workCategory, setWorkCategory] = useState(initialWorkCategory ?? '')
   const resolvedColor = resolveJuiceColor(color)
@@ -65,7 +67,7 @@ export function ActiveTimer({ name, elapsedSeconds, color, initialProjectCode, i
               </g>
             </svg>
             <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-bold leading-[1.2] text-[var(--text-primary)]">
-              {Math.floor(elapsedSeconds / 60)}分経過
+              {Math.floor((baseSeconds + elapsedSeconds) / 60)}分経過
             </span>
           </div>
         </div>

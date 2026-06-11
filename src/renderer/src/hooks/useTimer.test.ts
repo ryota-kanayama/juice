@@ -190,4 +190,52 @@ describe('useTimer', () => {
     expect(mockSaveSession).not.toHaveBeenCalled()
     expect(mockUpdateSession).not.toHaveBeenCalled()
   })
+
+  describe('baseSeconds（延長時の累計引き継ぎ）', () => {
+    const existing: Session = {
+      id: 'id-1',
+      taskId: 'task-1',
+      name: '既存作業',
+      projectCode: 'P001',
+      workCategory: '設計',
+      times: [{ startTime: '2026-06-11T09:00:00', endTime: '2026-06-11T09:25:00' }],
+      date: '2026-06-11',
+      color: 'strawberry',
+      totalTime: 25,
+    }
+
+    it('初期状態は0', () => {
+      const { result } = renderHook(() => useTimer())
+      expect(result.current.baseSeconds).toBe(0)
+    })
+
+    it('startMoreで既存セッションのtotalTime×60になる', () => {
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(existing) })
+      expect(result.current.baseSeconds).toBe(1500)
+      // elapsedSeconds（アニメーション用）は0から
+      expect(result.current.elapsedSeconds).toBe(0)
+    })
+
+    it('startでは0のまま', () => {
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.start('新規作業') })
+      expect(result.current.baseSeconds).toBe(0)
+    })
+
+    it('startMore後にstopすると0に戻る', async () => {
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(existing) })
+      act(() => { vi.advanceTimersByTime(60000) })
+      await act(async () => { await result.current.stop() })
+      expect(result.current.baseSeconds).toBe(0)
+    })
+
+    it('startMore後にcancelすると0に戻る', () => {
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(existing) })
+      act(() => { result.current.cancel() })
+      expect(result.current.baseSeconds).toBe(0)
+    })
+  })
 })
