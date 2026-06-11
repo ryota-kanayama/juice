@@ -9,7 +9,7 @@ interface Props {
   elapsedSeconds: number
   /** 延長時に引き継ぐ累計秒。表示にのみ加算され、水位アニメーションには影響しない */
   baseSeconds?: number
-  /** 水位が満杯になるまでの秒数。経過時間通知の間隔、未設定なら25分 */
+  /** 水位が100%になるまでの秒数。デフォルトは25分（1500秒） */
   fillSeconds?: number
   color: string
   initialProjectCode?: string
@@ -23,6 +23,7 @@ interface Props {
 const DEFAULT_FILL_SECONDS = 1500
 
 function juiceLevel(seconds: number, fillSeconds: number): number {
+  if (fillSeconds <= 0) return 0
   return Math.min((seconds / fillSeconds) * 100, 100)
 }
 

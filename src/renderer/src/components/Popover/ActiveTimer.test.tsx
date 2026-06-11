@@ -138,4 +138,20 @@ describe('ActiveTimer', () => {
     const juiceLevel = container.querySelector('[data-testid="juice-level"]')
     expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,60 /)
   })
+
+  it('fillSeconds=0でもNaNにならず液面は最下部になる', () => {
+    const { container } = render(
+      <ActiveTimer name="テスト" elapsedSeconds={60} fillSeconds={0} color="#FF9500" onStop={vi.fn()} />
+    )
+    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
+  })
+
+  it('elapsedSecondsがfillSecondsを超えても液面は最上部のまま', () => {
+    const { container } = render(
+      <ActiveTimer name="テスト" elapsedSeconds={3000} color="#FF9500" onStop={vi.fn()} />
+    )
+    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
+  })
 })
