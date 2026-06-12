@@ -115,6 +115,17 @@ describe('GET /auth/callback', () => {
     const res = await handler(makeEvent('/auth/callback', { state: STATE }))
     expect(res.statusCode).toBe(400)
   })
+
+  it('handle 付き identity なら JWT に handle が入る', async () => {
+    vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({
+      sub: 'U123', name: '金山', teamId: 'T999', handle: 'kanayama',
+    })
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: STATE }))
+    const url = new URL(res.headers!.Location)
+    const token = url.searchParams.get('token')!
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf-8'))
+    expect(payload.handle).toBe('kanayama')
+  })
 })
 
 describe('GET /auth/me', () => {
