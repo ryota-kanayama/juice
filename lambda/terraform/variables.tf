@@ -37,3 +37,31 @@ variable "slack_channel_id" {
   description = "テレワーク通知の投稿先チャンネル ID"
   type        = string
 }
+
+variable "attendance_api_url" {
+  description = "勤怠 API の URL（.env から移設）"
+  type        = string
+}
+
+variable "attendance_api_key" {
+  description = "勤怠 API キー（.env から移設）"
+  type        = string
+  sensitive   = true
+}
+
+variable "whiteboard_api_url" {
+  description = "ホワイトボード API の URL（.env から移設）"
+  type        = string
+}
+
+variable "whiteboard_api_key" {
+  description = "ホワイトボード API キー（.env から移設）"
+  type        = string
+  sensitive   = true
+}
+
+variable "attendance_user_overrides" {
+  description = "勤怠 user_name の対応表（Slack user ID → 勤怠登録名の JSON。空で開始しエラーが出た人だけ追加する）"
+  type        = string
+  default     = "{}"
+}

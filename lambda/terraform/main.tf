@@ -57,12 +57,17 @@ resource "aws_lambda_function" "juice_proxy" {
 
   environment {
     variables = {
-      SLACK_CLIENT_ID     = var.slack_client_id
-      SLACK_CLIENT_SECRET = var.slack_client_secret
-      ALLOWED_TEAM_ID     = var.allowed_team_id
-      SESSION_SECRET      = var.session_secret
-      SLACK_BOT_TOKEN     = var.slack_bot_token
-      SLACK_CHANNEL_ID    = var.slack_channel_id
+      SLACK_CLIENT_ID           = var.slack_client_id
+      SLACK_CLIENT_SECRET       = var.slack_client_secret
+      ALLOWED_TEAM_ID           = var.allowed_team_id
+      SESSION_SECRET            = var.session_secret
+      SLACK_BOT_TOKEN           = var.slack_bot_token
+      SLACK_CHANNEL_ID          = var.slack_channel_id
+      ATTENDANCE_API_URL        = var.attendance_api_url
+      ATTENDANCE_API_KEY        = var.attendance_api_key
+      WHITEBOARD_API_URL        = var.whiteboard_api_url
+      WHITEBOARD_API_KEY        = var.whiteboard_api_key
+      ATTENDANCE_USER_OVERRIDES = var.attendance_user_overrides
     }
   }
 }

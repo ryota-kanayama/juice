@@ -5,3 +5,10 @@ allowed_team_id     = "TXXXXXXXX"
 session_secret      = "openssl rand -hex 32 の出力をここに"
 slack_bot_token     = "xoxb-..."
 slack_channel_id    = "CXXXXXXXX"
+attendance_api_url  = "https://example.com/api/receive_slack_post"
+attendance_api_key  = "xxxxxxxx"
+whiteboard_api_url  = "https://example.com"
+whiteboard_api_key  = "xxxxxxxx"
+# attendance_user_overrides は省略可（デフォルト "{}"）。
+# 勤怠の登録名が Slack の氏名と違う人が出たときだけ設定する:
+# attendance_user_overrides = "{\"U0XXXXXXX\":\"kanayama\"}"
