@@ -58,4 +58,18 @@ describe('sessionJwt', () => {
     const [h, p] = token.split('.')
     expect(verifySessionJwt(`${h}.${p}.`, SECRET, NOW)).toBeNull()
   })
+
+  it('email 付きで発行したトークンは email を返す', () => {
+    const token = issueSessionJwt(
+      { sub: 'U1', name: 'a', team: 'T1', email: 'a@jsl.co.jp' }, SECRET, NOW
+    )
+    expect(verifySessionJwt(token, SECRET, NOW)!.email).toBe('a@jsl.co.jp')
+  })
+
+  it('email 無しで発行した旧形式トークンも検証できる（email は undefined）', () => {
+    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
+    const claims = verifySessionJwt(token, SECRET, NOW)
+    expect(claims).not.toBeNull()
+    expect(claims!.email).toBeUndefined()
+  })
 })
