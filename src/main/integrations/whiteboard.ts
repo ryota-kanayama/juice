@@ -1,65 +1,53 @@
 import { httpPost } from '../http'
-import { logger } from '../logger'
+import { promptSignIn } from '../auth/promptSignIn'
 import type { SettingsStore } from '../settingsStore'
+import type { AuthStore } from '../auth/authStore'
 
-// magnet_id: ホワイトボード上の状態を示す値
-const MAGNET_LEAVE = 3
-const MAGNET_TELEWORK = 2
+type WhiteboardKind = 'telework' | 'leave'
 
-/** ホワイトボードを「退勤」状態にし、勤怠 API にも come_to_the_office=false を送る */
-export async function sendWhiteboardLeave(settingsStore: SettingsStore): Promise<void> {
-  const { enabled, email } = await settingsStore.getWhiteboardSettings()
-  if (!enabled || !email) return
-
-  const apiUrl = import.meta.env.MAIN_VITE_WHITEBOARD_API_URL
-  const apiKey = import.meta.env.MAIN_VITE_WHITEBOARD_API_KEY
-  if (!apiUrl || !apiKey) return
-
-  const magnet = await httpPost(
-    `${apiUrl}/api/magnet?apiKey=${apiKey}`,
-    JSON.stringify({ magnet_id: MAGNET_LEAVE, email }),
-    { 'Content-Type': 'application/json' }
-  )
-  if (!magnet.ok) {
-    logger.error('Whiteboard magnet API failed:', magnet.status, magnet.body)
+/**
+ * Lambda 経由でホワイトボードの状態を更新する。email は Lambda が JWT から解決する。
+ * 連携無効なら何もしない。未サインイン・セッション切れは通知してスキップ（throw しない）。
+ */
+async function postWhiteboard(
+  kind: WhiteboardKind,
+  settingsStore: SettingsStore,
+  authStore: AuthStore
+): Promise<void> {
+  const { enabled } = await settingsStore.getWhiteboardSettings()
+  if (!enabled) return
+  const token = await authStore.getToken()
+  if (!token) {
+    promptSignIn()
     return
   }
-
-  const attendance = await httpPost(
-    `${apiUrl}/api/attendance?apiKey=${apiKey}`,
-    `come_to_the_office=false&email=${encodeURIComponent(email)}`,
-    { 'Content-Type': 'application/x-www-form-urlencoded' }
+  const result = await httpPost(
+    `${import.meta.env.MAIN_VITE_PROXY_URL}/api/whiteboard.${kind}`,
+    '{}',
+    { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
   )
-  if (!attendance.ok) {
-    logger.error('Whiteboard attendance API failed:', attendance.status, attendance.body)
+  if (result.status === 401) {
+    // 未認証 or email クレーム無し（reauth_required）。再サインインを促す
+    promptSignIn()
+    return
+  }
+  if (!result.ok) {
+    throw new Error(`Whiteboard proxy error: ${result.status} ${result.body}`)
   }
 }
 
-/** ホワイトボードを「テレワーク」状態にし、勤怠 API にも come_to_the_office=true を送る */
-export async function sendWhiteboardTeleworkStart(settingsStore: SettingsStore): Promise<void> {
-  const { enabled, email } = await settingsStore.getWhiteboardSettings()
-  if (!enabled || !email) return
+/** ホワイトボードを「テレワーク」状態にし、勤怠 API にも出勤を送る */
+export function sendWhiteboardTeleworkStart(
+  settingsStore: SettingsStore,
+  authStore: AuthStore
+): Promise<void> {
+  return postWhiteboard('telework', settingsStore, authStore)
+}
 
-  const apiUrl = import.meta.env.MAIN_VITE_WHITEBOARD_API_URL
-  const apiKey = import.meta.env.MAIN_VITE_WHITEBOARD_API_KEY
-  if (!apiUrl || !apiKey) return
-
-  const magnet = await httpPost(
-    `${apiUrl}/api/magnet?apiKey=${apiKey}`,
-    JSON.stringify({ magnet_id: MAGNET_TELEWORK, email }),
-    { 'Content-Type': 'application/json' }
-  )
-  if (!magnet.ok) {
-    logger.error('Whiteboard telework magnet API failed:', magnet.status, magnet.body)
-    return
-  }
-
-  const attendance = await httpPost(
-    `${apiUrl}/api/attendance?apiKey=${apiKey}`,
-    `come_to_the_office=true&email=${encodeURIComponent(email)}`,
-    { 'Content-Type': 'application/x-www-form-urlencoded' }
-  )
-  if (!attendance.ok) {
-    logger.error('Whiteboard telework attendance API failed:', attendance.status, attendance.body)
-  }
+/** ホワイトボードを「退勤」状態にし、勤怠 API にも退勤を送る */
+export function sendWhiteboardLeave(
+  settingsStore: SettingsStore,
+  authStore: AuthStore
+): Promise<void> {
+  return postWhiteboard('leave', settingsStore, authStore)
 }
