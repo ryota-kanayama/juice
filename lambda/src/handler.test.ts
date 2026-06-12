@@ -70,7 +70,7 @@ describe('GET /auth/start', () => {
     const res = await handler(makeEvent('/auth/start', { state: STATE }))
     expect(res.statusCode).toBe(302)
     const url = new URL(res.headers!.Location)
-    expect(url.origin + url.pathname).toBe('https://slack.com/openid/connect/authorize')
+    expect(url.origin + url.pathname).toBe('https://slack.com/oauth/v2/authorize')
     expect(url.searchParams.get('state')).toBe(STATE)
     expect(url.searchParams.get('redirect_uri')).toBe(
       'https://abc.lambda-url.ap-northeast-1.on.aws/auth/callback'
