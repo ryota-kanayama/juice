@@ -7,6 +7,7 @@ const showNotification = vi.fn()
 vi.mock('electron', () => ({
   Notification: class {
     constructor(opts: unknown) { showNotification(opts) }
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     show() {}
   },
 }))

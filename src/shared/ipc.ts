@@ -16,7 +16,6 @@ export interface ToggleSettings {
 
 export interface WhiteboardSettings {
   enabled: boolean
-  email: string
 }
 
 export interface SlackSettings {
@@ -48,7 +47,7 @@ export interface IpcContract {
   'sessions:update': [session: Session, void]
   'sessions:delete': [{ id: string; yearMonth: string }, void]
 
-  // settings: theme / notifications / userName
+  // settings: theme / notifications
   'settings:getTheme': [void, string]
   'settings:setTheme': [themeId: string, void]
   'settings:getIdleSettings': [void, ToggleSettings]
@@ -57,12 +56,10 @@ export interface IpcContract {
   'settings:setElapsedSettings': [ToggleSettings, void]
   'settings:getPomodoroSettings': [void, PomodoroSettings]
   'settings:setPomodoroSettings': [PomodoroSettings, void]
-  'settings:getUserName': [void, string]
-  'settings:setUserName': [userName: string, void]
 
   // settings: integrations
   'settings:getWhiteboardSettings': [void, WhiteboardSettings]
-  'settings:setWhiteboardSettings': [WhiteboardSettings, void]
+  'settings:setWhiteboardSettings': [{ enabled: boolean }, void]
   'settings:getSlackSettings': [void, SlackSettings]
   'settings:setSlackSettings': [SlackSettings, void]
 

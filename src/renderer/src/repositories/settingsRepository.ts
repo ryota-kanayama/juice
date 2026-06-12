@@ -32,18 +32,11 @@ export const settingsRepository = {
     return window.electronAPI.setPomodoroSettings(enabled)
   },
 
-  getUserName(): Promise<string> {
-    return window.electronAPI.getUserName()
-  },
-  setUserName(userName: string): Promise<void> {
-    return window.electronAPI.setUserName(userName)
-  },
-
-  getWhiteboard(): Promise<{ enabled: boolean; email: string }> {
+  getWhiteboard(): Promise<{ enabled: boolean }> {
     return window.electronAPI.getWhiteboardSettings()
   },
-  setWhiteboard(enabled: boolean, email: string): Promise<void> {
-    return window.electronAPI.setWhiteboardSettings(enabled, email)
+  setWhiteboard(enabled: boolean): Promise<void> {
+    return window.electronAPI.setWhiteboardSettings(enabled)
   },
 
   getSlack(): Promise<{ projectCode: string; projectName: string }> {

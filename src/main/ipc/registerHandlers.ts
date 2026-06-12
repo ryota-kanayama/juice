@@ -66,14 +66,10 @@ export function registerIpcHandlers(
     pomodoro.reschedule(settingsStore)
   })
 
-  // settings: userName / integrations
-  handle('settings:getUserName', () => settingsStore.getUserName())
-  handle('settings:setUserName', async (_, userName) => {
-    await settingsStore.setUserName(userName)
-  })
+  // settings: integrations
   handle('settings:getWhiteboardSettings', () => settingsStore.getWhiteboardSettings())
-  handle('settings:setWhiteboardSettings', async (_, { enabled, email }) => {
-    await settingsStore.setWhiteboardSettings(enabled, email)
+  handle('settings:setWhiteboardSettings', async (_, { enabled }) => {
+    await settingsStore.setWhiteboardSettings(enabled)
   })
   handle('settings:getSlackSettings', () => settingsStore.getSlackSettings())
   handle('settings:setSlackSettings', async (_, { projectCode, projectName }) => {

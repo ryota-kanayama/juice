@@ -10,17 +10,14 @@ export interface SettingsState {
   elapsedEnabled: boolean
   elapsedMinutes: number
   pomodoroEnabled: boolean
-  userName: string
   whiteboardEnabled: boolean
-  whiteboardEmail: string
   slackProjectCode: string
   slackProjectName: string
   setTheme: (themeId: string) => void
   setIdle: (enabled: boolean, minutes: number) => void
   setElapsed: (enabled: boolean, minutes: number) => void
   setPomodoro: (enabled: boolean) => void
-  setUserName: (userName: string) => void
-  setWhiteboard: (enabled: boolean, email: string) => void
+  setWhiteboard: (enabled: boolean) => void
   setSlack: (projectCode: string, projectName: string) => void
 }
 
@@ -32,9 +29,7 @@ export function useSettings(): SettingsState {
   const [elapsedEnabled, setElapsedEnabled] = useState(false)
   const [elapsedMinutes, setElapsedMinutes] = useState(30)
   const [pomodoroEnabled, setPomodoroEnabled] = useState(false)
-  const [userName, setUserNameState] = useState('')
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
-  const [whiteboardEmail, setWhiteboardEmail] = useState('')
   const [slackProjectCode, setSlackProjectCode] = useState('')
   const [slackProjectName, setSlackProjectName] = useState('')
 
@@ -52,10 +47,8 @@ export function useSettings(): SettingsState {
     settingsRepository.getPomodoro().then(({ enabled }) => {
       setPomodoroEnabled(enabled)
     })
-    settingsRepository.getUserName().then(setUserNameState)
-    settingsRepository.getWhiteboard().then(({ enabled, email }) => {
+    settingsRepository.getWhiteboard().then(({ enabled }) => {
       setWhiteboardEnabled(enabled)
-      setWhiteboardEmail(email)
     })
     settingsRepository.getSlack().then(({ projectCode, projectName }) => {
       setSlackProjectCode(projectCode)
@@ -65,7 +58,7 @@ export function useSettings(): SettingsState {
 
   return {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    userName, whiteboardEnabled, whiteboardEmail, slackProjectCode, slackProjectName,
+    whiteboardEnabled, slackProjectCode, slackProjectName,
 
     setTheme: (themeId): void => {
       // 即時反映（IPC待ちなし）
@@ -87,14 +80,9 @@ export function useSettings(): SettingsState {
       setPomodoroEnabled(enabled)
       settingsRepository.setPomodoro(enabled)
     },
-    setUserName: (value): void => {
-      setUserNameState(value)
-      settingsRepository.setUserName(value.trim())
-    },
-    setWhiteboard: (enabled, email): void => {
+    setWhiteboard: (enabled): void => {
       setWhiteboardEnabled(enabled)
-      setWhiteboardEmail(email)
-      settingsRepository.setWhiteboard(enabled, email.trim())
+      settingsRepository.setWhiteboard(enabled)
     },
     setSlack: (projectCode, projectName): void => {
       setSlackProjectCode(projectCode)

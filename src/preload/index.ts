@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateSession: (session) => invoke('sessions:update', session),
   deleteSession: (id: string, yearMonth: string) => invoke('sessions:delete', { id, yearMonth }),
 
-  // settings: theme / notifications / userName
+  // settings: theme / notifications
   getTheme: () => invoke('settings:getTheme', undefined),
   setTheme: (themeId: string) => invoke('settings:setTheme', themeId),
   onThemeChanged: (callback: (themeId: string) => void) => on('theme-changed', callback),
@@ -35,12 +35,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPomodoroSettings: () => invoke('settings:getPomodoroSettings', undefined),
   setPomodoroSettings: (enabled: boolean) => invoke('settings:setPomodoroSettings', { enabled }),
 
-  getUserName: () => invoke('settings:getUserName', undefined),
-  setUserName: (userName: string) => invoke('settings:setUserName', userName),
-
   // settings: integrations
   getWhiteboardSettings: () => invoke('settings:getWhiteboardSettings', undefined),
-  setWhiteboardSettings: (enabled: boolean, email: string) => invoke('settings:setWhiteboardSettings', { enabled, email }),
+  setWhiteboardSettings: (enabled: boolean) => invoke('settings:setWhiteboardSettings', { enabled }),
   getSlackSettings: () => invoke('settings:getSlackSettings', undefined),
   setSlackSettings: (projectCode: string, projectName: string) => invoke('settings:setSlackSettings', { projectCode, projectName }),
 

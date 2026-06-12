@@ -14,7 +14,7 @@ interface ElectronAPI {
   updateSession: (session: Session) => Promise<void>
   deleteSession: (id: string, yearMonth: string) => Promise<void>
 
-  // settings: theme / notifications / userName
+  // settings: theme / notifications
   getTheme: () => Promise<string>
   setTheme: (themeId: string) => Promise<void>
   onThemeChanged: (callback: (themeId: string) => void) => void
@@ -24,12 +24,10 @@ interface ElectronAPI {
   setElapsedSettings: (enabled: boolean, minutes: number) => Promise<void>
   getPomodoroSettings: () => Promise<PomodoroSettings>
   setPomodoroSettings: (enabled: boolean) => Promise<void>
-  getUserName: () => Promise<string>
-  setUserName: (userName: string) => Promise<void>
 
   // settings: integrations
   getWhiteboardSettings: () => Promise<WhiteboardSettings>
-  setWhiteboardSettings: (enabled: boolean, email: string) => Promise<void>
+  setWhiteboardSettings: (enabled: boolean) => Promise<void>
   getSlackSettings: () => Promise<SlackSettings>
   setSlackSettings: (projectCode: string, projectName: string) => Promise<void>
 

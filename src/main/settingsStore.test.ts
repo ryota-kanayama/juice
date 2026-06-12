@@ -85,13 +85,13 @@ describe('SettingsStore', () => {
 
   it('ホワイトボード設定のデフォルト値が返る', async () => {
     const settings = await store.getWhiteboardSettings()
-    expect(settings).toEqual({ enabled: false, email: '' })
+    expect(settings).toEqual({ enabled: false })
   })
 
   it('ホワイトボード設定を保存して取得できる', async () => {
-    await store.setWhiteboardSettings(true, 'test@jsl.co.jp')
+    await store.setWhiteboardSettings(true)
     const settings = await store.getWhiteboardSettings()
-    expect(settings).toEqual({ enabled: true, email: 'test@jsl.co.jp' })
+    expect(settings).toEqual({ enabled: true })
   })
 
   it('ポモドーロ設定のデフォルトは無効', async () => {
