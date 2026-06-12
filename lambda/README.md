@@ -14,7 +14,7 @@ Slack OIDC サインインとセッション JWT 発行を行う Lambda。
 1. <https://api.slack.com/apps> → **Create New App** → **From scratch**
 2. App Name: `Juice`、ワークスペース: 会社ワークスペースを選択
 3. **OAuth & Permissions** → Scopes → **User Token Scopes** に
-   `openid` `profile` `email` を追加
+   `openid` `profile` `email` `users:read` を追加
 4. **Basic Information** → App Credentials の **Client ID** と
    **Client Secret** を控える
 5. Redirect URL はデプロイ後（手順3）に設定する
@@ -105,6 +105,9 @@ open dist-release/mac-arm64/Juice.app
 - **キーローテーション**: `terraform.tfvars` を変更して `terraform apply`
 - **全セッション失効**: `session_secret` を変更して `terraform apply`
 - **全リソース削除**: `terraform destroy`
-- **勤怠の登録名が一致しない人への対応**: 本人の Slack user ID（U 始まり）と
-  勤怠システムの登録名を `attendance_user_overrides` に追加して
-  `terraform apply`
+- **勤怠の登録名の自動解決**: サインイン時に Slack の `users.info` から
+  旧ユーザー名（@ハンドル）を取得し勤怠 user_name に使う。
+  スコープ変更（`users:read` 追加）後は既存サインイン者の再サインインが必要
+- **勤怠の登録名が一致しない人への対応**: 自動解決した旧ハンドルが勤怠 DB と
+  ズレる人は、本人の Slack user ID（U 始まり）と勤怠システムの登録名を
+  `attendance_user_overrides` に追加して `terraform apply`（対応表が最優先）
