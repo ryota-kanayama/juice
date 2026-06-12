@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SessionList } from './SessionList'
 import type { Session } from '../../types/session'
@@ -300,5 +300,57 @@ describe('SessionList — 業務終了', () => {
     fireEvent.change(screen.getByLabelText('分'), { target: { value: '30' } })
     fireEvent.keyDown(screen.getByLabelText('分'), { key: 'Enter' })
     expect(onWorkEnd).toHaveBeenCalledWith('18:30')
+  })
+})
+
+describe('SessionList — ページをまたぐ並び替え', () => {
+  const fiveSessions: Session[] = ['1', '2', '3', '4', '5'].map(id =>
+    makeSession({ id, taskId: id, name: `ジュース${id}` })
+  )
+
+  // jsdom には DragEvent が無いため、clientX と dataTransfer を持つ MouseEvent で代用する
+  function makeDragEvent(type: string, clientX = 0): MouseEvent {
+    const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientX })
+    Object.defineProperty(ev, 'dataTransfer', {
+      value: { effectAllowed: '', dropEffect: '' },
+    })
+    return ev
+  }
+
+  it('2ページ目のタイマーをドラッグ中にページを戻して1ページ目に入れられる', () => {
+    vi.useFakeTimers()
+    try {
+      localStorage.removeItem('sessionOrder.2026-02-25')
+      const { container } = render(<SessionList sessions={fiveSessions} today="2026-02-25" />)
+      const getUl = () => container.querySelector('ul')!
+
+      // 2ページ目へ（ページサイズ4なので ジュース5 は2ページ目）
+      fireEvent.wheel(getUl(), { deltaY: 100 })
+      expect(screen.getByText('ジュース5')).toBeInTheDocument()
+      expect(screen.queryByText('ジュース1')).not.toBeInTheDocument()
+
+      // ジュース5 をドラッグ開始し、リスト左端でホールド → 400ms でページが戻る
+      const li5 = screen.getByText('ジュース5').closest('li')!
+      fireEvent(li5, makeDragEvent('dragstart'))
+      fireEvent(getUl(), makeDragEvent('dragover', 10))
+      act(() => {
+        vi.advanceTimersByTime(400)
+      })
+      expect(screen.getByText('ジュース1')).toBeInTheDocument()
+      expect(screen.queryByText('ジュース5')).not.toBeInTheDocument()
+
+      // 1ページ目の ジュース1 の上にドロップ（ドラッグ元の li5 は既にアンマウント済み。
+      // 実ブラウザでは dragend が React に届かないため、drop で確定できる必要がある）
+      const li1 = screen.getByText('ジュース1').closest('li')!
+      fireEvent(li1, makeDragEvent('dragover', 200))
+      fireEvent(li1, makeDragEvent('drop', 200))
+
+      expect(JSON.parse(localStorage.getItem('sessionOrder.2026-02-25')!))
+        .toEqual(['5', '1', '2', '3', '4'])
+      // 1ページ目の先頭が ジュース5 になっている
+      expect(screen.getByText('ジュース5')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
