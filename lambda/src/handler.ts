@@ -85,7 +85,7 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
       redirectUri,
     })
     if ('error' in identity) {
-      console.error('OIDC failed:', identity.error)
+      console.error('auth failed:', identity.error)
       return errorPage('Slack 認証に失敗しました。')
     }
     if (identity.teamId !== env('ALLOWED_TEAM_ID')) {
