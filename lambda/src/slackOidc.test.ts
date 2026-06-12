@@ -28,7 +28,7 @@ describe('buildAuthorizeUrl', () => {
     expect(url.origin + url.pathname).toBe('https://slack.com/openid/connect/authorize')
     expect(url.searchParams.get('response_type')).toBe('code')
     expect(url.searchParams.get('client_id')).toBe('CID')
-    expect(url.searchParams.get('scope')).toBe('openid profile email')
+    expect(url.searchParams.get('scope')).toBe('openid profile email users:read')
     expect(url.searchParams.get('redirect_uri')).toBe('https://x/auth/callback')
     expect(url.searchParams.get('state')).toBe('abc')
   })
@@ -39,9 +39,12 @@ describe('fetchSlackIdentity', () => {
     const fetchMock = mockFetchSequence([
       { ok: true, access_token: 'xoxp-test' },
       { ok: true, sub: 'U123', name: '金山', email: 'kanayama@jsl.co.jp', 'https://slack.com/team_id': 'T999' },
+      { ok: true, user: { name: 'kanayama' } },
     ])
     const result = await fetchSlackIdentity(OPTS)
-    expect(result).toEqual({ sub: 'U123', name: '金山', teamId: 'T999', email: 'kanayama@jsl.co.jp' })
+    expect(result).toEqual({
+      sub: 'U123', name: '金山', teamId: 'T999', email: 'kanayama@jsl.co.jp', handle: 'kanayama',
+    })
     // 1回目: トークン交換に code と client_secret が送られている
     const [tokenUrl, tokenInit] = fetchMock.mock.calls[0]
     expect(tokenUrl).toBe('https://slack.com/api/openid.connect.token')
@@ -51,6 +54,10 @@ describe('fetchSlackIdentity', () => {
     const [userUrl, userInit] = fetchMock.mock.calls[1]
     expect(userUrl).toBe('https://slack.com/api/openid.connect.userInfo')
     expect(userInit.headers.Authorization).toBe('Bearer xoxp-test')
+    // 3回目: users.info に access_token と user=sub が渡っている
+    const [usersUrl, usersInit] = fetchMock.mock.calls[2]
+    expect(usersUrl).toBe('https://slack.com/api/users.info?user=U123')
+    expect(usersInit.headers.Authorization).toBe('Bearer xoxp-test')
   })
 
   it('トークン交換失敗時は error を返す', async () => {
@@ -72,18 +79,32 @@ describe('fetchSlackIdentity', () => {
     mockFetchSequence([
       { ok: true, access_token: 'xoxp-test' },
       { ok: true, sub: 'U123', 'https://slack.com/team_id': 'T999' },
+      { ok: true, user: { name: 'handle1' } },
     ])
     const result = await fetchSlackIdentity(OPTS)
-    expect(result).toEqual({ sub: 'U123', name: 'U123', teamId: 'T999', email: undefined })
+    expect(result).toEqual({ sub: 'U123', name: 'U123', teamId: 'T999', email: undefined, handle: 'handle1' })
   })
 
   it('email が無くても成功する（email は undefined）', async () => {
     mockFetchSequence([
       { ok: true, access_token: 'xoxp-test' },
       { ok: true, sub: 'U123', name: 'x', 'https://slack.com/team_id': 'T999' },
+      { ok: true, user: { name: 'handle1' } },
     ])
     const result = await fetchSlackIdentity(OPTS)
-    expect(result).toEqual({ sub: 'U123', name: 'x', teamId: 'T999', email: undefined })
+    expect(result).toEqual({ sub: 'U123', name: 'x', teamId: 'T999', email: undefined, handle: 'handle1' })
+  })
+
+  it('users.info が失敗しても handle 無しで identity を返す', async () => {
+    mockFetchSequence([
+      { ok: true, access_token: 'xoxp-test' },
+      { ok: true, sub: 'U123', name: '金山', 'https://slack.com/team_id': 'T999' },
+      { ok: false, error: 'missing_scope' },
+    ])
+    const result = await fetchSlackIdentity(OPTS)
+    expect(result).toEqual({
+      sub: 'U123', name: '金山', teamId: 'T999', email: undefined, handle: undefined,
+    })
   })
 
   it('fetch が network error で reject しても throw せず error を返す', async () => {

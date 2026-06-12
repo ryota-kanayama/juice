@@ -4,6 +4,8 @@ export interface SlackIdentity {
   teamId: string
   /** email スコープで取得。古い認可では undefined になりうる */
   email?: string
+  /** Slack 旧ユーザー名（@ハンドル）。users.info から取得。取得失敗時は undefined */
+  handle?: string
 }
 
 export interface SlackOidcError {
@@ -19,7 +21,7 @@ export function buildAuthorizeUrl(opts: {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: opts.clientId,
-    scope: 'openid profile email',
+    scope: 'openid profile email users:read',
     redirect_uri: opts.redirectUri,
     state: opts.state,
   })
@@ -38,6 +40,12 @@ interface UserInfoResponse {
   name?: string
   email?: string
   'https://slack.com/team_id'?: string
+  error?: string
+}
+
+interface UsersInfoResponse {
+  ok: boolean
+  user?: { name?: string }
   error?: string
 }
 
@@ -76,7 +84,21 @@ export async function fetchSlackIdentity(opts: {
     if (!user.ok || !user.sub || !teamId) {
       return { error: `userInfo: ${user.error ?? 'unknown'}` }
     }
-    return { sub: user.sub, name: user.name || user.sub, teamId, email: user.email }
+    // users.info の name は廃止された旧ユーザー名（@ハンドル）。勤怠 DB の
+    // slack_user_name はこの値から登録されているため照合に使う。
+    // 取得失敗はサインインを止めず handle を undefined にする。
+    let handle: string | undefined
+    try {
+      const usersRes = await fetch(
+        `https://slack.com/api/users.info?user=${encodeURIComponent(user.sub)}`,
+        { headers: { Authorization: `Bearer ${token.access_token}` } }
+      )
+      const usersInfo = (await usersRes.json()) as UsersInfoResponse
+      if (usersInfo.ok) handle = usersInfo.user?.name
+    } catch {
+      // users.info の失敗はサインインを止めない
+    }
+    return { sub: user.sub, name: user.name || user.sub, teamId, email: user.email, handle }
   } catch (e) {
     return { error: `network: ${e instanceof Error ? e.message : 'unknown'}` }
   }
