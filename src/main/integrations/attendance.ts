@@ -1,6 +1,7 @@
 import { httpPost } from '../http'
 import { logger } from '../logger'
 import type { SettingsStore } from '../settingsStore'
+import type { AuthStore } from '../auth/authStore'
 import type { AttendanceSendResult } from '../../shared/ipc'
 import { sendWhiteboardLeave } from './whiteboard'
 import { sendSlackTeleworkEnd } from './slack'
@@ -10,6 +11,7 @@ import { sendSlackTeleworkEnd } from './slack'
  */
 export async function sendAttendance(
   settingsStore: SettingsStore,
+  authStore: AuthStore,
   text: string
 ): Promise<AttendanceSendResult> {
   const userName = await settingsStore.getUserName()
@@ -24,7 +26,7 @@ export async function sendAttendance(
   )
   if (result.ok) {
     sendWhiteboardLeave(settingsStore).catch(err => logger.error('Whiteboard leave failed:', err))
-    sendSlackTeleworkEnd(settingsStore).catch(err => logger.error('Slack telework end failed:', err))
+    sendSlackTeleworkEnd(settingsStore, authStore).catch(err => logger.error('Slack telework end failed:', err))
   }
   return result
 }
