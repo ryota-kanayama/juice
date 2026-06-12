@@ -1,31 +1,66 @@
+import { Notification } from 'electron'
 import { httpPost } from '../http'
 import type { SettingsStore } from '../settingsStore'
+import type { AuthStore } from '../auth/authStore'
 
-/** Slack のチャンネルにメッセージを投稿する。トークン / チャンネル未設定なら何もしない。 */
-async function sendSlackMessage(text: string): Promise<void> {
-  const token = import.meta.env.MAIN_VITE_SLACK_BOT_TOKEN
-  const channel = import.meta.env.MAIN_VITE_SLACK_CHANNEL_ID
-  if (!token || !channel) return
+type TeleworkKind = 'telework_start' | 'telework_end'
 
+// サインイン促し通知はアプリ起動ごとに1回だけ
+let signInPrompted = false
+
+function promptSignIn(): void {
+  if (signInPrompted) return
+  signInPrompted = true
+  new Notification({
+    title: 'Juice',
+    body: 'Slack 通知には Slack サインインが必要です。設定 > アカウントからサインインしてください。',
+  }).show()
+}
+
+/**
+ * Lambda 経由でテレワーク通知を投稿する。
+ * 未サインイン・セッション切れの場合は通知して何もしない（throw しない）。
+ */
+async function postTelework(
+  kind: TeleworkKind,
+  settingsStore: SettingsStore,
+  authStore: AuthStore
+): Promise<void> {
+  const token = await authStore.getToken()
+  if (!token) {
+    promptSignIn()
+    return
+  }
+  const { projectCode, projectName } = await settingsStore.getSlackSettings()
   const result = await httpPost(
-    'https://slack.com/api/chat.postMessage',
-    JSON.stringify({ channel, text }),
-    {
-      'Content-Type': 'application/json; charset=utf-8',
-      Authorization: `Bearer ${token}`,
-    }
+    `${import.meta.env.MAIN_VITE_PROXY_URL}/api/slack.post`,
+    JSON.stringify({ kind, projectCode, projectName }),
+    { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
   )
+  if (result.status === 401) {
+    promptSignIn()
+    return
+  }
   if (!result.ok) {
-    throw new Error(`Slack API error: ${result.status} ${result.body}`)
+    throw new Error(`Slack proxy error: ${result.status} ${result.body}`)
   }
 }
 
-export async function sendSlackTeleworkStart(settingsStore: SettingsStore): Promise<void> {
-  const { projectCode, projectName } = await settingsStore.getSlackSettings()
-  await sendSlackMessage(`テレワークを開始します\n${projectCode} ${projectName}`)
+export function sendSlackTeleworkStart(
+  settingsStore: SettingsStore,
+  authStore: AuthStore
+): Promise<void> {
+  return postTelework('telework_start', settingsStore, authStore)
 }
 
-export async function sendSlackTeleworkEnd(settingsStore: SettingsStore): Promise<void> {
-  const { projectCode, projectName } = await settingsStore.getSlackSettings()
-  await sendSlackMessage(`テレワークを終了します\n${projectCode} ${projectName}`)
+export function sendSlackTeleworkEnd(
+  settingsStore: SettingsStore,
+  authStore: AuthStore
+): Promise<void> {
+  return postTelework('telework_end', settingsStore, authStore)
+}
+
+/** テスト用: サインイン促し通知のフラグをリセット */
+export function _resetForTest(): void {
+  signInPrompted = false
 }

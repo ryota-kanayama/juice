@@ -14,7 +14,7 @@ Slack OIDC サインインとセッション JWT 発行を行う Lambda。
 1. <https://api.slack.com/apps> → **Create New App** → **From scratch**
 2. App Name: `Juice`、ワークスペース: 会社ワークスペースを選択
 3. **OAuth & Permissions** → Scopes → **User Token Scopes** に
-   `openid` と `profile` を追加
+   `openid` `profile` `email` を追加
 4. **Basic Information** → App Credentials の **Client ID** と
    **Client Secret** を控える
 5. Redirect URL はデプロイ後（手順3）に設定する
@@ -35,6 +35,8 @@ openssl rand -hex 32   # session_secret に使う値を生成
 #     （ブラウザで Slack を開いた URL app.slack.com/client/TXXXXXXX/...
 #      の T 始まりの部分）
 #   session_secret: 上で生成した値
+#   slack_bot_token / slack_channel_id: 既存 .env の
+#     MAIN_VITE_SLACK_BOT_TOKEN / MAIN_VITE_SLACK_CHANNEL_ID の値を移設
 
 terraform init
 terraform apply        # 実行計画を確認して yes
@@ -74,6 +76,12 @@ curl -si "<FunctionUrl>auth/me" | head -1
 
 # サインイン後（アプリで実施）、JWT を使って 200 を確認
 curl -si -H "Authorization: Bearer <JWT>" "<FunctionUrl>auth/me"
+
+# 改竄 JWT での投稿は 401
+curl -si -X POST -H "Authorization: Bearer xx.yy.zz" \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"telework_start","projectCode":"ES1","projectName":"PJ"}' \
+  "<FunctionUrl>api/slack.post" | head -1
 ```
 
 アプリでの E2E は **パッケージ版で確認する**

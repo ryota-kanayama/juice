@@ -1,10 +1,13 @@
 import { buildAuthorizeUrl, fetchSlackIdentity } from './slackOidc'
 import { issueSessionJwt, verifySessionJwt } from './sessionJwt'
+import { buildTeleworkMessage, parseSlackPostRequest, postToSlack } from './slackPost'
 
 interface FunctionUrlEvent {
   rawPath: string
   queryStringParameters?: Record<string, string>
   headers: Record<string, string | undefined>
+  body?: string
+  isBase64Encoded?: boolean
   requestContext: { domainName: string; http: { method: string } }
 }
 
@@ -33,6 +36,12 @@ function json(statusCode: number, data: unknown): FunctionUrlResponse {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify(data),
   }
+}
+
+function bearerClaims(event: FunctionUrlEvent): ReturnType<typeof verifySessionJwt> {
+  const auth = event.headers.authorization ?? event.headers.Authorization ?? ''
+  const match = auth.match(/^Bearer (.+)$/)
+  return match ? verifySessionJwt(match[1], env('SESSION_SECRET')) : null
 }
 
 // message には固定文言のみ渡す（ユーザー入力をエコーしない）
@@ -76,18 +85,35 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
       return errorPage('許可されていないワークスペースです。')
     }
     const token = issueSessionJwt(
-      { sub: identity.sub, name: identity.name, team: identity.teamId },
+      { sub: identity.sub, name: identity.name, team: identity.teamId, email: identity.email },
       env('SESSION_SECRET')
     )
     return redirect(`juice://auth?token=${encodeURIComponent(token)}&state=${state}`)
   }
 
   if (path === '/auth/me') {
-    const auth = event.headers.authorization ?? event.headers.Authorization ?? ''
-    const match = auth.match(/^Bearer (.+)$/)
-    const claims = match ? verifySessionJwt(match[1], env('SESSION_SECRET')) : null
+    const claims = bearerClaims(event)
     if (!claims) return json(401, { error: 'unauthorized' })
     return json(200, { sub: claims.sub, name: claims.name, team: claims.team, exp: claims.exp })
+  }
+
+  if (path === '/api/slack.post' && event.requestContext.http.method === 'POST') {
+    if (!bearerClaims(event)) return json(401, { error: 'unauthorized' })
+    const rawBody =
+      event.isBase64Encoded && event.body
+        ? Buffer.from(event.body, 'base64').toString('utf-8')
+        : (event.body ?? '')
+    const request = parseSlackPostRequest(rawBody)
+    if (!request) return json(400, { error: 'bad request' })
+    const result = await postToSlack(buildTeleworkMessage(request), {
+      botToken: env('SLACK_BOT_TOKEN'),
+      channelId: env('SLACK_CHANNEL_ID'),
+    })
+    if ('error' in result) {
+      console.error('slack.post failed:', result.error)
+      return json(502, { error: 'slack api error' })
+    }
+    return json(200, { ok: true })
   }
 
   return json(404, { error: 'not found' })

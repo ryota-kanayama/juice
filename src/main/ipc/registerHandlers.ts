@@ -95,10 +95,10 @@ export function registerIpcHandlers(
   })
 
   // attendance
-  handle('attendance:send', (_, text) => sendAttendance(settingsStore, text))
+  handle('attendance:send', (_, text) => sendAttendance(settingsStore, authStore, text))
   handle('whiteboard:teleworkStart', async () => {
     await sendWhiteboardTeleworkStart(settingsStore)
-    await sendSlackTeleworkStart(settingsStore).catch(err => logger.error('Slack telework start failed:', err))
+    await sendSlackTeleworkStart(settingsStore, authStore).catch(err => logger.error('Slack telework start failed:', err))
   })
 
   // setup
