@@ -1,21 +1,9 @@
-import { Notification } from 'electron'
 import { httpPost } from '../http'
 import type { SettingsStore } from '../settingsStore'
 import type { AuthStore } from '../auth/authStore'
+import { promptSignIn } from '../auth/promptSignIn'
 
 type TeleworkKind = 'telework_start' | 'telework_end'
-
-// サインイン促し通知はアプリ起動ごとに1回だけ
-let signInPrompted = false
-
-function promptSignIn(): void {
-  if (signInPrompted) return
-  signInPrompted = true
-  new Notification({
-    title: 'Juice',
-    body: 'Slack 通知には Slack サインインが必要です。設定 > アカウントからサインインしてください。',
-  }).show()
-}
 
 /**
  * Lambda 経由でテレワーク通知を投稿する。
@@ -58,9 +46,4 @@ export function sendSlackTeleworkEnd(
   authStore: AuthStore
 ): Promise<void> {
   return postTelework('telework_end', settingsStore, authStore)
-}
-
-/** テスト用: サインイン促し通知のフラグをリセット */
-export function _resetForTest(): void {
-  signInPrompted = false
 }

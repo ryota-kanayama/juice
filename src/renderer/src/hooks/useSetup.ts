@@ -5,8 +5,6 @@ import { DEFAULT_THEME_ID } from '../theme/themeParams'
 
 export interface SetupState {
   activeThemeId: string
-  userName: string
-  setUserName: (value: string) => void
   setTheme: (themeId: string) => void
   complete: () => Promise<void>
 }
@@ -14,7 +12,6 @@ export interface SetupState {
 /** セットアップウィザードのオーケストレーション。テーマ即時反映と完了処理を統括。 */
 export function useSetup(): SetupState {
   const [activeThemeId, setActiveThemeId] = useState(DEFAULT_THEME_ID)
-  const [userName, setUserNameState] = useState('')
 
   useEffect(() => {
     settingsRepository.getTheme().then(setActiveThemeId)
@@ -23,8 +20,6 @@ export function useSetup(): SetupState {
 
   return {
     activeThemeId,
-    userName,
-    setUserName: setUserNameState,
     setTheme: (themeId): void => {
       // 即時反映（IPC待ちなし）
       applyTheme(themeId)
@@ -32,7 +27,6 @@ export function useSetup(): SetupState {
       settingsRepository.setTheme(themeId)
     },
     complete: async (): Promise<void> => {
-      await settingsRepository.setUserName(userName.trim())
       await settingsRepository.completeSetup()
     },
   }

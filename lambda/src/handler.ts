@@ -1,6 +1,8 @@
 import { buildAuthorizeUrl, fetchSlackIdentity } from './slackOidc'
 import { issueSessionJwt, verifySessionJwt } from './sessionJwt'
 import { buildTeleworkMessage, parseSlackPostRequest, postToSlack } from './slackPost'
+import { parseAttendanceRequest, postAttendance, resolveUserName } from './attendanceSend'
+import { postWhiteboard } from './whiteboardPost'
 
 interface FunctionUrlEvent {
   rawPath: string
@@ -42,6 +44,12 @@ function bearerClaims(event: FunctionUrlEvent): ReturnType<typeof verifySessionJ
   const auth = event.headers.authorization ?? event.headers.Authorization ?? ''
   const match = auth.match(/^Bearer (.+)$/)
   return match ? verifySessionJwt(match[1], env('SESSION_SECRET')) : null
+}
+
+function rawBody(event: FunctionUrlEvent): string {
+  return event.isBase64Encoded && event.body
+    ? Buffer.from(event.body, 'base64').toString('utf-8')
+    : (event.body ?? '')
 }
 
 // message には固定文言のみ渡す（ユーザー入力をエコーしない）
@@ -99,11 +107,7 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
 
   if (path === '/api/slack.post' && event.requestContext.http.method === 'POST') {
     if (!bearerClaims(event)) return json(401, { error: 'unauthorized' })
-    const rawBody =
-      event.isBase64Encoded && event.body
-        ? Buffer.from(event.body, 'base64').toString('utf-8')
-        : (event.body ?? '')
-    const request = parseSlackPostRequest(rawBody)
+    const request = parseSlackPostRequest(rawBody(event))
     if (!request) return json(400, { error: 'bad request' })
     const result = await postToSlack(buildTeleworkMessage(request), {
       botToken: env('SLACK_BOT_TOKEN'),
@@ -112,6 +116,48 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
     if ('error' in result) {
       console.error('slack.post failed:', result.error)
       return json(502, { error: 'slack api error' })
+    }
+    return json(200, { ok: true })
+  }
+
+  if (path === '/api/attendance.send' && event.requestContext.http.method === 'POST') {
+    const claims = bearerClaims(event)
+    if (!claims) return json(401, { error: 'unauthorized' })
+    const request = parseAttendanceRequest(rawBody(event))
+    if (!request) return json(400, { error: 'bad request' })
+    const userName = resolveUserName(claims, process.env.ATTENDANCE_USER_OVERRIDES ?? '{}')
+    const result = await postAttendance(userName, request.text, {
+      apiUrl: env('ATTENDANCE_API_URL'),
+      apiKey: env('ATTENDANCE_API_KEY'),
+    })
+    if ('error' in result) {
+      console.error('attendance.send failed:', result.error)
+      return json(502, { error: 'attendance api error' })
+    }
+    // 勤怠 API の応答をそのまま返す（アプリの結果表示用）
+    return {
+      statusCode: result.status,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: result.body,
+    }
+  }
+
+  if (
+    (path === '/api/whiteboard.telework' || path === '/api/whiteboard.leave') &&
+    event.requestContext.http.method === 'POST'
+  ) {
+    const claims = bearerClaims(event)
+    if (!claims) return json(401, { error: 'unauthorized' })
+    // email クレームは Phase 2 以降のサインインでのみ付与される
+    if (!claims.email) return json(401, { error: 'reauth_required' })
+    const kind = path === '/api/whiteboard.telework' ? 'telework' : 'leave'
+    const result = await postWhiteboard(kind, claims.email, {
+      apiUrl: env('WHITEBOARD_API_URL'),
+      apiKey: env('WHITEBOARD_API_KEY'),
+    })
+    if ('error' in result) {
+      console.error('whiteboard failed:', result.error)
+      return json(502, { error: 'whiteboard api error' })
     }
     return json(200, { ok: true })
   }

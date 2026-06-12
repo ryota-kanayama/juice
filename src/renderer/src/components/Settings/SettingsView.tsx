@@ -40,8 +40,8 @@ export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
   const {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    userName, whiteboardEnabled, whiteboardEmail, slackProjectCode, slackProjectName,
-    setTheme, setIdle, setElapsed, setPomodoro, setUserName, setWhiteboard, setSlack,
+    whiteboardEnabled, slackProjectCode, slackProjectName,
+    setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard, setSlack,
   } = useSettings()
 
   return (
@@ -193,22 +193,6 @@ export function SettingsView() {
           <>
             <h2 className={heading}>Slack アカウント</h2>
             <AccountSection />
-            <h2 className={heading}>勤怠連携</h2>
-            <Card className="mb-4">
-              <CardContent className="flex flex-col gap-3 p-3.5">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="username" className="text-[13px] text-foreground">ユーザー名</Label>
-                  <Input
-                    id="username"
-                    type="text"
-                    className="h-8"
-                    value={userName}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setUserName(e.target.value)}
-                    placeholder="Slack ユーザー名"
-                  />
-                </div>
-              </CardContent>
-            </Card>
 
             <h2 className={heading} style={{ marginTop: '1.5rem' }}>ホワイトボード連携</h2>
             <Card className="mb-4">
@@ -225,29 +209,9 @@ export function SettingsView() {
                   <Switch
                     id="whiteboard"
                     checked={whiteboardEnabled}
-                    onCheckedChange={(c) => setWhiteboard(c, whiteboardEmail)}
+                    onCheckedChange={setWhiteboard}
                   />
                 </div>
-                {whiteboardEnabled && (
-                  <>
-                    <Separator />
-                    <div className="flex flex-col gap-1.5 p-3.5">
-                      <Label htmlFor="whiteboard-email" className="text-[13px] text-foreground">
-                        メールアドレス
-                      </Label>
-                      <Input
-                        id="whiteboard-email"
-                        type="email"
-                        className="h-8"
-                        value={whiteboardEmail}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                          setWhiteboard(whiteboardEnabled, e.target.value)
-                        }
-                        placeholder="example@jsl.co.jp"
-                      />
-                    </div>
-                  </>
-                )}
               </CardContent>
             </Card>
 

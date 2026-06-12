@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
 import { useSetup } from '../../hooks/useSetup'
+import { useAuthStatus } from '../../hooks/useAuthStatus'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
 import { Card, CardContent } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 const TOTAL_STEPS = 3
 
 export function SetupView() {
-  const { activeThemeId, userName, setUserName, setTheme, complete } = useSetup()
+  const { activeThemeId, setTheme, complete } = useSetup()
+  const { status, signIn } = useAuthStatus()
   const [step, setStep] = useState(1)
 
   return (
@@ -29,28 +29,19 @@ export function SetupView() {
         </div>
       )}
 
-      {/* Step 2: ユーザー名入力 */}
+      {/* Step 2: Slack サインイン */}
       {step === 2 && (
         <div className="flex flex-1 flex-col animate-fade-in" key="step2">
-          <div className="mb-5 text-center">
-            <span className="mb-1 block text-[36px]">🧃</span>
-            <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--text-primary)]">ユーザー名</h1>
-            <p className="m-0 text-xs text-[var(--text-secondary)]">勤怠連携に使用する Slack ユーザー名を入力してください</p>
-          </div>
-          <div className="mb-4">
-            <Card>
-              <CardContent className="flex flex-col gap-1.5 p-4">
-                <Label htmlFor="setup-name" className="text-[13px] text-foreground">ユーザー名</Label>
-                <Input
-                  id="setup-name"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  placeholder="例: kanayama"
-                  autoFocus
-                />
-              </CardContent>
-            </Card>
-          </div>
+          <h2 className="mb-1 text-[15px] font-semibold">Slack でサインイン</h2>
+          <p className="mb-4 text-[12px] text-muted-foreground">
+            サインインすると勤怠・ホワイトボード・Slack 通知の連携が使えます。
+            あとから設定 &gt; アカウントでもサインインできます。
+          </p>
+          {status.signedIn ? (
+            <p className="text-[13px] font-medium">✅ {status.name} としてサインイン済み</p>
+          ) : (
+            <Button onClick={signIn}>Slack でサインイン</Button>
+          )}
         </div>
       )}
 
@@ -96,7 +87,13 @@ export function SetupView() {
             <Button className="flex-1" onClick={() => setStep(2)}>はじめる</Button>
           )}
           {step === 2 && (
-            <Button className="flex-1" onClick={() => setStep(3)} disabled={!userName.trim()}>次へ</Button>
+            <Button
+              className="flex-1"
+              variant={status.signedIn ? 'default' : 'outline'}
+              onClick={() => setStep(3)}
+            >
+              {status.signedIn ? '次へ' : 'あとで設定する'}
+            </Button>
           )}
           {step === 3 && (
             <Button className="flex-1" onClick={complete}>完了</Button>

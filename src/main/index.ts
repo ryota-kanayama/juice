@@ -11,6 +11,15 @@ import { startIdleCheck } from './notifications/idle'
 import { registerIpcHandlers } from './ipc/registerHandlers'
 import { logger } from './logger'
 
+// dev とパッケージ版でプロファイルを分離する（起動ロック衝突・localStorage 混入の防止）。
+// requestSingleInstanceLock より前に設定する必要がある。
+app.setPath(
+  'userData',
+  app.isPackaged
+    ? join(os.homedir(), 'Library', 'Application Support', 'Juice')
+    : join(os.homedir(), 'Library', 'Application Support', 'juice-timer-dev')
+)
+
 // 複数インスタンスの起動を防ぐ（プロダクション向け）
 if (!app.requestSingleInstanceLock()) {
   app.quit()
@@ -45,7 +54,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers(sessionStore, settingsStore, authStore)
 
   // 初回セットアップ判定
-  const needsSetup = !(await settingsStore.isSetupCompleted()) && !(await settingsStore.getUserName())
+  const needsSetup = !(await settingsStore.isSetupCompleted())
 
   if (needsSetup) {
     // 初回起動: Dockを表示してセットアップウィンドウを開く

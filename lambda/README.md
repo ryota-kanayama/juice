@@ -37,6 +37,10 @@ openssl rand -hex 32   # session_secret に使う値を生成
 #   session_secret: 上で生成した値
 #   slack_bot_token / slack_channel_id: 既存 .env の
 #     MAIN_VITE_SLACK_BOT_TOKEN / MAIN_VITE_SLACK_CHANNEL_ID の値を移設
+#   attendance_api_url / attendance_api_key: 既存 .env の
+#     MAIN_VITE_ATTENDANCE_API_URL / MAIN_VITE_ATTENDANCE_API_KEY の値を移設
+#   whiteboard_api_url / whiteboard_api_key: 既存 .env の
+#     MAIN_VITE_WHITEBOARD_API_URL / MAIN_VITE_WHITEBOARD_API_KEY の値を移設
 
 terraform init
 terraform apply        # 実行計画を確認して yes
@@ -101,3 +105,6 @@ open dist-release/mac-arm64/Juice.app
 - **キーローテーション**: `terraform.tfvars` を変更して `terraform apply`
 - **全セッション失効**: `session_secret` を変更して `terraform apply`
 - **全リソース削除**: `terraform destroy`
+- **勤怠の登録名が一致しない人への対応**: 本人の Slack user ID（U 始まり）と
+  勤怠システムの登録名を `attendance_user_overrides` に追加して
+  `terraform apply`

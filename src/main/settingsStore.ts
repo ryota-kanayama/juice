@@ -8,10 +8,8 @@ interface Settings {
   elapsedNotificationEnabled: boolean
   elapsedNotificationMinutes: number
   pomodoroEnabled: boolean
-  userName: string
   setupCompleted: boolean
   whiteboardEnabled: boolean
-  whiteboardEmail: string
   slackProjectCode: string
   slackProjectName: string
 }
@@ -23,10 +21,8 @@ const DEFAULT_SETTINGS: Settings = {
   elapsedNotificationEnabled: false,
   elapsedNotificationMinutes: 30,
   pomodoroEnabled: false,
-  userName: '',
   setupCompleted: false,
   whiteboardEnabled: false,
-  whiteboardEmail: '',
   slackProjectCode: '',
   slackProjectName: '',
 }
@@ -140,16 +136,6 @@ export class SettingsStore {
     await this.writeAll({ ...s, pomodoroEnabled: enabled })
   }
 
-  async getUserName(): Promise<string> {
-    const s = await this.readAll()
-    return s.userName
-  }
-
-  async setUserName(userName: string): Promise<void> {
-    const s = await this.readAll()
-    await this.writeAll({ ...s, userName })
-  }
-
   async isSetupCompleted(): Promise<boolean> {
     const s = await this.readAll()
     return s.setupCompleted
@@ -160,17 +146,14 @@ export class SettingsStore {
     await this.writeAll({ ...s, setupCompleted: true })
   }
 
-  async getWhiteboardSettings(): Promise<{ enabled: boolean; email: string }> {
+  async getWhiteboardSettings(): Promise<{ enabled: boolean }> {
     const s = await this.readAll()
-    return {
-      enabled: s.whiteboardEnabled,
-      email: s.whiteboardEmail,
-    }
+    return { enabled: s.whiteboardEnabled }
   }
 
-  async setWhiteboardSettings(enabled: boolean, email: string): Promise<void> {
+  async setWhiteboardSettings(enabled: boolean): Promise<void> {
     const s = await this.readAll()
-    await this.writeAll({ ...s, whiteboardEnabled: enabled, whiteboardEmail: email })
+    await this.writeAll({ ...s, whiteboardEnabled: enabled })
   }
 
   async getSlackSettings(): Promise<{ projectCode: string; projectName: string }> {
