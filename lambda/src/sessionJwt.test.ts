@@ -72,4 +72,18 @@ describe('sessionJwt', () => {
     expect(claims).not.toBeNull()
     expect(claims!.email).toBeUndefined()
   })
+
+  it('handle 付きで発行したトークンは handle を返す', () => {
+    const token = issueSessionJwt(
+      { sub: 'U1', name: 'a', team: 'T1', handle: 'kanayama' }, SECRET, NOW
+    )
+    expect(verifySessionJwt(token, SECRET, NOW)!.handle).toBe('kanayama')
+  })
+
+  it('handle 無しで発行した旧トークンも検証できる（handle は undefined）', () => {
+    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
+    const claims = verifySessionJwt(token, SECRET, NOW)
+    expect(claims).not.toBeNull()
+    expect(claims!.handle).toBeUndefined()
+  })
 })

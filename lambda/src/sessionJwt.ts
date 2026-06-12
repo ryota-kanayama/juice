@@ -6,6 +6,8 @@ export interface SessionClaims {
   team: string
   /** Phase 2 以降に発行されたトークンのみ保持（旧トークンは undefined） */
   email?: string
+  /** Slack 旧ユーザー名（@ハンドル）。users.info から取得。古い認可では undefined */
+  handle?: string
   iat: number
   exp: number
 }
@@ -20,7 +22,7 @@ function hmac(input: string, secret: string): Buffer {
 
 /** HS256 のセッション JWT を発行する */
 export function issueSessionJwt(
-  identity: { sub: string; name: string; team: string; email?: string },
+  identity: { sub: string; name: string; team: string; email?: string; handle?: string },
   secret: string,
   now: number = nowSec()
 ): string {
