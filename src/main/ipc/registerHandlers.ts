@@ -93,7 +93,8 @@ export function registerIpcHandlers(
   // attendance
   handle('attendance:send', (_, text) => sendAttendance(settingsStore, authStore, text))
   handle('whiteboard:teleworkStart', async () => {
-    await sendWhiteboardTeleworkStart(settingsStore, authStore)
+    // ホワイトボード失敗時も Slack 通知は実行する（旧実装と同じ挙動）
+    await sendWhiteboardTeleworkStart(settingsStore, authStore).catch(err => logger.error('Whiteboard telework start failed:', err))
     await sendSlackTeleworkStart(settingsStore, authStore).catch(err => logger.error('Slack telework start failed:', err))
   })
 
