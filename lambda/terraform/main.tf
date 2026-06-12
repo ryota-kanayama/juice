@@ -61,6 +61,8 @@ resource "aws_lambda_function" "juice_proxy" {
       SLACK_CLIENT_SECRET = var.slack_client_secret
       ALLOWED_TEAM_ID     = var.allowed_team_id
       SESSION_SECRET      = var.session_secret
+      SLACK_BOT_TOKEN     = var.slack_bot_token
+      SLACK_CHANNEL_ID    = var.slack_channel_id
     }
   }
 }

@@ -26,3 +26,14 @@ variable "session_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "slack_bot_token" {
+  description = "Slack 投稿用 Bot トークン（既存 bot のものを .env から移設）"
+  type        = string
+  sensitive   = true
+}
+
+variable "slack_channel_id" {
+  description = "テレワーク通知の投稿先チャンネル ID"
+  type        = string
+}
