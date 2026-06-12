@@ -12,7 +12,8 @@ export interface AttendanceReportState {
   canSend: boolean
   copied: boolean
   sending: boolean
-  sendResult: 'success' | 'error' | null
+  // 'auth' = 未サインイン / セッション切れ、'error' = 入力不備など上流エラー
+  sendResult: 'success' | 'auth' | 'error' | null
   copy: () => void
   send: () => Promise<void>
 }
@@ -22,7 +23,7 @@ export function useAttendanceReport(sessions: Session[]): AttendanceReportState 
   const [breakMinutes, setBreakMinutes] = useState(60)
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
-  const [sendResult, setSendResult] = useState<'success' | 'error' | null>(null)
+  const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
 
   const todayKey = formatLocalDate(Date.now())
   const workStart = dailyStore.getWorkStart(todayKey)
@@ -48,7 +49,10 @@ export function useAttendanceReport(sessions: Session[]): AttendanceReportState 
     setSendResult(null)
     try {
       const result = await attendanceRepository.send(text)
-      setSendResult(result.ok ? 'success' : 'error')
+      // status 0（未サインイン）/ 401（セッション切れ）は認証エラーとして区別する
+      if (result.ok) setSendResult('success')
+      else if (result.status === 0 || result.status === 401) setSendResult('auth')
+      else setSendResult('error')
     } catch {
       setSendResult('error')
     } finally {
