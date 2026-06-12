@@ -2,6 +2,8 @@ export interface SlackIdentity {
   sub: string
   name: string
   teamId: string
+  /** email スコープで取得。古い認可では undefined になりうる */
+  email?: string
 }
 
 export interface SlackOidcError {
@@ -17,7 +19,7 @@ export function buildAuthorizeUrl(opts: {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: opts.clientId,
-    scope: 'openid profile',
+    scope: 'openid profile email',
     redirect_uri: opts.redirectUri,
     state: opts.state,
   })
@@ -34,6 +36,7 @@ interface UserInfoResponse {
   ok: boolean
   sub?: string
   name?: string
+  email?: string
   'https://slack.com/team_id'?: string
   error?: string
 }
@@ -73,7 +76,7 @@ export async function fetchSlackIdentity(opts: {
     if (!user.ok || !user.sub || !teamId) {
       return { error: `userInfo: ${user.error ?? 'unknown'}` }
     }
-    return { sub: user.sub, name: user.name || user.sub, teamId }
+    return { sub: user.sub, name: user.name || user.sub, teamId, email: user.email }
   } catch (e) {
     return { error: `network: ${e instanceof Error ? e.message : 'unknown'}` }
   }

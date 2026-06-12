@@ -76,7 +76,7 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
       return errorPage('許可されていないワークスペースです。')
     }
     const token = issueSessionJwt(
-      { sub: identity.sub, name: identity.name, team: identity.teamId },
+      { sub: identity.sub, name: identity.name, team: identity.teamId, email: identity.email },
       env('SESSION_SECRET')
     )
     return redirect(`juice://auth?token=${encodeURIComponent(token)}&state=${state}`)

@@ -28,7 +28,7 @@ describe('buildAuthorizeUrl', () => {
     expect(url.origin + url.pathname).toBe('https://slack.com/openid/connect/authorize')
     expect(url.searchParams.get('response_type')).toBe('code')
     expect(url.searchParams.get('client_id')).toBe('CID')
-    expect(url.searchParams.get('scope')).toBe('openid profile')
+    expect(url.searchParams.get('scope')).toBe('openid profile email')
     expect(url.searchParams.get('redirect_uri')).toBe('https://x/auth/callback')
     expect(url.searchParams.get('state')).toBe('abc')
   })
@@ -38,10 +38,10 @@ describe('fetchSlackIdentity', () => {
   it('トークン交換 → userInfo で本人情報を返す', async () => {
     const fetchMock = mockFetchSequence([
       { ok: true, access_token: 'xoxp-test' },
-      { ok: true, sub: 'U123', name: '金山', 'https://slack.com/team_id': 'T999' },
+      { ok: true, sub: 'U123', name: '金山', email: 'kanayama@jsl.co.jp', 'https://slack.com/team_id': 'T999' },
     ])
     const result = await fetchSlackIdentity(OPTS)
-    expect(result).toEqual({ sub: 'U123', name: '金山', teamId: 'T999' })
+    expect(result).toEqual({ sub: 'U123', name: '金山', teamId: 'T999', email: 'kanayama@jsl.co.jp' })
     // 1回目: トークン交換に code と client_secret が送られている
     const [tokenUrl, tokenInit] = fetchMock.mock.calls[0]
     expect(tokenUrl).toBe('https://slack.com/api/openid.connect.token')
@@ -74,7 +74,16 @@ describe('fetchSlackIdentity', () => {
       { ok: true, sub: 'U123', 'https://slack.com/team_id': 'T999' },
     ])
     const result = await fetchSlackIdentity(OPTS)
-    expect(result).toEqual({ sub: 'U123', name: 'U123', teamId: 'T999' })
+    expect(result).toEqual({ sub: 'U123', name: 'U123', teamId: 'T999', email: undefined })
+  })
+
+  it('email が無くても成功する（email は undefined）', async () => {
+    mockFetchSequence([
+      { ok: true, access_token: 'xoxp-test' },
+      { ok: true, sub: 'U123', name: 'x', 'https://slack.com/team_id': 'T999' },
+    ])
+    const result = await fetchSlackIdentity(OPTS)
+    expect(result).toEqual({ sub: 'U123', name: 'x', teamId: 'T999', email: undefined })
   })
 
   it('fetch が network error で reject しても throw せず error を返す', async () => {
