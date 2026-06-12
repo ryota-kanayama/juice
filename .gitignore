@@ -61,6 +61,15 @@ docs
 tsconfig.*.tsbuildinfo
 
 .markdownlint-cli2.jsonc
+.markdownlint.json
 
 # brainstorming artifacts
 .superpowers/
+
+# Lambda / Terraform
+lambda/node_modules
+lambda/dist
+lambda/terraform/.terraform
+*.tfstate
+*.tfstate.*
+terraform.tfvars

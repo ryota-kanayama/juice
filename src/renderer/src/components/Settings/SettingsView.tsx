@@ -15,6 +15,7 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AccountSection } from './AccountSection'
 
 type Section = 'theme' | 'notification' | 'account'
 
@@ -190,6 +191,8 @@ export function SettingsView() {
         {/* ─── アカウント ─── */}
         {activeSection === 'account' && (
           <>
+            <h2 className={heading}>Slack アカウント</h2>
+            <AccountSection />
             <h2 className={heading}>勤怠連携</h2>
             <Card className="mb-4">
               <CardContent className="flex flex-col gap-3 p-3.5">

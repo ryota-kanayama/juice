@@ -2,7 +2,7 @@
 
 import type { Session } from '../../shared/types'
 import type {
-  AttendanceSendResult, PomodoroSettings, SlackSettings, ToggleSettings, WhiteboardSettings,
+  AttendanceSendResult, AuthStatus, PomodoroSettings, SlackSettings, ToggleSettings, WhiteboardSettings,
 } from '../../shared/ipc'
 
 // preload が contextBridge 経由でレンダラーに公開する API。
@@ -45,6 +45,12 @@ interface ElectronAPI {
   // window
   hideWindow: () => Promise<void>
   resizeWindow: (width: number, height: number) => Promise<void>
+
+  // auth
+  signInWithSlack: () => Promise<void>
+  getAuthStatus: () => Promise<AuthStatus>
+  signOutSlack: () => Promise<void>
+  onAuthChanged: (callback: (status: AuthStatus) => void) => void
 
   // misc
   completeSetup: () => Promise<void>

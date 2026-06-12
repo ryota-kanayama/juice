@@ -1,12 +1,15 @@
 import { app } from 'electron'
 import type { SessionStore } from '../sessionStore'
 import type { SettingsStore } from '../settingsStore'
+import type { AuthStore } from '../auth/authStore'
+import { startSignIn } from '../auth/signIn'
 import { logger } from '../logger'
 import { handle } from './handle'
 import { hidePopover, resizePopover } from '../windows/popover'
 import { getSetupWindow } from '../windows/setup'
 import { createTray } from '../windows/tray'
 import { broadcastThemeToAll } from '../windows/themeBroadcast'
+import { broadcastAuthToAll } from '../windows/authBroadcast'
 import { startIdleCheck } from '../notifications/idle'
 import { recordActivity } from '../notifications/activity'
 import { onTimerStarted, onTimerStopped, onTimerAdjustStartTime, reschedule } from '../notifications/elapsed'
@@ -21,6 +24,7 @@ import { shell } from 'electron'
 export function registerIpcHandlers(
   sessionStore: SessionStore,
   settingsStore: SettingsStore,
+  authStore: AuthStore,
 ): void {
   // sessions
   handle('sessions:get', (_, yearMonth) => sessionStore.getSessions(yearMonth))
@@ -105,6 +109,15 @@ export function registerIpcHandlers(
     app.dock?.hide()
     createTray(settingsStore)
     startIdleCheck(settingsStore)
+  })
+
+  // auth
+  handle('auth:start', () => startSignIn())
+  handle('auth:getStatus', () => authStore.getStatus())
+  handle('auth:signOut', async () => {
+    await authStore.clearToken()
+    const status = await authStore.getStatus()
+    broadcastAuthToAll(status)
   })
 
   // misc
