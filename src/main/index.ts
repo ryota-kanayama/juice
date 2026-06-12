@@ -45,7 +45,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers(sessionStore, settingsStore, authStore)
 
   // 初回セットアップ判定
-  const needsSetup = !(await settingsStore.isSetupCompleted()) && !(await settingsStore.getUserName())
+  const needsSetup = !(await settingsStore.isSetupCompleted())
 
   if (needsSetup) {
     // 初回起動: Dockを表示してセットアップウィンドウを開く
