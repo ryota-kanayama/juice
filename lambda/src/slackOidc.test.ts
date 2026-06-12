@@ -107,6 +107,18 @@ describe('fetchSlackIdentity', () => {
     })
   })
 
+  it('users.info のネットワークエラーでも handle 無しで identity を返す', async () => {
+    const fn = vi.fn()
+    fn.mockResolvedValueOnce({ json: () => Promise.resolve({ ok: true, access_token: 'xoxp-test' }) })
+    fn.mockResolvedValueOnce({ json: () => Promise.resolve({ ok: true, sub: 'U123', name: '金山', 'https://slack.com/team_id': 'T999' }) })
+    fn.mockRejectedValueOnce(new Error('ETIMEDOUT'))
+    vi.stubGlobal('fetch', fn)
+    const result = await fetchSlackIdentity(OPTS)
+    expect(result).toEqual({
+      sub: 'U123', name: '金山', teamId: 'T999', email: undefined, handle: undefined,
+    })
+  })
+
   it('fetch が network error で reject しても throw せず error を返す', async () => {
     const fn = vi.fn().mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND'))
     vi.stubGlobal('fetch', fn)
