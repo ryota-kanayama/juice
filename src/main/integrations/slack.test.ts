@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { sendSlackTeleworkStart, sendSlackTeleworkEnd, _resetForTest } from './slack'
+import { sendSlackTeleworkStart, sendSlackTeleworkEnd } from './slack'
+import { _resetForTest } from '../auth/promptSignIn'
 
 const showNotification = vi.fn()
 vi.mock('electron', () => ({
