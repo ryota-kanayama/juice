@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { formatLocalDate, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit } from '../../domain/session'
@@ -9,6 +9,7 @@ import { SessionFormDialog, type SessionFormValues } from './SessionFormDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { usePagination } from '../../hooks/usePagination'
+import { useDragReorder } from '../../hooks/useDragReorder'
 import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
 import { TimeField } from '@/components/ui/time-field'
 import { Button } from '@/components/ui/button'
@@ -78,93 +79,18 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
-  // ドラッグ&ドロップ
-  const dragItemRef = useRef<string | null>(null)
-  const dragOverItemRef = useRef<string | null>(null)
-  const [dragOverId, setDragOverId] = useState<string | null>(null)
-  const listRef = useRef<HTMLUListElement | null>(null)
-  const pageChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const handleDragStart = (e: React.DragEvent, sessionId: string) => {
-    dragItemRef.current = sessionId
-    // 既定の copy 効果（緑のプラスマーク）を出さず移動として扱う
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const handleDragOver = (e: React.DragEvent, sessionId: string) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    dragOverItemRef.current = sessionId
-    setDragOverId(sessionId)
-  }
-
-  // ドラッグ中にリスト上端/下端付近でページ切り替え
-  const handleListDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (!listRef.current || totalPages <= 1 || !dragItemRef.current) return
-
-    const rect = listRef.current.getBoundingClientRect()
-    const x = e.clientX
-    const edgeZone = 40 // px
-
-    const nearLeft = x - rect.left < edgeZone && page > 0
-    const nearRight = rect.right - x < edgeZone && page < totalPages - 1
-
-    if (nearLeft || nearRight) {
-      if (!pageChangeTimerRef.current) {
-        pageChangeTimerRef.current = setTimeout(() => {
-          pageChangeTimerRef.current = null
-          if (nearLeft) changePage(page - 1)
-          else if (nearRight) changePage(page + 1)
-        }, 400)
-      }
-    } else {
-      if (pageChangeTimerRef.current) {
-        clearTimeout(pageChangeTimerRef.current)
-        pageChangeTimerRef.current = null
-      }
-    }
-  }
-
-  // 並び替えを確定して D&D の状態をリセットする（drop と dragend のどちらが先でも一度だけ実行される）
-  const commitReorder = () => {
-    if (pageChangeTimerRef.current) {
-      clearTimeout(pageChangeTimerRef.current)
-      pageChangeTimerRef.current = null
-    }
-
-    const fromId = dragItemRef.current
-    const toId = dragOverItemRef.current
-    dragItemRef.current = null
-    dragOverItemRef.current = null
-    setDragOverId(null)
-
-    if (!fromId || !toId || fromId === toId) return
-
-    const currentOrder = sortedSessions.map(s => s.id)
-    const fromIdx = currentOrder.indexOf(fromId)
-    const toIdx = currentOrder.indexOf(toId)
-    if (fromIdx === -1 || toIdx === -1) return
-
-    currentOrder.splice(fromIdx, 1)
-    currentOrder.splice(toIdx, 0, fromId)
-
-    dailyStore.setSessionOrder(todayKey, currentOrder)
-    setCustomOrder(currentOrder)
-  }
-
-  // ページをまたぐ並び替えではドラッグ元の要素がアンマウントされ dragend が React に届かないため、
-  // ドロップ先（マウントされている側）で発火する drop で確定する
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    commitReorder()
-  }
-
-  const handleDragEnd = () => {
-    // 同一ページ内では drop の後に dragend も届くが、refs は消費済みなので二重確定しない
-    commitReorder()
-  }
+  // ドラッグ&ドロップ並び替え（ページ跨ぎ・drop/dragend の一度きり確定は hook 側で扱う）
+  const {
+    dragOverId, listRef,
+    handleDragStart, handleDragOver, handleListDragOver, handleDragLeave, handleDrop, handleDragEnd,
+  } = useDragReorder({
+    orderedIds: sortedSessions.map(s => s.id),
+    todayKey,
+    onReorder: setCustomOrder,
+    page,
+    totalPages,
+    changePage,
+  })
 
   const openAddDialog = () => {
     setAddDraft(EMPTY_FORM)
@@ -287,7 +213,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               }}
               onDragStart={(e) => handleDragStart(e, session.id)}
               onDragOver={(e) => handleDragOver(e, session.id)}
-              onDragLeave={() => setDragOverId(null)}
+              onDragLeave={handleDragLeave}
               onDragEnd={handleDragEnd}
             >
               <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: resolveJuiceColor(session.color) }} aria-hidden="true" />

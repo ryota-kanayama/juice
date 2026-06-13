@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen } from 'electron'
-import { join } from 'path'
 import { broadcastThemeOnLoad } from './themeBroadcast'
+import { sharedWebPreferences, loadRenderer } from './shared'
 import type { SettingsStore } from '../settingsStore'
 
 let setupWindow: BrowserWindow | null = null
@@ -21,20 +21,11 @@ export function createSetupWindow(settingsStore: SettingsStore): void {
     y: Math.round((screenH - winH) / 2),
     resizable: false,
     title: 'Juice — セットアップ',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+    webPreferences: sharedWebPreferences,
   })
 
   broadcastThemeOnLoad(setupWindow, settingsStore)
-
-  if (process.env['NODE_ENV'] === 'development') {
-    setupWindow.loadURL('http://localhost:5174/#setup')
-  } else {
-    setupWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'setup' })
-  }
+  loadRenderer(setupWindow, 'setup')
 
   setupWindow.on('closed', async () => {
     setupWindow = null
