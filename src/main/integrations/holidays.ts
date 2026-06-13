@@ -8,8 +8,12 @@ export async function getHolidays(): Promise<Record<string, string>> {
   if (holidaysCache) return holidaysCache
   try {
     const response = await net.fetch('https://holidays-jp.github.io/api/v1/date.json')
-    holidaysCache = await response.json()
-    return holidaysCache ?? {}
+    if (!response.ok) return {}
+    const data = await response.json()
+    // 外部 API が壊れた形を返しても後段で誤動作しないよう検証する
+    if (typeof data !== 'object' || data === null) return {}
+    holidaysCache = data as Record<string, string>
+    return holidaysCache
   } catch {
     return {}
   }

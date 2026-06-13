@@ -7,6 +7,8 @@ import type { SettingsStore } from '../settingsStore'
 let tray: Tray | null = null
 
 export function createTray(settingsStore: SettingsStore): void {
+  // 二重生成防止: 既存の Tray があれば破棄してから作り直す（アイコンの重複を防ぐ）
+  tray?.destroy()
   const iconPath = join(__dirname, '../../resources/icon.png')
   const icon = nativeImage.createFromPath(iconPath).resize({ width: 22, height: 22 })
   tray = new Tray(icon)
