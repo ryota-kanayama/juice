@@ -6,6 +6,8 @@ export const sharedWebPreferences = {
   preload: join(__dirname, '../preload/index.js'),
   contextIsolation: true,
   nodeIntegration: false,
+  // タイマーアプリにスペルチェックは不要。辞書の読み込み分のメモリを節約する。
+  spellcheck: false,
 } as const
 
 /**
