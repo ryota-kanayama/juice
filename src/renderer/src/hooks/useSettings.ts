@@ -34,8 +34,8 @@ export function useSettings(): SettingsState {
   const [slackProjectName, setSlackProjectName] = useState('')
 
   useEffect(() => {
+    const offThemeChanged = settingsRepository.onThemeChanged(setActiveThemeId)
     settingsRepository.getTheme().then(setActiveThemeId)
-    settingsRepository.onThemeChanged(setActiveThemeId)
     settingsRepository.getIdle().then(({ enabled, minutes }) => {
       setIdleEnabled(enabled)
       setIdleMinutes(minutes)
@@ -54,6 +54,7 @@ export function useSettings(): SettingsState {
       setSlackProjectCode(projectCode)
       setSlackProjectName(projectName)
     })
+    return offThemeChanged
   }, [])
 
   return {

@@ -15,7 +15,7 @@ export function useSetup(): SetupState {
 
   useEffect(() => {
     settingsRepository.getTheme().then(setActiveThemeId)
-    settingsRepository.onThemeChanged(setActiveThemeId)
+    return settingsRepository.onThemeChanged(setActiveThemeId)
   }, [])
 
   return {

@@ -8,8 +8,8 @@ export function useAuthStatus() {
   useEffect(() => {
     let alive = true
     window.electronAPI.getAuthStatus().then((s) => { if (alive) setStatus(s) })
-    window.electronAPI.onAuthChanged(setStatus)
-    return () => { alive = false }
+    const off = window.electronAPI.onAuthChanged(setStatus)
+    return () => { alive = false; off() }
   }, [])
 
   return {

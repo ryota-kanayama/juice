@@ -6,12 +6,12 @@ import { SetupView } from './SetupView'
 const api = {
   getTheme: vi.fn().mockResolvedValue('milk'),
   setTheme: vi.fn().mockResolvedValue(undefined),
-  onThemeChanged: vi.fn(),
+  onThemeChanged: vi.fn(() => () => {}),
   completeSetup: vi.fn().mockResolvedValue(undefined),
   getAuthStatus: vi.fn(),
   signInWithSlack: vi.fn().mockResolvedValue(undefined),
   signOutSlack: vi.fn().mockResolvedValue(undefined),
-  onAuthChanged: vi.fn(),
+  onAuthChanged: vi.fn(() => () => {}),
 }
 
 beforeEach(() => {
