@@ -31,10 +31,12 @@ if (!app.requestSingleInstanceLock()) {
 process.on('SIGTERM', () => app.quit())
 process.on('SIGINT', () => app.quit())
 
-const dataDir = join(os.homedir(), 'Library', 'Application Support', 'Juice')
+// 上で setPath('userData', ...) によって dev は juice-timer-dev、パッケージ版は Juice に分離済み。
+// 全ストアで userData を使い、dev とパッケージ版のセッション・設定・認証データを一貫して分離する。
+const dataDir = app.getPath('userData')
 const sessionStore = new SessionStore(dataDir)
 const settingsStore = new SettingsStore(dataDir)
-const authStore = new AuthStore(app.getPath('userData'))
+const authStore = new AuthStore(dataDir)
 
 // 開発時は汎用 Electron.app に紐づくため juice:// の E2E はパッケージ版で確認する
 // juice:// カスタムスキーム（Slack サインインのコールバック受信）

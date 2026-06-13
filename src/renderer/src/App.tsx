@@ -126,6 +126,7 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
   const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
   const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
   const [midnightSession, setMidnightSession] = useState<Session | null>(null)
+  const [stopError, setStopError] = useState(false)
 
   const handleStart = (name: string, projectCode = '', workCategory = ''): void => {
     setActiveTimerName(name)
@@ -143,8 +144,17 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
   }
 
   const handleStop = async (projectCode: string, workCategory: string): Promise<void> => {
-    const result = await stop({ projectCode, workCategory })
+    let result: Session | null
+    try {
+      result = await stop({ projectCode, workCategory })
+    } catch (err) {
+      // 保存に失敗してもタイマーは継続している（計測データは保持）。再試行を促す。
+      console.error('セッションの保存に失敗しました:', err)
+      setStopError(true)
+      return
+    }
     if (!result) return
+    setStopError(false)
     // 日付を跨いだ場合はリストに追加せず通知バナーを表示
     if (result.date !== sessions.today) {
       setMidnightSession(result)
@@ -164,6 +174,13 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
         <div className={styles.midnightBanner}>
           <span>「{midnightSession.name}」を {midnightSession.date} として保存しました</span>
           <button onClick={() => setMidnightSession(null)}><Xmark width={14} height={14} /></button>
+        </div>
+      )}
+
+      {stopError && (
+        <div className={styles.midnightBanner}>
+          <span>保存に失敗しました。タイマーは継続中です。もう一度停止してください</span>
+          <button onClick={() => setStopError(false)}><Xmark width={14} height={14} /></button>
         </div>
       )}
 

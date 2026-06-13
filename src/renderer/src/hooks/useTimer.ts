@@ -112,17 +112,16 @@ export function useTimer(): TimerState {
 
     const newIntervalMinutes = Math.round((Date.now() - startTimeRef.current.getTime()) / 60000)
 
-    if (extendingSessionRef.current) {
+    const extending = extendingSessionRef.current
+    if (extending) {
       // extend mode: 既存セッションの times に追記し totalTime を加算
-      const existing = extendingSessionRef.current
       resultSession = {
-        ...existing,
-        projectCode: opts?.projectCode ?? existing.projectCode,
-        workCategory: opts?.workCategory ?? existing.workCategory,
-        totalTime: existing.totalTime + newIntervalMinutes,
-        times: [...existing.times, newInterval],
+        ...extending,
+        projectCode: opts?.projectCode ?? extending.projectCode,
+        workCategory: opts?.workCategory ?? extending.workCategory,
+        totalTime: extending.totalTime + newIntervalMinutes,
+        times: [...extending.times, newInterval],
       }
-      await sessionRepository.update(resultSession)
     } else {
       // new mode: 新規セッションを作成
       resultSession = {
@@ -136,7 +135,23 @@ export function useTimer(): TimerState {
         date: formatLocalDate(startTimeRef.current.getTime()),
         color: activeColorRef.current,
       }
-      await sessionRepository.save(resultSession)
+    }
+
+    try {
+      if (extending) {
+        await sessionRepository.update(resultSession)
+      } else {
+        await sessionRepository.save(resultSession)
+      }
+    } catch (err) {
+      // 保存に失敗した場合は計測を止めずに継続させ、データロスを防ぐ。
+      // interval を張り直し（開始時刻 ref は保持済み）、呼び出し側で再試行できるよう例外を伝播する。
+      intervalRef.current = setInterval(() => {
+        if (startTimeRef.current) {
+          setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000))
+        }
+      }, 1000)
+      throw err
     }
 
     startTimeRef.current = null
