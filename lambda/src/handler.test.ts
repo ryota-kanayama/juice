@@ -106,17 +106,28 @@ describe('GET /auth/start', () => {
 })
 
 describe('GET /auth/callback', () => {
-  it('本人確認 OK なら JWT 付きで juice:// へ 302（state は元の nonce に戻る）', async () => {
+  it('本人確認 OK なら JWT 付きの完了ページを返す（deep link は元の nonce に戻る）', async () => {
     vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({
       sub: 'U123', name: '金山', teamId: 'T999',
     })
     const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: SIGNED }))
-    expect(res.statusCode).toBe(302)
-    const url = new URL(res.headers!.Location)
+    expect(res.statusCode).toBe(200)
+    expect(res.headers!['Content-Type']).toContain('text/html')
+    const url = new URL(res.body!.match(/juice:\/\/[^"]+/)![0])
     expect(url.protocol).toBe('juice:')
     // アプリが照合できるよう、署名前の nonce を返す
     expect(url.searchParams.get('state')).toBe(STATE)
     expect(url.searchParams.get('token')!.split('.')).toHaveLength(3)
+  })
+
+  it('完了ページは「タブを閉じてOK」案内とアプリを開くリンクを含む', async () => {
+    vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({
+      sub: 'U123', name: '金山', teamId: 'T999',
+    })
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: SIGNED }))
+    expect(res.body).toContain('サインイン完了')
+    expect(res.body).toContain('このタブは閉じて')
+    expect(res.body).toContain('Juice を開く')
   })
 
   it('署名されていない（生の）state は 400 で拒否する', async () => {
@@ -153,7 +164,7 @@ describe('GET /auth/callback', () => {
       sub: 'U123', name: '金山', teamId: 'T999', handle: 'kanayama',
     })
     const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: SIGNED }))
-    const url = new URL(res.headers!.Location)
+    const url = new URL(res.body!.match(/juice:\/\/[^"]+/)![0])
     const token = url.searchParams.get('token')!
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf-8'))
     expect(payload.handle).toBe('kanayama')
