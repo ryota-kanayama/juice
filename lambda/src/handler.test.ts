@@ -192,30 +192,31 @@ describe('POST /api/attendance.send', () => {
     return makeEvent('/api/attendance.send', {}, headers, { method: 'POST', body })
   }
 
-  it('JWT の name を user_name にして勤怠 API の応答を透過する', async () => {
-    vi.mocked(attendanceSend.postAttendance).mockResolvedValue({ status: 200, body: '{}' })
+  it('JWT の name を user_name にして成功時は 200 {ok:true} に正規化する', async () => {
+    vi.mocked(attendanceSend.postAttendance).mockResolvedValue({ ok: true, status: 200, body: '{}' })
     const token = issueSessionJwt({ sub: 'U1', name: 'Ryota Kanayama', team: 'T999' }, 'test-secret')
     const res = await handler(makeAttEvent(BODY, token))
     expect(res.statusCode).toBe(200)
-    expect(res.body).toBe('{}')
+    expect(JSON.parse(res.body!)).toEqual({ ok: true })
     expect(attendanceSend.postAttendance).toHaveBeenCalledWith(
       'Ryota Kanayama', '勤怠\n8:30 17:30 60', { apiUrl: 'https://kintai.test/api', apiKey: 'AKEY' }
     )
   })
 
   it('対応表にある sub は登録名で送る', async () => {
-    vi.mocked(attendanceSend.postAttendance).mockResolvedValue({ status: 200, body: '{}' })
+    vi.mocked(attendanceSend.postAttendance).mockResolvedValue({ ok: true, status: 200, body: '{}' })
     const token = issueSessionJwt({ sub: 'U_OVR', name: '別名', team: 'T999' }, 'test-secret')
     await handler(makeAttEvent(BODY, token))
     expect(vi.mocked(attendanceSend.postAttendance).mock.calls[0][0]).toBe('override-name')
   })
 
-  it('上流の 400 を透過する', async () => {
-    vi.mocked(attendanceSend.postAttendance).mockResolvedValue({ status: 400, body: '{"error_message":"x"}' })
+  it('上流の非2xx は生 body を返さず 502 に正規化する', async () => {
+    vi.mocked(attendanceSend.postAttendance).mockResolvedValue({ ok: false, status: 400, body: '{"error_message":"x"}' })
     const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T999' }, 'test-secret')
     const res = await handler(makeAttEvent(BODY, token))
-    expect(res.statusCode).toBe(400)
-    expect(res.body).toBe('{"error_message":"x"}')
+    expect(res.statusCode).toBe(502)
+    expect(res.body).not.toContain('error_message')
+    expect(JSON.parse(res.body!)).toEqual({ error: 'attendance upstream error', status: 400 })
   })
 
   it('JWT 無しは 401、text 不正は 400、ネットワークエラーは 502', async () => {

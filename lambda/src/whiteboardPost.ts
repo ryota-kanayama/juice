@@ -1,3 +1,5 @@
+import { FETCH_TIMEOUT_MS } from './http'
+
 // magnet_id: ホワイトボード上の状態を示す値（旧 src/main/integrations/whiteboard.ts と同じ）
 const MAGNET_TELEWORK = 2
 const MAGNET_LEAVE = 3
@@ -20,6 +22,7 @@ export async function postWhiteboard(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ magnet_id: magnetId, email }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
     if (!magnet.ok) return { error: `magnet: ${magnet.status}` }
 
@@ -27,6 +30,7 @@ export async function postWhiteboard(
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ come_to_the_office: String(comeToOffice), email }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
     if (!attendance.ok) return { error: `attendance: ${attendance.status}` }
     return { ok: true }

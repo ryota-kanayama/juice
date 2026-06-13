@@ -1,4 +1,5 @@
 import type { SessionClaims } from './sessionJwt'
+import { FETCH_TIMEOUT_MS } from './http'
 
 const MAX_TEXT_LENGTH = 2000
 
@@ -38,19 +39,24 @@ export function resolveUserName(
   return claims.handle ?? claims.name
 }
 
-/** 勤怠 API に送信し、status と body をそのまま返す。ネットワークエラーは {error} */
+/**
+ * 勤怠 API に送信する。ok（2xx か）と status、診断用の body を返す。
+ * body は呼び出し側でログにのみ使い、クライアントへは透過しない（内部情報の漏えい防止）。
+ * ネットワークエラー・タイムアウトは {error}。
+ */
 export async function postAttendance(
   userName: string,
   text: string,
   opts: { apiUrl: string; apiKey: string }
-): Promise<{ status: number; body: string } | { error: string }> {
+): Promise<{ ok: boolean; status: number; body: string } | { error: string }> {
   try {
     const res = await fetch(`${opts.apiUrl}?key=${opts.apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ user_name: userName, text }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
-    return { status: res.status, body: await res.text() }
+    return { ok: res.ok, status: res.status, body: await res.text() }
   } catch (e) {
     return { error: `network: ${e instanceof Error ? e.message : 'unknown'}` }
   }

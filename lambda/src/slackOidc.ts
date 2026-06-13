@@ -1,3 +1,5 @@
+import { FETCH_TIMEOUT_MS } from './http'
+
 export interface SlackIdentity {
   sub: string
   name: string
@@ -60,6 +62,7 @@ export async function fetchSlackIdentity(opts: {
         code: opts.code,
         redirect_uri: opts.redirectUri,
       }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
     const token = (await tokenRes.json()) as OAuthAccessResponse
     const sub = token.authed_user?.id
@@ -71,7 +74,10 @@ export async function fetchSlackIdentity(opts: {
 
     const usersRes = await fetch(
       `https://slack.com/api/users.info?user=${encodeURIComponent(sub)}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      }
     )
     const usersInfo = (await usersRes.json()) as UsersInfoResponse
     if (!usersInfo.ok || !usersInfo.user) {

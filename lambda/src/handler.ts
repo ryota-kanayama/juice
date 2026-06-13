@@ -140,12 +140,12 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
       console.error('attendance.send failed:', result.error)
       return json(502, { error: 'attendance api error' })
     }
-    // 勤怠 API の応答をそのまま返す（アプリの結果表示用）
-    return {
-      statusCode: result.status,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: result.body,
+    if (!result.ok) {
+      // 上流の非 2xx は内部情報（生 body）を返さず正規化する。body はログのみ。
+      console.error('attendance.send upstream non-2xx:', result.status, result.body)
+      return json(502, { error: 'attendance upstream error', status: result.status })
     }
+    return json(200, { ok: true })
   }
 
   if (

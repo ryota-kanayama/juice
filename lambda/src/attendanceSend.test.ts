@@ -43,24 +43,25 @@ describe('resolveUserName', () => {
 describe('postAttendance', () => {
   const OPTS = { apiUrl: 'https://kintai.test/api/receive_slack_post', apiKey: 'KEY1' }
 
-  it('勤怠 API に form POST し status と body を透過する', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ status: 200, text: () => Promise.resolve('{}') })
+  it('勤怠 API に form POST し ok/status/body と timeout signal を付ける', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('{}') })
     vi.stubGlobal('fetch', fetchMock)
     const result = await postAttendance('kanayama', '勤怠テキスト', OPTS)
-    expect(result).toEqual({ status: 200, body: '{}' })
+    expect(result).toEqual({ ok: true, status: 200, body: '{}' })
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('https://kintai.test/api/receive_slack_post?key=KEY1')
+    expect(init.signal).toBeInstanceOf(AbortSignal)
     const params = new URLSearchParams(String(init.body))
     expect(params.get('user_name')).toBe('kanayama')
     expect(params.get('text')).toBe('勤怠テキスト')
   })
 
-  it('上流の 400 もそのまま透過する', async () => {
+  it('上流の 400 は ok:false で返す（body は診断用に保持）', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      status: 400, text: () => Promise.resolve('{"error_message":"format"}'),
+      ok: false, status: 400, text: () => Promise.resolve('{"error_message":"format"}'),
     }))
     expect(await postAttendance('a', 't', OPTS))
-      .toEqual({ status: 400, body: '{"error_message":"format"}' })
+      .toEqual({ ok: false, status: 400, body: '{"error_message":"format"}' })
   })
 
   it('ネットワークエラーは throw せず error を返す', async () => {
