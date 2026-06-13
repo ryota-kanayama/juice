@@ -70,7 +70,7 @@ describe('GET /auth/start', () => {
     const res = await handler(makeEvent('/auth/start', { state: STATE }))
     expect(res.statusCode).toBe(302)
     const url = new URL(res.headers!.Location)
-    expect(url.origin + url.pathname).toBe('https://slack.com/openid/connect/authorize')
+    expect(url.origin + url.pathname).toBe('https://slack.com/oauth/v2/authorize')
     expect(url.searchParams.get('state')).toBe(STATE)
     expect(url.searchParams.get('redirect_uri')).toBe(
       'https://abc.lambda-url.ap-northeast-1.on.aws/auth/callback'
@@ -114,6 +114,17 @@ describe('GET /auth/callback', () => {
   it('code が無ければ 400', async () => {
     const res = await handler(makeEvent('/auth/callback', { state: STATE }))
     expect(res.statusCode).toBe(400)
+  })
+
+  it('handle 付き identity なら JWT に handle が入る', async () => {
+    vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({
+      sub: 'U123', name: '金山', teamId: 'T999', handle: 'kanayama',
+    })
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: STATE }))
+    const url = new URL(res.headers!.Location)
+    const token = url.searchParams.get('token')!
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf-8'))
+    expect(payload.handle).toBe('kanayama')
   })
 })
 

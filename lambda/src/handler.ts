@@ -85,7 +85,7 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
       redirectUri,
     })
     if ('error' in identity) {
-      console.error('OIDC failed:', identity.error)
+      console.error('auth failed:', identity.error)
       return errorPage('Slack 認証に失敗しました。')
     }
     if (identity.teamId !== env('ALLOWED_TEAM_ID')) {
@@ -93,7 +93,13 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
       return errorPage('許可されていないワークスペースです。')
     }
     const token = issueSessionJwt(
-      { sub: identity.sub, name: identity.name, team: identity.teamId, email: identity.email },
+      {
+        sub: identity.sub,
+        name: identity.name,
+        team: identity.teamId,
+        email: identity.email,
+        handle: identity.handle,
+      },
       env('SESSION_SECRET')
     )
     return redirect(`juice://auth?token=${encodeURIComponent(token)}&state=${state}`)

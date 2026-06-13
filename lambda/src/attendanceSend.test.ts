@@ -20,19 +20,23 @@ describe('parseAttendanceRequest', () => {
 })
 
 describe('resolveUserName', () => {
-  const claims = { sub: 'U123', name: 'Ryota Kanayama' }
+  const claims = { sub: 'U123', name: 'Ryota Kanayama', handle: 'kanayama' }
 
-  it('対応表に sub があれば優先する', () => {
-    expect(resolveUserName(claims, '{"U123":"kanayama"}')).toBe('kanayama')
+  it('対応表に sub があれば最優先する', () => {
+    expect(resolveUserName(claims, '{"U123":"override"}')).toBe('override')
   })
 
-  it('対応表に無ければ JWT の name を使う', () => {
-    expect(resolveUserName(claims, '{}')).toBe('Ryota Kanayama')
-    expect(resolveUserName(claims, '{"U999":"other"}')).toBe('Ryota Kanayama')
+  it('対応表に無ければ handle（旧ハンドル）を使う', () => {
+    expect(resolveUserName(claims, '{}')).toBe('kanayama')
+    expect(resolveUserName(claims, '{"U999":"other"}')).toBe('kanayama')
   })
 
-  it('対応表が不正な JSON でも name にフォールバックする', () => {
-    expect(resolveUserName(claims, 'broken')).toBe('Ryota Kanayama')
+  it('handle が無ければ氏名にフォールバックする', () => {
+    expect(resolveUserName({ sub: 'U123', name: 'Ryota Kanayama' }, '{}')).toBe('Ryota Kanayama')
+  })
+
+  it('対応表が不正な JSON でも handle にフォールバックする', () => {
+    expect(resolveUserName(claims, 'broken')).toBe('kanayama')
   })
 })
 

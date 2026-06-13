@@ -19,11 +19,12 @@ export function parseAttendanceRequest(body: string): { text: string } | null {
 }
 
 /**
- * 勤怠の user_name を決める。対応表（sub → 勤怠登録名）が優先、
- * 無ければ JWT の氏名をそのまま使う（Phase 2/3 設計メモの決定）。
+ * 勤怠の user_name を決める。優先順位は
+ * 対応表（sub → 勤怠登録名）→ Slack 旧ハンドル → JWT の氏名
+ * （Phase 4 設計メモの決定）。
  */
 export function resolveUserName(
-  claims: Pick<SessionClaims, 'sub' | 'name'>,
+  claims: Pick<SessionClaims, 'sub' | 'name' | 'handle'>,
   overridesJson: string
 ): string {
   let overrides: Record<string, unknown> = {}
@@ -33,7 +34,8 @@ export function resolveUserName(
     // 不正な JSON は対応表なしとして扱う
   }
   const override = overrides[claims.sub]
-  return typeof override === 'string' ? override : claims.name
+  if (typeof override === 'string') return override
+  return claims.handle ?? claims.name
 }
 
 /** 勤怠 API に送信し、status と body をそのまま返す。ネットワークエラーは {error} */
