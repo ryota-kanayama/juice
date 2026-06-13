@@ -65,12 +65,11 @@ export function useSessions(): SessionsState {
   }, [])
 
   const remove = useCallback(async (sessionId: string): Promise<void> => {
-    const session = todaySessions.find(s => s.id === sessionId)
-    if (session) {
-      await sessionRepository.remove(sessionId, session.date.slice(0, 7))
-    }
+    // todaySessions は date === today に絞られているため yearMonth は常に当月。
+    // todaySessions に依存させず関数の再生成を防ぐ。
+    await sessionRepository.remove(sessionId, yearMonth)
     setTodaySessions(prev => prev.filter(s => s.id !== sessionId))
-  }, [todaySessions])
+  }, [yearMonth])
 
   const startTelework = useCallback(() => attendanceRepository.startTelework(), [])
 

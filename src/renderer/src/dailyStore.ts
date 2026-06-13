@@ -32,7 +32,14 @@ export const dailyStore = {
 
   getSessionOrder(date: string): string[] | null {
     const stored = localStorage.getItem(`${SESSION_ORDER}.${date}`)
-    return stored ? JSON.parse(stored) : null
+    if (!stored) return null
+    // 破損・手動改変された値で画面全体がクラッシュしないよう防御する
+    try {
+      const parsed = JSON.parse(stored)
+      return Array.isArray(parsed) && parsed.every(x => typeof x === 'string') ? parsed : null
+    } catch {
+      return null
+    }
   },
   setSessionOrder(date: string, order: string[]): void {
     localStorage.setItem(`${SESSION_ORDER}.${date}`, JSON.stringify(order))
