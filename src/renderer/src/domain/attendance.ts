@@ -39,19 +39,32 @@ export function buildAttendanceText(
     }
   }
 
-  const groups = Array.from(map.values()).filter(g => g.totalMinutes > 0)
+  let groups = Array.from(map.values()).filter(g => g.totalMinutes > 0)
 
-  // 勤務時間から休憩を引いた実労働時間と、タイマー合計の差分を最後のタスクに加算
+  // 勤務時間から休憩を引いた実労働時間と、タイマー合計の差分を末尾のタスクから順に調整し、
+  // 報告合計を実労働時間に一致させる。
+  // - プラス差分（計測しきれなかった分）: 最後のタスクに加算
+  // - マイナス差分（タイマー超過）: 最後のタスクから差し引き、負になる分は手前へ繰り越す
   if (groups.length > 0 && workStart && workEnd) {
     const startMin = parseHHMM(workStart)
     const endMin = parseHHMM(workEnd)
     if (startMin != null && endMin != null) {
       const actualWorkMinutes = endMin - startMin - breakMinutes
       const timerTotal = groups.reduce((sum, g) => sum + g.totalMinutes, 0)
-      const diff = actualWorkMinutes - timerTotal
-      if (diff > 0) {
-        groups[groups.length - 1].totalMinutes += diff
+      let diff = actualWorkMinutes - timerTotal
+      for (let i = groups.length - 1; i >= 0 && diff !== 0; i--) {
+        const adjusted = groups[i].totalMinutes + diff
+        if (adjusted >= 0) {
+          groups[i].totalMinutes = adjusted
+          diff = 0
+        } else {
+          // このタスクで吸収しきれないマイナス分を手前へ繰り越す
+          diff = adjusted
+          groups[i].totalMinutes = 0
+        }
       }
+      // 調整で 0 になったタスクは報告から除く
+      groups = groups.filter(g => g.totalMinutes > 0)
     }
   }
 

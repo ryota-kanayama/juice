@@ -40,7 +40,7 @@ describe('useSuggestions', () => {
       return [makeSession({ id: 'b', name: '先月の作業', projectCode: 'P002' })]
     })
 
-    const { result } = renderHook(() => useSuggestions([]))
+    const { result } = renderHook(() => useSuggestions([], formatLocalDate(Date.now())))
 
     await waitFor(() => {
       expect(result.current.names.map(n => n.name)).toEqual(
@@ -61,7 +61,7 @@ describe('useSuggestions', () => {
       makeSession({ id: 'a', name: '保存済みの作業', projectCode: '新コード', date: today }),
     ]
 
-    const { result } = renderHook(() => useSuggestions(todaySessions))
+    const { result } = renderHook(() => useSuggestions(todaySessions, today))
 
     await waitFor(() => {
       expect(result.current.projectCodes).toEqual(['新コード'])

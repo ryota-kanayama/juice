@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Session } from '../types/session'
-import { formatLocalDate, orderSessions } from '../../../shared/sessionUtils'
+import { orderSessions } from '../../../shared/sessionUtils'
 import { dailyStore } from '../dailyStore'
 import { buildAttendanceText, isValidWorkTime } from '../domain/attendance'
 import { attendanceRepository } from '../repositories/attendanceRepository'
@@ -19,13 +19,13 @@ export interface AttendanceReportState {
 }
 
 /** 勤怠レポート画面のオーケストレーション。domain / repository を組み合わせ state を持つ。 */
-export function useAttendanceReport(sessions: Session[]): AttendanceReportState {
+export function useAttendanceReport(sessions: Session[], today: string): AttendanceReportState {
   const [breakMinutes, setBreakMinutes] = useState(60)
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
 
-  const todayKey = formatLocalDate(Date.now())
+  const todayKey = today
   const workStart = dailyStore.getWorkStart(todayKey)
   const workEnd = dailyStore.getWorkEnd(todayKey)
   const orderedSessions = orderSessions(sessions, dailyStore.getSessionOrder(todayKey))

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SessionList } from './SessionList'
@@ -55,6 +55,32 @@ describe('SessionList — 合計時間表示', () => {
     const session = makeSession({ totalTime: 76 })
     render(<SessionList sessions={[session]} />)
     expect(screen.getAllByText(/76分/).length).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('SessionList — customOrder 同期', () => {
+  const KEY = 'sessionOrder.2026-02-25'
+  afterEach(() => localStorage.removeItem(KEY))
+
+  it('削除済み（存在しない）IDを localStorage から除去する', async () => {
+    localStorage.setItem(KEY, JSON.stringify(['2', '1', 'STALE-DELETED']))
+    render(<SessionList sessions={sessions} today="2026-02-25" />)
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(['2', '1'])
+    })
+  })
+
+  it('customOrder に無い新規セッションを末尾に取り込む', async () => {
+    localStorage.setItem(KEY, JSON.stringify(['2', '1']))
+    const withNew = [
+      ...sessions,
+      makeSession({ id: '3', taskId: '3', name: '新規作業',
+        times: [{ startTime: '2026-02-25T12:00:00', endTime: '2026-02-25T12:10:00' }], totalTime: 10 }),
+    ]
+    render(<SessionList sessions={withNew} today="2026-02-25" />)
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(['2', '1', '3'])
+    })
   })
 })
 
