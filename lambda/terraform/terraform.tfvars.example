@@ -1,14 +1,14 @@
 # terraform.tfvars にコピーして実値を記入する（terraform.tfvars は gitignore 済み）
-slack_client_id     = "1234567890.1234567890123"
-slack_client_secret = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-allowed_team_id     = "TXXXXXXXX"
-session_secret      = "openssl rand -hex 32 の出力をここに"
-slack_bot_token     = "xoxb-..."
-slack_channel_id    = "CXXXXXXXX"
-attendance_api_url  = "https://example.com/api/receive_slack_post"
-attendance_api_key  = "xxxxxxxx"
-whiteboard_api_url  = "https://example.com"
-whiteboard_api_key  = "xxxxxxxx"
+#
+# 秘密値（SLACK_CLIENT_SECRET / SESSION_SECRET / SLACK_BOT_TOKEN /
+# ATTENDANCE_API_KEY / WHITEBOARD_API_KEY）はここには書かない。
+# SSM Parameter Store(SecureString) に CLI で投入する（README 参照）。tfstate に載せない。
+slack_client_id    = "1234567890.1234567890123"
+allowed_team_id    = "TXXXXXXXX"
+slack_channel_id   = "CXXXXXXXX"
+attendance_api_url = "https://example.com/api/receive_slack_post"
+whiteboard_api_url = "https://example.com"
+# ssm_secret_prefix は省略可（デフォルト "/juice-proxy/"）。
 # attendance_user_overrides は省略可（デフォルト "{}"）。
 # 勤怠の登録名が Slack の氏名と違う人が出たときだけ設定する:
 # attendance_user_overrides = "{\"U0XXXXXXX\":\"kanayama\"}"
