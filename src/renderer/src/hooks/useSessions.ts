@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Session } from '../types/session'
-import { formatLocalDate } from '../../../shared/sessionUtils'
 import { appendRunningInterval, createManualSession, hasRunningInterval } from '../domain/session'
 import { sessionRepository } from '../repositories/sessionRepository'
 import { attendanceRepository } from '../repositories/attendanceRepository'
+import { useToday } from './useToday'
 
 export interface SessionsState {
   today: string
@@ -22,20 +22,11 @@ export interface SessionsState {
   startTelework: () => Promise<void>
 }
 
-/** 今日のセッション一覧と変更操作を統括する。フォーカス復帰時の日付更新も担う。 */
+/** 今日のセッション一覧と変更操作を統括する。日付は useToday（単一ソース）に従う。 */
 export function useSessions(): SessionsState {
   const [todaySessions, setTodaySessions] = useState<Session[]>([])
-  const [today, setToday] = useState(() => formatLocalDate(Date.now()))
-  const [yearMonth, setYearMonth] = useState(() => formatLocalDate(Date.now()).slice(0, 7))
-
-  useEffect(() => {
-    const handleFocus = (): void => {
-      setToday(formatLocalDate(Date.now()))
-      setYearMonth(formatLocalDate(Date.now()).slice(0, 7))
-    }
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [])
+  const today = useToday()
+  const yearMonth = today.slice(0, 7)
 
   useEffect(() => {
     sessionRepository.list(yearMonth).then(sessions => {

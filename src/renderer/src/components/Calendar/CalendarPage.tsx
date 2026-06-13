@@ -6,11 +6,12 @@ import { DayDetail } from './DayDetail'
 
 interface Props {
   todaySessions?: Session[]
+  today: string
 }
 
-export function CalendarPage({ todaySessions = [] }: Props) {
+export function CalendarPage({ todaySessions = [], today }: Props) {
   const cal = useCalendar()
-  const suggestions = useSuggestions(todaySessions)
+  const suggestions = useSuggestions(todaySessions, today)
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden font-[var(--font-family)]">
       {cal.selectedDate ? (

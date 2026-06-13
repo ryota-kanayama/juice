@@ -8,14 +8,15 @@ import { Check, Copy, SendDiagonal } from 'iconoir-react'
 
 interface Props {
   sessions: Session[]
+  today: string
 }
 
 const actionButton =
   'flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] border-0 p-[9px] text-[13px] font-semibold text-white transition-all hover:-translate-y-px'
 
-export function AttendanceReport({ sessions }: Props) {
+export function AttendanceReport({ sessions, today }: Props) {
   const { breakMinutes, setBreakMinutes, text, canSend, copied, sending, sendResult, copy, send } =
-    useAttendanceReport(sessions)
+    useAttendanceReport(sessions, today)
 
   return (
     <Card className="flex min-h-0 flex-1 flex-col rounded-xl bg-[var(--glass-bg)] p-3 [backdrop-filter:blur(12px)]">

@@ -61,6 +61,19 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     setCustomOrder(dailyStore.getSessionOrder(todayKey))
   }, [todayKey])
 
+  // セッションの追加/削除に customOrder を追従させる。
+  // orderSessions の結果（削除IDを除き、新規IDを末尾に取り込んだ順）で正規化して
+  // 表示と localStorage を一致させ、死んだIDが溜まるのを防ぐ。
+  useEffect(() => {
+    if (!customOrder) return
+    const synced = orderSessions(sessions, customOrder).map(s => s.id)
+    const changed = synced.length !== customOrder.length || synced.some((id, i) => id !== customOrder[i])
+    if (changed) {
+      setCustomOrder(synced)
+      dailyStore.setSessionOrder(todayKey, synced)
+    }
+  }, [sessions, customOrder, todayKey])
+
   const sortedSessions = orderSessions(sessions, customOrder)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)

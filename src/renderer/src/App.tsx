@@ -82,10 +82,10 @@ function PopoverView() {
         <div className={styles.page} style={{ display: currentPage === 'timer' ? 'flex' : 'none' }}>
           <TimerPage sessions={sessions} />
         </div>
-        {currentPage === 'calendar' && <CalendarPage todaySessions={sessions.todaySessions} />}
+        {currentPage === 'calendar' && <CalendarPage todaySessions={sessions.todaySessions} today={sessions.today} />}
         {currentPage === 'attendance' && (
           <div className={styles.attendanceContent}>
-            <AttendanceReport sessions={sessions.todaySessions} />
+            <AttendanceReport sessions={sessions.todaySessions} today={sessions.today} />
           </div>
         )}
       </main>
@@ -121,7 +121,7 @@ function PopoverView() {
 export function TimerPage({ sessions }: { sessions: SessionsState }) {
   const { isRunning, elapsedSeconds, baseSeconds, fillSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
   const workday = useWorkday(sessions.today)
-  const suggestions = useSuggestions(sessions.todaySessions)
+  const suggestions = useSuggestions(sessions.todaySessions, sessions.today)
   const [activeTimerName, setActiveTimerName] = useState('')
   const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
   const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
