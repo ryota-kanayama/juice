@@ -28,6 +28,17 @@ vi.mock('./whiteboardPost', async (importOriginal) => {
   return { ...mod, postWhiteboard: vi.fn() }
 })
 
+// 秘密値は SSM 取得をモックする（テストでは固定値を返す）
+vi.mock('./secrets', () => ({
+  loadSecrets: vi.fn().mockResolvedValue({
+    SLACK_CLIENT_SECRET: 'CSECRET',
+    SESSION_SECRET: 'test-secret',
+    SLACK_BOT_TOKEN: 'xoxb-test',
+    ATTENDANCE_API_KEY: 'AKEY',
+    WHITEBOARD_API_KEY: 'WKEY',
+  }),
+}))
+
 const STATE = 'a'.repeat(32)
 // /auth/callback には署名済み state が渡される（/auth/start が発行した形式）
 const SIGNED = signState(STATE, 'test-secret')

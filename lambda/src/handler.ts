@@ -4,6 +4,7 @@ import { buildTeleworkMessage, parseSlackPostRequest, postToSlack } from './slac
 import { parseAttendanceRequest, postAttendance, resolveUserName } from './attendanceSend'
 import { postWhiteboard } from './whiteboardPost'
 import { signState, verifyState } from './stateSign'
+import { loadSecrets } from './secrets'
 
 interface FunctionUrlEvent {
   rawPath: string
@@ -41,10 +42,10 @@ function json(statusCode: number, data: unknown): FunctionUrlResponse {
   }
 }
 
-function bearerClaims(event: FunctionUrlEvent): ReturnType<typeof verifySessionJwt> {
+function bearerClaims(event: FunctionUrlEvent, sessionSecret: string): ReturnType<typeof verifySessionJwt> {
   const auth = event.headers.authorization ?? event.headers.Authorization ?? ''
   const match = auth.match(/^Bearer (.+)$/)
-  return match ? verifySessionJwt(match[1], env('SESSION_SECRET')) : null
+  return match ? verifySessionJwt(match[1], sessionSecret) : null
 }
 
 function rawBody(event: FunctionUrlEvent): string {
@@ -66,13 +67,15 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
   const path = event.rawPath
   const query = event.queryStringParameters ?? {}
   const redirectUri = `https://${event.requestContext.domainName}/auth/callback`
+  // 秘密値は SSM から取得する（コールド時のみ実取得、以降はキャッシュ）
+  const secrets = await loadSecrets()
 
   if (path === '/auth/start') {
     const state = query.state ?? ''
     if (!STATE_PATTERN.test(state)) return errorPage('state パラメータが不正です。')
     // アプリの nonce に HMAC 署名と発行時刻を付けて Slack へ渡す。
     // /auth/callback で「自分が発行した state か・TTL 内か」を検証できるようにする。
-    const signedState = signState(state, env('SESSION_SECRET'))
+    const signedState = signState(state, secrets.SESSION_SECRET)
     return redirect(
       buildAuthorizeUrl({ clientId: env('SLACK_CLIENT_ID'), redirectUri, state: signedState })
     )
@@ -81,11 +84,11 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
   if (path === '/auth/callback') {
     const code = query.code ?? ''
     // 署名済み state を検証し、元の nonce を取り出す（署名不一致・期限切れは拒否）
-    const nonce = verifyState(query.state ?? '', env('SESSION_SECRET'))
+    const nonce = verifyState(query.state ?? '', secrets.SESSION_SECRET)
     if (!nonce || !code) return errorPage('パラメータが不足しています。')
     const identity = await fetchSlackIdentity({
       clientId: env('SLACK_CLIENT_ID'),
-      clientSecret: env('SLACK_CLIENT_SECRET'),
+      clientSecret: secrets.SLACK_CLIENT_SECRET,
       code,
       redirectUri,
     })
@@ -105,24 +108,24 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
         email: identity.email,
         handle: identity.handle,
       },
-      env('SESSION_SECRET')
+      secrets.SESSION_SECRET
     )
     // アプリは自身が生成した nonce で照合するため、署名前の nonce を返す
     return redirect(`juice://auth?token=${encodeURIComponent(token)}&state=${nonce}`)
   }
 
   if (path === '/auth/me') {
-    const claims = bearerClaims(event)
+    const claims = bearerClaims(event, secrets.SESSION_SECRET)
     if (!claims) return json(401, { error: 'unauthorized' })
     return json(200, { sub: claims.sub, name: claims.name, team: claims.team, exp: claims.exp })
   }
 
   if (path === '/api/slack.post' && event.requestContext.http.method === 'POST') {
-    if (!bearerClaims(event)) return json(401, { error: 'unauthorized' })
+    if (!bearerClaims(event, secrets.SESSION_SECRET)) return json(401, { error: 'unauthorized' })
     const request = parseSlackPostRequest(rawBody(event))
     if (!request) return json(400, { error: 'bad request' })
     const result = await postToSlack(buildTeleworkMessage(request), {
-      botToken: env('SLACK_BOT_TOKEN'),
+      botToken: secrets.SLACK_BOT_TOKEN,
       channelId: env('SLACK_CHANNEL_ID'),
     })
     if ('error' in result) {
@@ -133,14 +136,14 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
   }
 
   if (path === '/api/attendance.send' && event.requestContext.http.method === 'POST') {
-    const claims = bearerClaims(event)
+    const claims = bearerClaims(event, secrets.SESSION_SECRET)
     if (!claims) return json(401, { error: 'unauthorized' })
     const request = parseAttendanceRequest(rawBody(event))
     if (!request) return json(400, { error: 'bad request' })
     const userName = resolveUserName(claims, process.env.ATTENDANCE_USER_OVERRIDES ?? '{}')
     const result = await postAttendance(userName, request.text, {
       apiUrl: env('ATTENDANCE_API_URL'),
-      apiKey: env('ATTENDANCE_API_KEY'),
+      apiKey: secrets.ATTENDANCE_API_KEY,
     })
     if ('error' in result) {
       console.error('attendance.send failed:', result.error)
@@ -158,14 +161,14 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
     (path === '/api/whiteboard.telework' || path === '/api/whiteboard.leave') &&
     event.requestContext.http.method === 'POST'
   ) {
-    const claims = bearerClaims(event)
+    const claims = bearerClaims(event, secrets.SESSION_SECRET)
     if (!claims) return json(401, { error: 'unauthorized' })
     // email クレームは Phase 2 以降のサインインでのみ付与される
     if (!claims.email) return json(401, { error: 'reauth_required' })
     const kind = path === '/api/whiteboard.telework' ? 'telework' : 'leave'
     const result = await postWhiteboard(kind, claims.email, {
       apiUrl: env('WHITEBOARD_API_URL'),
-      apiKey: env('WHITEBOARD_API_KEY'),
+      apiKey: secrets.WHITEBOARD_API_KEY,
     })
     if ('error' in result) {
       console.error('whiteboard failed:', result.error)

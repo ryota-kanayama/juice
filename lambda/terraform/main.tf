@@ -55,21 +55,47 @@ resource "aws_lambda_function" "juice_proxy" {
   # アカウント上限自体が flood 時の頭打ちとして機能する。
   # 上限引き上げを申請した場合は reserved_concurrent_executions = 5 を復活させること。
 
+  # 秘密値は環境変数に置かず SSM Parameter Store(SecureString) から実行時に取得する。
+  # ここには秘密でない設定と、秘密パラメータ名のプレフィックスのみを置く。
   environment {
     variables = {
       SLACK_CLIENT_ID           = var.slack_client_id
-      SLACK_CLIENT_SECRET       = var.slack_client_secret
       ALLOWED_TEAM_ID           = var.allowed_team_id
-      SESSION_SECRET            = var.session_secret
-      SLACK_BOT_TOKEN           = var.slack_bot_token
       SLACK_CHANNEL_ID          = var.slack_channel_id
       ATTENDANCE_API_URL        = var.attendance_api_url
-      ATTENDANCE_API_KEY        = var.attendance_api_key
       WHITEBOARD_API_URL        = var.whiteboard_api_url
-      WHITEBOARD_API_KEY        = var.whiteboard_api_key
       ATTENDANCE_USER_OVERRIDES = var.attendance_user_overrides
+      SSM_SECRET_PREFIX         = var.ssm_secret_prefix
     }
   }
+}
+
+# 秘密パラメータ（SecureString）は Terraform 管理外（CLI で投入）。
+# ここでは取得・復号の権限のみを付与し、値は state に載せない。
+data "aws_caller_identity" "current" {}
+
+data "aws_kms_alias" "ssm" {
+  name = "alias/aws/ssm"
+}
+
+resource "aws_iam_role_policy" "ssm_secrets" {
+  name = "juice-proxy-ssm-secrets"
+  role = aws_iam_role.lambda.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameters", "ssm:GetParameter"]
+        Resource = "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_secret_prefix}*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = data.aws_kms_alias.ssm.target_key_arn
+      }
+    ]
+  })
 }
 
 resource "aws_lambda_function_url" "juice_proxy" {

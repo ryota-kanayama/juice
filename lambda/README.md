@@ -29,26 +29,38 @@ npm run build          # esbuild で dist/handler.js を生成
 
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-openssl rand -hex 32   # session_secret に使う値を生成
-# terraform.tfvars に実値を記入する:
-#   slack_client_id / slack_client_secret: 手順1で控えた値
+# terraform.tfvars に「秘密でない」設定だけ記入する:
+#   slack_client_id: 手順1で控えた値（Client ID は秘密ではない）
 #   allowed_team_id: ワークスペースの team ID
 #     （ブラウザで Slack を開いた URL app.slack.com/client/TXXXXXXX/...
 #      の T 始まりの部分）
-#   session_secret: 上で生成した値
-#   slack_bot_token / slack_channel_id: 既存 .env の
-#     MAIN_VITE_SLACK_BOT_TOKEN / MAIN_VITE_SLACK_CHANNEL_ID の値を移設
-#   attendance_api_url / attendance_api_key: 既存 .env の
-#     MAIN_VITE_ATTENDANCE_API_URL / MAIN_VITE_ATTENDANCE_API_KEY の値を移設
-#   whiteboard_api_url / whiteboard_api_key: 既存 .env の
-#     MAIN_VITE_WHITEBOARD_API_URL / MAIN_VITE_WHITEBOARD_API_KEY の値を移設
+#   slack_channel_id: 既存 .env の MAIN_VITE_SLACK_CHANNEL_ID
+#   attendance_api_url / whiteboard_api_url: 既存 .env の各 URL
+```
 
+秘密値は tfvars/tfstate に置かず、SSM Parameter Store(SecureString) に CLI で投入する
+（プレフィックスは既定 `/juice-proxy/`、`ssm_secret_prefix` で変更可）:
+
+```bash
+REGION=ap-northeast-1
+put() { aws ssm put-parameter --region "$REGION" --type SecureString --overwrite \
+  --name "/juice-proxy/$1" --value "$2"; }
+
+put SLACK_CLIENT_SECRET "手順1で控えた Client Secret"
+put SESSION_SECRET      "$(openssl rand -hex 32)"   # JWT の HS256 署名鍵
+put SLACK_BOT_TOKEN     "既存 .env の MAIN_VITE_SLACK_BOT_TOKEN"
+put ATTENDANCE_API_KEY  "既存 .env の MAIN_VITE_ATTENDANCE_API_KEY"
+put WHITEBOARD_API_KEY  "既存 .env の MAIN_VITE_WHITEBOARD_API_KEY"
+```
+
+```bash
 terraform init
 terraform apply        # 実行計画を確認して yes
 ```
 
-`terraform.tfvars` は秘密を含むため gitignore 済み。
-リージョンは既定で `ap-northeast-1`（変える場合は `region` 変数）。
+`terraform.tfvars` は gitignore 済み。秘密は SSM にのみ存在し、tfstate には載らない。
+SecureString は既定の AWS 管理キー `alias/aws/ssm` で暗号化される（追加料金なし）。
+リージョンは既定で `ap-northeast-1`（変える場合は `region` 変数と上記 `REGION`）。
 
 apply 完了時の Outputs に **function_url** が表示される。
 
@@ -103,9 +115,11 @@ open dist-release/mac-arm64/Juice.app
 - **コスト監視**: AWS Budgets で月 $5 のアラートを設定しておく
   （Console → Budgets → Create budget）
 - **コード更新**: `npm run build` → `terraform apply`
-- **キーローテーション**: `terraform.tfvars` を変更して `terraform apply`
-- **全セッション失効**: `session_secret` を変更して `terraform apply`
-- **全リソース削除**: `terraform destroy`
+- **キーローテーション**: SSM のパラメータを更新する（apply 不要、次のコールド起動で反映）
+  例: `aws ssm put-parameter --type SecureString --overwrite --name /juice-proxy/SLACK_BOT_TOKEN --value '新トークン'`
+- **全セッション失効**: `SESSION_SECRET` パラメータを新しい値に更新する（全 JWT が無効化される）
+  例: `aws ssm put-parameter --type SecureString --overwrite --name /juice-proxy/SESSION_SECRET --value "$(openssl rand -hex 32)"`
+- **全リソース削除**: `terraform destroy`（SSM パラメータは Terraform 管理外なので別途 `aws ssm delete-parameter` で削除）
 - **勤怠の登録名の自動解決**: サインイン時に Slack の `users.info` から
   旧ユーザー名（@ハンドル）を取得し勤怠 user_name に使う。
   スコープ変更後は既存サインイン者の再サインインが必要
