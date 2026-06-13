@@ -1,3 +1,5 @@
+import { FETCH_TIMEOUT_MS } from './http'
+
 export type TeleworkKind = 'telework_start' | 'telework_end'
 
 export interface SlackPostRequest {
@@ -47,6 +49,7 @@ export async function postToSlack(
         Authorization: `Bearer ${opts.botToken}`,
       },
       body: JSON.stringify({ channel: opts.channelId, text }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     })
     const result = (await res.json()) as { ok: boolean; error?: string }
     if (!result.ok) return { error: result.error ?? 'unknown' }
