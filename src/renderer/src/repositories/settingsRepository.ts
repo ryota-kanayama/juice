@@ -7,8 +7,8 @@ export const settingsRepository = {
   setTheme(themeId: string): Promise<void> {
     return window.electronAPI.setTheme(themeId)
   },
-  onThemeChanged(callback: (themeId: string) => void): void {
-    window.electronAPI.onThemeChanged(callback)
+  onThemeChanged(callback: (themeId: string) => void): () => void {
+    return window.electronAPI.onThemeChanged(callback)
   },
 
   getIdle(): Promise<{ enabled: boolean; minutes: number }> {

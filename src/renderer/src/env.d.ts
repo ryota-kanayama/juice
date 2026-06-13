@@ -17,7 +17,7 @@ interface ElectronAPI {
   // settings: theme / notifications
   getTheme: () => Promise<string>
   setTheme: (themeId: string) => Promise<void>
-  onThemeChanged: (callback: (themeId: string) => void) => void
+  onThemeChanged: (callback: (themeId: string) => void) => () => void
   getIdleSettings: () => Promise<ToggleSettings>
   setIdleSettings: (enabled: boolean, minutes: number) => Promise<void>
   getElapsedSettings: () => Promise<ToggleSettings>
@@ -48,7 +48,7 @@ interface ElectronAPI {
   signInWithSlack: () => Promise<void>
   getAuthStatus: () => Promise<AuthStatus>
   signOutSlack: () => Promise<void>
-  onAuthChanged: (callback: (status: AuthStatus) => void) => void
+  onAuthChanged: (callback: (status: AuthStatus) => void) => () => void
 
   // misc
   completeSetup: () => Promise<void>

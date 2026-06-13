@@ -7,7 +7,7 @@ const api = {
   getAuthStatus: vi.fn(),
   signInWithSlack: vi.fn().mockResolvedValue(undefined),
   signOutSlack: vi.fn().mockResolvedValue(undefined),
-  onAuthChanged: vi.fn(),
+  onAuthChanged: vi.fn((_cb: (status: { signedIn: boolean; name?: string }) => void) => () => {}),
 }
 
 beforeEach(() => {
