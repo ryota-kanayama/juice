@@ -121,5 +121,19 @@ export function registerIpcHandlers(
   handle('holidays:get', () => getHolidays())
   handle('window:hide', () => hidePopover())
   handle('window:resize', (_, { width, height }) => resizePopover(width, height))
-  handle('shell:openUrl', (_, url) => { shell.openExternal(url) })
+  handle('shell:openUrl', (_, url) => {
+    // http(s) のみ許可する。file:// 等の他スキームを外部に開かせない。
+    let protocol: string
+    try {
+      protocol = new URL(url).protocol
+    } catch {
+      logger.warn('blocked openExternal for invalid url:', url)
+      return
+    }
+    if (protocol === 'http:' || protocol === 'https:') {
+      shell.openExternal(url)
+    } else {
+      logger.warn('blocked openExternal for non-http(s) url:', url)
+    }
+  })
 }
