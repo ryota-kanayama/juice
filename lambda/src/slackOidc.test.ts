@@ -64,6 +64,30 @@ describe('fetchSlackIdentity', () => {
     })
   })
 
+  it('profile の image_192 をアバターURL(picture)として返す', async () => {
+    mockFetchSequence([
+      { ok: true, authed_user: { id: 'U123', access_token: 'xoxp-test' }, team: { id: 'T999' } },
+      {
+        ok: true,
+        user: {
+          name: 'kanayama',
+          real_name: '金山 良太',
+          profile: { email: 'kanayama@jsl.co.jp', image_192: 'https://slack.test/avatar_192.png' },
+        },
+      },
+    ])
+    const result = await fetchSlackIdentity(OPTS)
+    expect(result).toMatchObject({ picture: 'https://slack.test/avatar_192.png' })
+  })
+
+  it('image_192 が無ければ image_72 をアバターURLに使う', async () => {
+    mockFetchSequence([
+      { ok: true, authed_user: { id: 'U123', access_token: 'xoxp-test' }, team: { id: 'T999' } },
+      { ok: true, user: { name: 'kanayama', profile: { image_72: 'https://slack.test/avatar_72.png' } } },
+    ])
+    expect(await fetchSlackIdentity(OPTS)).toMatchObject({ picture: 'https://slack.test/avatar_72.png' })
+  })
+
   it('oauth.v2.access 失敗時は error を返す', async () => {
     mockFetchSequence([{ ok: false, error: 'invalid_code' }])
     expect(await fetchSlackIdentity(OPTS)).toEqual({ error: 'oauth: invalid_code' })

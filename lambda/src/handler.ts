@@ -113,6 +113,7 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
         team: identity.teamId,
         email: identity.email,
         handle: identity.handle,
+        picture: identity.picture,
       },
       secrets.SESSION_SECRET
     )

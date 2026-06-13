@@ -55,6 +55,16 @@ describe('AuthStore', () => {
     expect(status.expiresAt).toBe(new Date(FUTURE * 1000).toISOString())
   })
 
+  it('getStatus が JWT payload の picture を avatarUrl として返す', async () => {
+    await store.saveToken(fakeJwt({ name: '金山', picture: 'https://slack.test/a.png', exp: FUTURE }))
+    expect((await store.getStatus()).avatarUrl).toBe('https://slack.test/a.png')
+  })
+
+  it('picture が無い旧トークンは avatarUrl が undefined', async () => {
+    await store.saveToken(fakeJwt({ name: '金山', exp: FUTURE }))
+    expect((await store.getStatus()).avatarUrl).toBeUndefined()
+  })
+
   it('期限切れトークンは signedIn: false', async () => {
     await store.saveToken(fakeJwt({ name: 'x', exp: PAST }))
     expect(await store.getStatus()).toEqual({ signedIn: false })

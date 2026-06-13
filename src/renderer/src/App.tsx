@@ -14,8 +14,9 @@ import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
 import { useWorkday } from './hooks/useWorkday'
 import { useSuggestions } from './hooks/useSuggestions'
 import { windowRepository } from './repositories/windowRepository'
-import { Menu, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
+import { User, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
+import { useAuthStatus } from './hooks/useAuthStatus'
 
 type Page = 'timer' | 'calendar' | 'attendance'
 
@@ -33,10 +34,27 @@ export default function App() {
   return <PopoverView />
 }
 
+/** トリガー用のアバター。画像があれば表示し、無い・読み込み失敗時は人型アイコンにフォールバック */
+function AccountAvatar({ avatarUrl, name }: { avatarUrl?: string; name?: string }) {
+  const [failed, setFailed] = useState(false)
+  if (avatarUrl && !failed) {
+    return (
+      <img
+        className={styles.avatarImg}
+        src={avatarUrl}
+        alt={name ?? 'アカウント'}
+        onError={() => setFailed(true)}
+      />
+    )
+  }
+  return <User width={16} height={16} />
+}
+
 function PopoverView() {
   const [currentPage, setCurrentPage] = useState<Page>('timer')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { status, signIn, signOut } = useAuthStatus()
 
   const sessions = useSessions()
 
@@ -58,11 +76,46 @@ function PopoverView() {
         </Button>
         <span className={styles.logo}>juice</span>
         <div className={styles.menuWrapper} ref={menuRef}>
-          <Button variant="ghost" size="icon" aria-label="メニュー" className="[-webkit-app-region:no-drag]" onClick={() => setMenuOpen(p => !p)}>
-            <Menu width={16} height={16} />
+          <Button variant="ghost" size="icon" aria-label="アカウント" className="[-webkit-app-region:no-drag]" onClick={() => setMenuOpen(p => !p)}>
+            <AccountAvatar avatarUrl={status.avatarUrl} name={status.name} />
           </Button>
           {menuOpen && (
             <div className={styles.menuPopup}>
+              <div className={styles.menuAccount}>
+                {status.signedIn ? (
+                  <>
+                    <p className={styles.menuAccountName}>{status.name}</p>
+                    {status.expiresAt && (
+                      <p className={styles.menuAccountMeta}>
+                        有効期限: {new Date(status.expiresAt).toLocaleDateString('ja-JP')}
+                      </p>
+                    )}
+                    <button
+                      className={styles.menuAccountAction}
+                      onClick={() => {
+                        setMenuOpen(false)
+                        signOut()
+                      }}
+                    >
+                      サインアウト
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className={styles.menuAccountName}>未サインイン</p>
+                    <button
+                      className={styles.menuAccountAction}
+                      onClick={() => {
+                        setMenuOpen(false)
+                        signIn()
+                      }}
+                    >
+                      Slack でサインイン
+                    </button>
+                  </>
+                )}
+              </div>
+              <div className={styles.menuDivider} />
               <button
                 className={styles.menuItem}
                 onClick={() => {

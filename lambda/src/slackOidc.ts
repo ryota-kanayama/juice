@@ -8,6 +8,8 @@ export interface SlackIdentity {
   email?: string
   /** Slack 旧ユーザー名（@ハンドル）= users.info の name。勤怠照合に使う */
   handle?: string
+  /** プロフィール画像URL（image_192 優先、無ければ image_72）。取得できなければ undefined */
+  picture?: string
 }
 
 export interface SlackOidcError {
@@ -38,7 +40,11 @@ interface OAuthAccessResponse {
 
 interface UsersInfoResponse {
   ok: boolean
-  user?: { name?: string; real_name?: string; profile?: { email?: string } }
+  user?: {
+    name?: string
+    real_name?: string
+    profile?: { email?: string; image_192?: string; image_72?: string }
+  }
   error?: string
 }
 
@@ -90,6 +96,7 @@ export async function fetchSlackIdentity(opts: {
       teamId,
       email: u.profile?.email,
       handle: u.name,
+      picture: u.profile?.image_192 || u.profile?.image_72,
     }
   } catch (e) {
     return { error: `network: ${e instanceof Error ? e.message : 'unknown'}` }

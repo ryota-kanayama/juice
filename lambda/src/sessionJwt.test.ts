@@ -86,4 +86,18 @@ describe('sessionJwt', () => {
     expect(claims).not.toBeNull()
     expect(claims!.handle).toBeUndefined()
   })
+
+  it('picture 付きで発行したトークンは picture を返す', () => {
+    const token = issueSessionJwt(
+      { sub: 'U1', name: 'a', team: 'T1', picture: 'https://slack.test/a.png' }, SECRET, NOW
+    )
+    expect(verifySessionJwt(token, SECRET, NOW)!.picture).toBe('https://slack.test/a.png')
+  })
+
+  it('picture 無しで発行した旧トークンも検証できる（picture は undefined）', () => {
+    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
+    const claims = verifySessionJwt(token, SECRET, NOW)
+    expect(claims).not.toBeNull()
+    expect(claims!.picture).toBeUndefined()
+  })
 })

@@ -30,6 +30,8 @@ export interface PomodoroSettings {
 export interface AuthStatus {
   signedIn: boolean
   name?: string
+  /** Slack プロフィール画像URL。古いトークン・未取得時は undefined */
+  avatarUrl?: string
   /** ISO 8601。signedIn が true のときのみ */
   expiresAt?: string
 }
