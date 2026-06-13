@@ -15,14 +15,13 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AccountSection } from './AccountSection'
 
 type Section = 'theme' | 'notification' | 'account'
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: 'theme', label: 'テーマ' },
   { id: 'notification', label: '通知' },
-  { id: 'account', label: 'アカウント' },
+  { id: 'account', label: '連携' },
 ]
 
 const heading = 'mb-2 mt-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground'
@@ -188,13 +187,10 @@ export function SettingsView() {
           </>
         )}
 
-        {/* ─── アカウント ─── */}
+        {/* ─── 連携 ─── */}
         {activeSection === 'account' && (
           <>
-            <h2 className={heading}>Slack アカウント</h2>
-            <AccountSection />
-
-            <h2 className={heading} style={{ marginTop: '1.5rem' }}>ホワイトボード連携</h2>
+            <h2 className={heading}>ホワイトボード連携</h2>
             <Card className="mb-4">
               <CardContent className="p-0">
                 <div className="flex items-center justify-between gap-3 p-3.5">
