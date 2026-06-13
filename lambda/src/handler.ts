@@ -3,6 +3,7 @@ import { issueSessionJwt, verifySessionJwt } from './sessionJwt'
 import { buildTeleworkMessage, parseSlackPostRequest, postToSlack } from './slackPost'
 import { parseAttendanceRequest, postAttendance, resolveUserName } from './attendanceSend'
 import { postWhiteboard } from './whiteboardPost'
+import { signState, verifyState } from './stateSign'
 
 interface FunctionUrlEvent {
   rawPath: string
@@ -69,15 +70,19 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
   if (path === '/auth/start') {
     const state = query.state ?? ''
     if (!STATE_PATTERN.test(state)) return errorPage('state パラメータが不正です。')
+    // アプリの nonce に HMAC 署名と発行時刻を付けて Slack へ渡す。
+    // /auth/callback で「自分が発行した state か・TTL 内か」を検証できるようにする。
+    const signedState = signState(state, env('SESSION_SECRET'))
     return redirect(
-      buildAuthorizeUrl({ clientId: env('SLACK_CLIENT_ID'), redirectUri, state })
+      buildAuthorizeUrl({ clientId: env('SLACK_CLIENT_ID'), redirectUri, state: signedState })
     )
   }
 
   if (path === '/auth/callback') {
-    const state = query.state ?? ''
     const code = query.code ?? ''
-    if (!STATE_PATTERN.test(state) || !code) return errorPage('パラメータが不足しています。')
+    // 署名済み state を検証し、元の nonce を取り出す（署名不一致・期限切れは拒否）
+    const nonce = verifyState(query.state ?? '', env('SESSION_SECRET'))
+    if (!nonce || !code) return errorPage('パラメータが不足しています。')
     const identity = await fetchSlackIdentity({
       clientId: env('SLACK_CLIENT_ID'),
       clientSecret: env('SLACK_CLIENT_SECRET'),
@@ -102,7 +107,8 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
       },
       env('SESSION_SECRET')
     )
-    return redirect(`juice://auth?token=${encodeURIComponent(token)}&state=${state}`)
+    // アプリは自身が生成した nonce で照合するため、署名前の nonce を返す
+    return redirect(`juice://auth?token=${encodeURIComponent(token)}&state=${nonce}`)
   }
 
   if (path === '/auth/me') {

@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handler } from './handler'
 import { issueSessionJwt } from './sessionJwt'
+import { signState, verifyState } from './stateSign'
 import * as slackOidc from './slackOidc'
 import * as slackPost from './slackPost'
 import * as attendanceSend from './attendanceSend'
@@ -28,6 +29,8 @@ vi.mock('./whiteboardPost', async (importOriginal) => {
 })
 
 const STATE = 'a'.repeat(32)
+// /auth/callback には署名済み state が渡される（/auth/start が発行した形式）
+const SIGNED = signState(STATE, 'test-secret')
 
 function makeEvent(
   rawPath: string,
@@ -66,12 +69,15 @@ beforeEach(() => {
 })
 
 describe('GET /auth/start', () => {
-  it('Slack 認可 URL へ 302 リダイレクトする', async () => {
+  it('Slack 認可 URL へ 302 リダイレクトし、state は署名済み（検証で元の nonce に戻る）', async () => {
     const res = await handler(makeEvent('/auth/start', { state: STATE }))
     expect(res.statusCode).toBe(302)
     const url = new URL(res.headers!.Location)
     expect(url.origin + url.pathname).toBe('https://slack.com/oauth/v2/authorize')
-    expect(url.searchParams.get('state')).toBe(STATE)
+    const sentState = url.searchParams.get('state')!
+    // 生の nonce ではなく署名済み state を渡す
+    expect(sentState).not.toBe(STATE)
+    expect(verifyState(sentState, 'test-secret')).toBe(STATE)
     expect(url.searchParams.get('redirect_uri')).toBe(
       'https://abc.lambda-url.ap-northeast-1.on.aws/auth/callback'
     )
@@ -84,35 +90,45 @@ describe('GET /auth/start', () => {
 })
 
 describe('GET /auth/callback', () => {
-  it('本人確認 OK なら JWT 付きで juice:// へ 302', async () => {
+  it('本人確認 OK なら JWT 付きで juice:// へ 302（state は元の nonce に戻る）', async () => {
+    vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({
+      sub: 'U123', name: '金山', teamId: 'T999',
+    })
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: SIGNED }))
+    expect(res.statusCode).toBe(302)
+    const url = new URL(res.headers!.Location)
+    expect(url.protocol).toBe('juice:')
+    // アプリが照合できるよう、署名前の nonce を返す
+    expect(url.searchParams.get('state')).toBe(STATE)
+    expect(url.searchParams.get('token')!.split('.')).toHaveLength(3)
+  })
+
+  it('署名されていない（生の）state は 400 で拒否する', async () => {
     vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({
       sub: 'U123', name: '金山', teamId: 'T999',
     })
     const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: STATE }))
-    expect(res.statusCode).toBe(302)
-    const url = new URL(res.headers!.Location)
-    expect(url.protocol).toBe('juice:')
-    expect(url.searchParams.get('state')).toBe(STATE)
-    expect(url.searchParams.get('token')!.split('.')).toHaveLength(3)
+    expect(res.statusCode).toBe(400)
+    expect(slackOidc.fetchSlackIdentity).not.toHaveBeenCalled()
   })
 
   it('別ワークスペースのユーザーは 400 エラーページ', async () => {
     vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({
       sub: 'U123', name: 'x', teamId: 'T_OTHER',
     })
-    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: STATE }))
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: SIGNED }))
     expect(res.statusCode).toBe(400)
     expect(res.body).toContain('許可されていないワークスペース')
   })
 
   it('交換失敗は 400 エラーページ', async () => {
     vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({ error: 'token: bad' })
-    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: STATE }))
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: SIGNED }))
     expect(res.statusCode).toBe(400)
   })
 
   it('code が無ければ 400', async () => {
-    const res = await handler(makeEvent('/auth/callback', { state: STATE }))
+    const res = await handler(makeEvent('/auth/callback', { state: SIGNED }))
     expect(res.statusCode).toBe(400)
   })
 
@@ -120,7 +136,7 @@ describe('GET /auth/callback', () => {
     vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({
       sub: 'U123', name: '金山', teamId: 'T999', handle: 'kanayama',
     })
-    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: STATE }))
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: SIGNED }))
     const url = new URL(res.headers!.Location)
     const token = url.searchParams.get('token')!
     const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf-8'))
