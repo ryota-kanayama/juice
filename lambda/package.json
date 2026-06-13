@@ -7,6 +7,7 @@
     "build": "esbuild src/handler.ts --bundle --platform=node --target=node22 --format=cjs --external:@aws-sdk/* --outfile=dist/handler.js"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1068.0",
     "@aws-sdk/client-ssm": "^3.600.0",
     "@types/node": "^22.0.0",
     "esbuild": "^0.21.5"

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handler } from './handler'
 import { issueSessionJwt } from './sessionJwt'
 import { signState, verifyState } from './stateSign'
+import { isRevoked } from './revocations'
 import * as slackOidc from './slackOidc'
 import * as slackPost from './slackPost'
 import * as attendanceSend from './attendanceSend'
@@ -38,6 +39,9 @@ vi.mock('./secrets', () => ({
     WHITEBOARD_API_KEY: 'WKEY',
   }),
 }))
+
+// 失効チェックは既定で「失効なし」。失効ケースのテストでのみ true にする。
+vi.mock('./revocations', () => ({ isRevoked: vi.fn().mockResolvedValue(false) }))
 
 const STATE = 'a'.repeat(32)
 // /auth/callback には署名済み state が渡される（/auth/start が発行した形式）
@@ -77,6 +81,7 @@ beforeEach(() => {
   vi.mocked(slackPost.postToSlack).mockReset()
   vi.mocked(attendanceSend.postAttendance).mockReset()
   vi.mocked(whiteboardPost.postWhiteboard).mockReset()
+  vi.mocked(isRevoked).mockReset().mockResolvedValue(false)
 })
 
 describe('GET /auth/start', () => {
@@ -167,6 +172,14 @@ describe('GET /auth/me', () => {
     expect((await handler(makeEvent('/auth/me'))).statusCode).toBe(401)
     const res = await handler(makeEvent('/auth/me', {}, { authorization: 'Bearer xx.yy.zz' }))
     expect(res.statusCode).toBe(401)
+  })
+
+  it('失効済みユーザーの有効 JWT は 401（個別失効）', async () => {
+    vi.mocked(isRevoked).mockResolvedValue(true)
+    const token = issueSessionJwt({ sub: 'U123', name: '金山', team: 'T999' }, 'test-secret')
+    const res = await handler(makeEvent('/auth/me', {}, { authorization: `Bearer ${token}` }))
+    expect(res.statusCode).toBe(401)
+    expect(isRevoked).toHaveBeenCalledWith('U123', expect.any(Number))
   })
 })
 

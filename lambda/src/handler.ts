@@ -1,5 +1,6 @@
 import { buildAuthorizeUrl, fetchSlackIdentity } from './slackOidc'
-import { issueSessionJwt, verifySessionJwt } from './sessionJwt'
+import { issueSessionJwt, verifySessionJwt, type SessionClaims } from './sessionJwt'
+import { isRevoked } from './revocations'
 import { buildTeleworkMessage, parseSlackPostRequest, postToSlack } from './slackPost'
 import { parseAttendanceRequest, postAttendance, resolveUserName } from './attendanceSend'
 import { postWhiteboard } from './whiteboardPost'
@@ -42,10 +43,15 @@ function json(statusCode: number, data: unknown): FunctionUrlResponse {
   }
 }
 
-function bearerClaims(event: FunctionUrlEvent, sessionSecret: string): ReturnType<typeof verifySessionJwt> {
+async function bearerClaims(event: FunctionUrlEvent, sessionSecret: string): Promise<SessionClaims | null> {
   const auth = event.headers.authorization ?? event.headers.Authorization ?? ''
   const match = auth.match(/^Bearer (.+)$/)
-  return match ? verifySessionJwt(match[1], sessionSecret) : null
+  if (!match) return null
+  const claims = verifySessionJwt(match[1], sessionSecret)
+  if (!claims) return null
+  // 失効チェックは JWT 検証成功後のみ行う（無効トークンの flood で DynamoDB を叩かせない）
+  if (await isRevoked(claims.sub, claims.iat)) return null
+  return claims
 }
 
 function rawBody(event: FunctionUrlEvent): string {
@@ -115,13 +121,13 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
   }
 
   if (path === '/auth/me') {
-    const claims = bearerClaims(event, secrets.SESSION_SECRET)
+    const claims = await bearerClaims(event, secrets.SESSION_SECRET)
     if (!claims) return json(401, { error: 'unauthorized' })
     return json(200, { sub: claims.sub, name: claims.name, team: claims.team, exp: claims.exp })
   }
 
   if (path === '/api/slack.post' && event.requestContext.http.method === 'POST') {
-    if (!bearerClaims(event, secrets.SESSION_SECRET)) return json(401, { error: 'unauthorized' })
+    if (!(await bearerClaims(event, secrets.SESSION_SECRET))) return json(401, { error: 'unauthorized' })
     const request = parseSlackPostRequest(rawBody(event))
     if (!request) return json(400, { error: 'bad request' })
     const result = await postToSlack(buildTeleworkMessage(request), {
@@ -136,7 +142,7 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
   }
 
   if (path === '/api/attendance.send' && event.requestContext.http.method === 'POST') {
-    const claims = bearerClaims(event, secrets.SESSION_SECRET)
+    const claims = await bearerClaims(event, secrets.SESSION_SECRET)
     if (!claims) return json(401, { error: 'unauthorized' })
     const request = parseAttendanceRequest(rawBody(event))
     if (!request) return json(400, { error: 'bad request' })
@@ -161,7 +167,7 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
     (path === '/api/whiteboard.telework' || path === '/api/whiteboard.leave') &&
     event.requestContext.http.method === 'POST'
   ) {
-    const claims = bearerClaims(event, secrets.SESSION_SECRET)
+    const claims = await bearerClaims(event, secrets.SESSION_SECRET)
     if (!claims) return json(401, { error: 'unauthorized' })
     // email クレームは Phase 2 以降のサインインでのみ付与される
     if (!claims.email) return json(401, { error: 'reauth_required' })

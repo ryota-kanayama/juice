@@ -119,6 +119,14 @@ open dist-release/mac-arm64/Juice.app
   例: `aws ssm put-parameter --type SecureString --overwrite --name /juice-proxy/SLACK_BOT_TOKEN --value '新トークン'`
 - **全セッション失効**: `SESSION_SECRET` パラメータを新しい値に更新する（全 JWT が無効化される）
   例: `aws ssm put-parameter --type SecureString --overwrite --name /juice-proxy/SESSION_SECRET --value "$(openssl rand -hex 32)"`
+- **個別失効（退職者・紛失端末）**: `juice-revocations` テーブルに当該ユーザーの
+  失効時刻をセットする。これより前に発行された JWT が即座に無効化される
+  （本人は再サインインで復帰可。sub は Slack の user ID = U 始まり）:
+  ```bash
+  NOW=$(date +%s); TTL=$((NOW + 90*24*60*60))  # ttl で 90 日後に自動削除
+  aws dynamodb put-item --region ap-northeast-1 --table-name juice-revocations \
+    --item "{\"sub\":{\"S\":\"U0XXXXXXX\"},\"revokedBefore\":{\"N\":\"$NOW\"},\"ttl\":{\"N\":\"$TTL\"}}"
+  ```
 - **全リソース削除**: `terraform destroy`（SSM パラメータは Terraform 管理外なので別途 `aws ssm delete-parameter` で削除）
 - **勤怠の登録名の自動解決**: サインイン時に Slack の `users.info` から
   旧ユーザー名（@ハンドル）を取得し勤怠 user_name に使う。
