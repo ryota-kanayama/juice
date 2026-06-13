@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
-import { join } from 'path'
 import { broadcastThemeOnLoad } from './themeBroadcast'
+import { sharedWebPreferences, loadRenderer } from './shared'
 import type { SettingsStore } from '../settingsStore'
 
 // ポップオーバー画面の state はこのモジュールに閉じ込める。
@@ -24,11 +24,7 @@ function createPopoverWindow(settingsStore: SettingsStore): BrowserWindow {
     transparent: true,
     vibrancy: 'hud',
     visualEffectState: 'active',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+    webPreferences: sharedWebPreferences,
   })
 
   win.setAlwaysOnTop(true, 'pop-up-menu')
@@ -48,12 +44,7 @@ function createPopoverWindow(settingsStore: SettingsStore): BrowserWindow {
     if (!moved) win.hide()
   })
 
-  if (process.env['NODE_ENV'] === 'development') {
-    win.loadURL('http://localhost:5174/')
-  } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-
+  loadRenderer(win)
   broadcastThemeOnLoad(win, settingsStore)
   return win
 }
