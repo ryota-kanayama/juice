@@ -36,10 +36,11 @@ export function createSetupWindow(settingsStore: SettingsStore): void {
     setupWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'setup' })
   }
 
-  setupWindow.on('closed', () => {
+  setupWindow.on('closed', async () => {
     setupWindow = null
-    // セットアップ未完了でウィンドウを閉じた場合はアプリ終了
-    if (!settingsStore.isSetupCompleted()) {
+    // セットアップ未完了でウィンドウを閉じた場合はアプリ終了。
+    // isSetupCompleted は Promise を返すため await しないと常に truthy 判定になる。
+    if (!(await settingsStore.isSetupCompleted())) {
       app.quit()
     }
   })

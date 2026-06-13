@@ -62,6 +62,27 @@ describe('useTimer', () => {
     expect(mockUpdateSession).not.toHaveBeenCalled()
   })
 
+  it('stop の保存が失敗したら計測を継続し、例外を伝播する（データロス防止）', async () => {
+    mockSaveSession.mockRejectedValueOnce(new Error('disk full'))
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.start('テスト作業') })
+    act(() => { vi.advanceTimersByTime(60000) })
+    await act(async () => {
+      await expect(result.current.stop()).rejects.toThrow('disk full')
+    })
+    // 保存に失敗しても計測は止めない（ユーザーが再試行できる）
+    expect(result.current.isRunning).toBe(true)
+    // interval が張り直され、開始時刻も保持されているので計測が継続する
+    act(() => { vi.advanceTimersByTime(2000) })
+    expect(result.current.elapsedSeconds).toBe(62)
+    // 再試行すると成功し、計測した区間が保存される
+    let session: Session | null = null
+    await act(async () => { session = await result.current.stop() })
+    expect(session).not.toBeNull()
+    expect(result.current.isRunning).toBe(false)
+    expect(mockSaveSession).toHaveBeenCalledTimes(2)
+  })
+
   it('30秒未満で止めると totalTime が 0 になる（四捨五入）', async () => {
     const { result } = renderHook(() => useTimer())
     act(() => { result.current.start('テスト作業') })
