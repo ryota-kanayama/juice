@@ -43,6 +43,7 @@ export class AuthStore {
       return {
         signedIn: true,
         name: typeof payload.name === 'string' ? payload.name : undefined,
+        avatarUrl: typeof payload.picture === 'string' ? payload.picture : undefined,
         expiresAt: new Date(payload.exp * 1000).toISOString(),
       }
     } catch {
