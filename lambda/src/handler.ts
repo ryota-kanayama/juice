@@ -69,6 +69,24 @@ function errorPage(message: string): FunctionUrlResponse {
   }
 }
 
+/**
+ * サインイン完了ページ。deep link を自動発火してアプリに戻しつつ、
+ * 「このタブは閉じてOK」と案内する。外部ブラウザのタブはこちらから自動で
+ * 閉じられない（スクリプトで開いたタブではないため）ので明示する。
+ * token を含むため no-store。deep link の & は HTML エスケープしない
+ * （new URL でそのまま解釈できるようにする / 全ブラウザで動作）。
+ */
+function successPage(deepLink: string): FunctionUrlResponse {
+  return {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+    body: `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Juice サインイン完了</title></head><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:2.5rem;text-align:center;color:#333"><h1 style="font-size:1.4rem;margin-bottom:.5rem">✅ サインイン完了</h1><p>Juice アプリに戻っています…</p><p style="color:#888;font-size:.9rem;margin-top:.75rem">自動で戻らない場合は下のボタンを押してください。<br>このタブは閉じて構いません。</p><p style="margin-top:1.5rem"><a href="${deepLink}" style="display:inline-block;padding:.6rem 1.4rem;background:#6b4eff;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">Juice を開く</a></p><script>location.href=${JSON.stringify(deepLink)}</script></body></html>`,
+  }
+}
+
 export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlResponse> {
   const path = event.rawPath
   const query = event.queryStringParameters ?? {}
@@ -118,7 +136,7 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
       secrets.SESSION_SECRET
     )
     // アプリは自身が生成した nonce で照合するため、署名前の nonce を返す
-    return redirect(`juice://auth?token=${encodeURIComponent(token)}&state=${nonce}`)
+    return successPage(`juice://auth?token=${encodeURIComponent(token)}&state=${nonce}`)
   }
 
   if (path === '/auth/me') {
