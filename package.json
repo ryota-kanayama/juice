@@ -33,7 +33,6 @@
     "culori": "^4.0.2",
     "electron-log": "^5.4.4",
     "iconoir-react": "^7.11.0",
-    "lucide-react": "^1.17.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "tailwind-merge": "^3.6.0"

@@ -22,7 +22,7 @@ mac:
 dmg:
   title: Juice
 
-# ファイルを含める
+# ファイルを含める（デフォルトで全てを含み、以下のパターンで除外する）
 files:
   - '!**/.DS_Store'
   - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
@@ -30,3 +30,15 @@ files:
   - '!**/node_modules/.bin'
   - '!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}'
   - '!**/._*'
+  # 実行に不要なディレクトリ・ファイルを除外（ビルドサイズ削減）
+  - '!lambda${/*}'        # AWS Lambda + Terraform プロバイダバイナリ（約810MB）
+  - '!docs${/*}'          # ドキュメント
+  - '!src${/*}'           # ソース（実行は out/ のビルド成果物を使う）
+  - '!**/*.map'           # ソースマップ
+  - '!**/*.tsbuildinfo'   # TypeScript インクリメンタルビルド情報
+  - '!CLAUDE.md'
+  - '!**/*.test.{ts,tsx}'
+  - '!.env'               # ビルド時に埋め込まれるため実行時は不要
+  - '!.superpowers${/*}'  # 開発ツールの作業ディレクトリ
+  - '!.claude${/*}'
+  - '!tsconfig*.json'
