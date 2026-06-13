@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir, rename } from 'fs/promises'
 import { join } from 'path'
+import { createSerialQueue } from './serialQueue'
 
 interface Settings {
   themeId: string
@@ -29,6 +30,17 @@ const DEFAULT_SETTINGS: Settings = {
 
 export class SettingsStore {
   constructor(private dataDir: string) {}
+
+  /** read-modify-write を直列化し、並行 set による lost-update を防ぐ */
+  private enqueue = createSerialQueue()
+
+  /** 現在の設定を読み、mutate を適用して書き戻す（直列化される） */
+  private update(mutate: (s: Settings) => Settings): Promise<void> {
+    return this.enqueue(async () => {
+      const s = await this.readAll()
+      await this.writeAll(mutate(s))
+    })
+  }
 
   private migrateThemeId(id: string): string {
     const map: Record<string, string> = {
@@ -74,19 +86,29 @@ export class SettingsStore {
   }
 
   private async readAll(): Promise<Settings> {
-    try {
-      const content = await readFile(this.filePath, 'utf-8')
+    const parse = (content: string): Settings => {
       const parsed = JSON.parse(content)
       return { ...DEFAULT_SETTINGS, ...parsed, themeId: this.migrateThemeId(parsed.themeId ?? DEFAULT_SETTINGS.themeId) }
+    }
+    try {
+      return parse(await readFile(this.filePath, 'utf-8'))
     } catch {
-      return { ...DEFAULT_SETTINGS }
+      // プライマリが破損/未存在なら .bak から復元を試みる
+      try {
+        return parse(await readFile(`${this.filePath}.bak`, 'utf-8'))
+      } catch {
+        return { ...DEFAULT_SETTINGS }
+      }
     }
   }
 
   private async writeAll(settings: Settings): Promise<void> {
     await mkdir(this.dataDir, { recursive: true })
     const tmpPath = `${this.filePath}.tmp`
+    const backupPath = `${this.filePath}.bak`
     await writeFile(tmpPath, JSON.stringify(settings, null, 2), 'utf-8')
+    // tmp 書き込み成功後に旧ファイルを .bak へ退避してから差し替える（破損耐性）
+    try { await rename(this.filePath, backupPath) } catch { /* ファイル未存在は無視 */ }
     await rename(tmpPath, this.filePath)
   }
 
@@ -96,8 +118,7 @@ export class SettingsStore {
   }
 
   async setTheme(themeId: string): Promise<void> {
-    const s = await this.readAll()
-    await this.writeAll({ ...s, themeId })
+    await this.update(s => ({ ...s, themeId }))
   }
 
   async getIdleSettings(): Promise<{ enabled: boolean; minutes: number }> {
@@ -109,8 +130,7 @@ export class SettingsStore {
   }
 
   async setIdleSettings(enabled: boolean, minutes: number): Promise<void> {
-    const s = await this.readAll()
-    await this.writeAll({ ...s, idleNotificationEnabled: enabled, idleNotificationMinutes: minutes })
+    await this.update(s => ({ ...s, idleNotificationEnabled: enabled, idleNotificationMinutes: minutes }))
   }
 
   async getElapsedSettings(): Promise<{ enabled: boolean; minutes: number }> {
@@ -122,8 +142,7 @@ export class SettingsStore {
   }
 
   async setElapsedSettings(enabled: boolean, minutes: number): Promise<void> {
-    const s = await this.readAll()
-    await this.writeAll({ ...s, elapsedNotificationEnabled: enabled, elapsedNotificationMinutes: minutes })
+    await this.update(s => ({ ...s, elapsedNotificationEnabled: enabled, elapsedNotificationMinutes: minutes }))
   }
 
   async getPomodoroSettings(): Promise<{ enabled: boolean }> {
@@ -132,8 +151,7 @@ export class SettingsStore {
   }
 
   async setPomodoroSettings(enabled: boolean): Promise<void> {
-    const s = await this.readAll()
-    await this.writeAll({ ...s, pomodoroEnabled: enabled })
+    await this.update(s => ({ ...s, pomodoroEnabled: enabled }))
   }
 
   async isSetupCompleted(): Promise<boolean> {
@@ -142,8 +160,7 @@ export class SettingsStore {
   }
 
   async completeSetup(): Promise<void> {
-    const s = await this.readAll()
-    await this.writeAll({ ...s, setupCompleted: true })
+    await this.update(s => ({ ...s, setupCompleted: true }))
   }
 
   async getWhiteboardSettings(): Promise<{ enabled: boolean }> {
@@ -152,8 +169,7 @@ export class SettingsStore {
   }
 
   async setWhiteboardSettings(enabled: boolean): Promise<void> {
-    const s = await this.readAll()
-    await this.writeAll({ ...s, whiteboardEnabled: enabled })
+    await this.update(s => ({ ...s, whiteboardEnabled: enabled }))
   }
 
   async getSlackSettings(): Promise<{ projectCode: string; projectName: string }> {
@@ -165,7 +181,6 @@ export class SettingsStore {
   }
 
   async setSlackSettings(projectCode: string, projectName: string): Promise<void> {
-    const s = await this.readAll()
-    await this.writeAll({ ...s, slackProjectCode: projectCode, slackProjectName: projectName })
+    await this.update(s => ({ ...s, slackProjectCode: projectCode, slackProjectName: projectName }))
   }
 }

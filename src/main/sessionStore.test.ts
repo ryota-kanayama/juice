@@ -123,6 +123,32 @@ describe('SessionStore', () => {
     expect(sessions).toEqual([])
   })
 
+  it('パストラバーサルを含む yearMonth を拒否する', async () => {
+    await expect(store.getSessions('../../etc/passwd')).rejects.toThrow()
+    await expect(store.deleteSession('x', '../../../tmp/evil')).rejects.toThrow()
+  })
+
+  it('不正な date を持つセッションの保存を拒否する', async () => {
+    const bad = {
+      id: 'bad', taskId: 'bad', name: 'x', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-02-25T10:00:00', endTime: '2026-02-25T10:30:00' }],
+      date: '../../../tmp/evil', color: '#FF9500', totalTime: 30,
+    }
+    await expect(store.saveSession(bad)).rejects.toThrow()
+  })
+
+  it('並行 save でも全件が保存される（lost-update なし）', async () => {
+    const make = (n: number) => ({
+      id: `id-${n}`, taskId: `id-${n}`, name: `作業${n}`, projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-02-25T10:00:00', endTime: '2026-02-25T10:30:00' }],
+      date: '2026-02-25', color: '#FF9500', totalTime: 30,
+    })
+    // 同一月へ 10 件を並行保存（直列化されていないと read-modify-write が競合して取りこぼす）
+    await Promise.all(Array.from({ length: 10 }, (_, i) => store.saveSession(make(i))))
+    const sessions = await store.getSessions('2026-02')
+    expect(sessions).toHaveLength(10)
+  })
+
   it('totalTime のない旧フォーマットは times[] から移行して保持する', async () => {
     const primaryPath = join(testDir, 'sessions-2026-02.json')
     const legacy = {

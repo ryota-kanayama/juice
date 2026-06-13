@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { SettingsStore } from './settingsStore'
-import { rm, mkdir } from 'fs/promises'
+import { rm, mkdir, writeFile, readFile } from 'fs/promises'
 import { join } from 'path'
 import os from 'os'
 
@@ -108,5 +108,37 @@ describe('SettingsStore', () => {
     await store.setPomodoroSettings(true)
     await store.setPomodoroSettings(false)
     expect(await store.getPomodoroSettings()).toEqual({ enabled: false })
+  })
+
+  it('settings.json が破損していても .bak から復元する', async () => {
+    // 2回書き込んで .bak を作る（1回目が .bak に退避される）
+    await store.setTheme('soda')
+    await store.setElapsedSettings(true, 45)
+    // プライマリを破損させる
+    await writeFile(join(testDir, 'settings.json'), 'INVALID JSON', 'utf-8')
+    // .bak には setTheme('soda') 直後の状態が入っている
+    const themeId = await store.getTheme()
+    expect(themeId).toBe('soda')
+  })
+
+  it('書き込み時に .bak が作成される', async () => {
+    await store.setTheme('berry')
+    await store.setTheme('matcha')
+    const bak = JSON.parse(await readFile(join(testDir, 'settings.json.bak'), 'utf-8'))
+    expect(bak.themeId).toBe('berry')
+  })
+
+  it('並行 set でも全ての変更が反映される（lost-update なし）', async () => {
+    // 異なるフィールドへの並行書き込みが互いを打ち消さないこと
+    await Promise.all([
+      store.setTheme('soda'),
+      store.setElapsedSettings(true, 60),
+      store.setPomodoroSettings(true),
+      store.setWhiteboardSettings(true),
+    ])
+    expect(await store.getTheme()).toBe('soda')
+    expect(await store.getElapsedSettings()).toEqual({ enabled: true, minutes: 60 })
+    expect(await store.getPomodoroSettings()).toEqual({ enabled: true })
+    expect(await store.getWhiteboardSettings()).toEqual({ enabled: true })
   })
 })
