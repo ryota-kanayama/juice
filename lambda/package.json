@@ -4,10 +4,10 @@
   "private": true,
   "description": "Juice の認証・API プロキシ Lambda",
   "scripts": {
-    "build": "esbuild src/handler.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/handler.js"
+    "build": "esbuild src/handler.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/handler.js"
   },
   "devDependencies": {
-    "@types/node": "^20.11.5",
+    "@types/node": "^22.0.0",
     "esbuild": "^0.21.5"
   }
 }

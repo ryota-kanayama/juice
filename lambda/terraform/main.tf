@@ -43,7 +43,7 @@ resource "aws_iam_role_policy_attachment" "logs" {
 resource "aws_lambda_function" "juice_proxy" {
   function_name    = "juice-proxy"
   role             = aws_iam_role.lambda.arn
-  runtime          = "nodejs20.x"
+  runtime          = "nodejs22.x"
   handler          = "handler.handler"
   filename         = data.archive_file.lambda.output_path
   source_code_hash = data.archive_file.lambda.output_base64sha256
