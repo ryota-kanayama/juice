@@ -15,7 +15,6 @@ import { recordActivity } from '../notifications/activity'
 import { onTimerStarted, onTimerStopped, onTimerAdjustStartTime, reschedule } from '../notifications/elapsed'
 import * as pomodoro from '../notifications/pomodoro'
 import { sendAttendance } from '../integrations/attendance'
-import { sendSlackTeleworkStart } from '../integrations/slack'
 import { sendWhiteboardTeleworkStart } from '../integrations/whiteboard'
 import { getHolidays } from '../integrations/holidays'
 import { shell } from 'electron'
@@ -71,10 +70,6 @@ export function registerIpcHandlers(
   handle('settings:setWhiteboardSettings', async (_, { enabled }) => {
     await settingsStore.setWhiteboardSettings(enabled)
   })
-  handle('settings:getSlackSettings', () => settingsStore.getSlackSettings())
-  handle('settings:setSlackSettings', async (_, { projectCode, projectName }) => {
-    await settingsStore.setSlackSettings(projectCode, projectName)
-  })
 
   // timer signals
   handle('timer:started', () => {
@@ -93,9 +88,7 @@ export function registerIpcHandlers(
   // attendance
   handle('attendance:send', (_, text) => sendAttendance(settingsStore, authStore, text))
   handle('whiteboard:teleworkStart', async () => {
-    // ホワイトボード失敗時も Slack 通知は実行する（旧実装と同じ挙動）
     await sendWhiteboardTeleworkStart(settingsStore, authStore).catch(err => logger.error('Whiteboard telework start failed:', err))
-    await sendSlackTeleworkStart(settingsStore, authStore).catch(err => logger.error('Slack telework start failed:', err))
   })
 
   // setup

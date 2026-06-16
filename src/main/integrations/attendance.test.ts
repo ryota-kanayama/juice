@@ -12,11 +12,6 @@ vi.mock('./whiteboard', () => ({
   sendWhiteboardLeave: (...args: unknown[]) => sendWhiteboardLeave(...args),
 }))
 
-const sendSlackTeleworkEnd = vi.fn().mockResolvedValue(undefined)
-vi.mock('./slack', () => ({
-  sendSlackTeleworkEnd: (...args: unknown[]) => sendSlackTeleworkEnd(...args),
-}))
-
 vi.mock('../logger', () => ({ logger: { error: vi.fn() } }))
 
 function makeStores(token: string | null) {
@@ -30,7 +25,6 @@ beforeEach(() => {
   vi.stubEnv('MAIN_VITE_PROXY_URL', 'https://proxy.test')
   httpPost.mockReset()
   sendWhiteboardLeave.mockClear()
-  sendSlackTeleworkEnd.mockClear()
 })
 
 describe('sendAttendance', () => {
@@ -45,12 +39,11 @@ describe('sendAttendance', () => {
     expect(headers.Authorization).toBe('Bearer jwt.x.y')
   })
 
-  it('成功時はホワイトボード退勤と Slack 終了通知を発火する', async () => {
+  it('成功時はホワイトボード退勤を発火する', async () => {
     httpPost.mockResolvedValue({ ok: true, status: 200, body: '{}' })
     const { settingsStore, authStore } = makeStores('jwt.x.y')
     await sendAttendance(settingsStore, authStore, 'text')
     expect(sendWhiteboardLeave).toHaveBeenCalledWith(settingsStore, authStore)
-    expect(sendSlackTeleworkEnd).toHaveBeenCalledWith(settingsStore, authStore)
   })
 
   it('失敗時は後続連携を発火しない', async () => {
@@ -59,7 +52,6 @@ describe('sendAttendance', () => {
     const result = await sendAttendance(settingsStore, authStore, 'text')
     expect(result.ok).toBe(false)
     expect(sendWhiteboardLeave).not.toHaveBeenCalled()
-    expect(sendSlackTeleworkEnd).not.toHaveBeenCalled()
   })
 
   it('未サインインなら POST せず結果メッセージを返す', async () => {

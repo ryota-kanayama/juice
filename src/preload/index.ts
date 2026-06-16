@@ -39,8 +39,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // settings: integrations
   getWhiteboardSettings: () => invoke('settings:getWhiteboardSettings', undefined),
   setWhiteboardSettings: (enabled: boolean) => invoke('settings:setWhiteboardSettings', { enabled }),
-  getSlackSettings: () => invoke('settings:getSlackSettings', undefined),
-  setSlackSettings: (projectCode: string, projectName: string) => invoke('settings:setSlackSettings', { projectCode, projectName }),
 
   // timer signals
   timerStarted: () => invoke('timer:started', undefined),

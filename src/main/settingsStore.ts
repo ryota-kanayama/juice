@@ -11,8 +11,6 @@ interface Settings {
   pomodoroEnabled: boolean
   setupCompleted: boolean
   whiteboardEnabled: boolean
-  slackProjectCode: string
-  slackProjectName: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -24,8 +22,6 @@ const DEFAULT_SETTINGS: Settings = {
   pomodoroEnabled: false,
   setupCompleted: false,
   whiteboardEnabled: false,
-  slackProjectCode: '',
-  slackProjectName: '',
 }
 
 export class SettingsStore {
@@ -170,17 +166,5 @@ export class SettingsStore {
 
   async setWhiteboardSettings(enabled: boolean): Promise<void> {
     await this.update(s => ({ ...s, whiteboardEnabled: enabled }))
-  }
-
-  async getSlackSettings(): Promise<{ projectCode: string; projectName: string }> {
-    const s = await this.readAll()
-    return {
-      projectCode: s.slackProjectCode,
-      projectName: s.slackProjectName,
-    }
-  }
-
-  async setSlackSettings(projectCode: string, projectName: string): Promise<void> {
-    await this.update(s => ({ ...s, slackProjectCode: projectCode, slackProjectName: projectName }))
   }
 }

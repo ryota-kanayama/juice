@@ -1,7 +1,6 @@
 import { buildAuthorizeUrl, fetchSlackIdentity } from './slackOidc'
 import { issueSessionJwt, verifySessionJwt, type SessionClaims } from './sessionJwt'
 import { isRevoked } from './revocations'
-import { buildTeleworkMessage, parseSlackPostRequest, postToSlack } from './slackPost'
 import { parseAttendanceRequest, postAttendance, resolveUserName } from './attendanceSend'
 import { postWhiteboard } from './whiteboardPost'
 import { signState, verifyState } from './stateSign'
@@ -143,21 +142,6 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
     const claims = await bearerClaims(event, secrets.SESSION_SECRET)
     if (!claims) return json(401, { error: 'unauthorized' })
     return json(200, { sub: claims.sub, name: claims.name, team: claims.team, exp: claims.exp })
-  }
-
-  if (path === '/api/slack.post' && event.requestContext.http.method === 'POST') {
-    if (!(await bearerClaims(event, secrets.SESSION_SECRET))) return json(401, { error: 'unauthorized' })
-    const request = parseSlackPostRequest(rawBody(event))
-    if (!request) return json(400, { error: 'bad request' })
-    const result = await postToSlack(buildTeleworkMessage(request), {
-      botToken: secrets.SLACK_BOT_TOKEN,
-      channelId: env('SLACK_CHANNEL_ID'),
-    })
-    if ('error' in result) {
-      console.error('slack.post failed:', result.error)
-      return json(502, { error: 'slack api error' })
-    }
-    return json(200, { ok: true })
   }
 
   if (path === '/api/attendance.send' && event.requestContext.http.method === 'POST') {

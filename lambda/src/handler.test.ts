@@ -5,18 +5,12 @@ import { issueSessionJwt } from './sessionJwt'
 import { signState, verifyState } from './stateSign'
 import { isRevoked } from './revocations'
 import * as slackOidc from './slackOidc'
-import * as slackPost from './slackPost'
 import * as attendanceSend from './attendanceSend'
 import * as whiteboardPost from './whiteboardPost'
 
 vi.mock('./slackOidc', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./slackOidc')>()
   return { ...mod, fetchSlackIdentity: vi.fn() }
-})
-
-vi.mock('./slackPost', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('./slackPost')>()
-  return { ...mod, postToSlack: vi.fn() }
 })
 
 vi.mock('./attendanceSend', async (importOriginal) => {
@@ -34,7 +28,6 @@ vi.mock('./secrets', () => ({
   loadSecrets: vi.fn().mockResolvedValue({
     SLACK_CLIENT_SECRET: 'CSECRET',
     SESSION_SECRET: 'test-secret',
-    SLACK_BOT_TOKEN: 'xoxb-test',
     ATTENDANCE_API_KEY: 'AKEY',
     WHITEBOARD_API_KEY: 'WKEY',
   }),
@@ -70,15 +63,12 @@ beforeEach(() => {
   process.env.SLACK_CLIENT_SECRET = 'CSECRET'
   process.env.ALLOWED_TEAM_ID = 'T999'
   process.env.SESSION_SECRET = 'test-secret'
-  process.env.SLACK_BOT_TOKEN = 'xoxb-test'
-  process.env.SLACK_CHANNEL_ID = 'C123'
   process.env.ATTENDANCE_API_URL = 'https://kintai.test/api'
   process.env.ATTENDANCE_API_KEY = 'AKEY'
   process.env.WHITEBOARD_API_URL = 'https://wb.test'
   process.env.WHITEBOARD_API_KEY = 'WKEY'
   process.env.ATTENDANCE_USER_OVERRIDES = '{"U_OVR":"override-name"}'
   vi.mocked(slackOidc.fetchSlackIdentity).mockReset()
-  vi.mocked(slackPost.postToSlack).mockReset()
   vi.mocked(attendanceSend.postAttendance).mockReset()
   vi.mocked(whiteboardPost.postWhiteboard).mockReset()
   vi.mocked(isRevoked).mockReset().mockResolvedValue(false)
@@ -191,46 +181,6 @@ describe('GET /auth/me', () => {
     const res = await handler(makeEvent('/auth/me', {}, { authorization: `Bearer ${token}` }))
     expect(res.statusCode).toBe(401)
     expect(isRevoked).toHaveBeenCalledWith('U123', expect.any(Number))
-  })
-})
-
-describe('POST /api/slack.post', () => {
-  const BODY = JSON.stringify({ kind: 'telework_start', projectCode: 'ES1', projectName: 'PJ' })
-
-  function makePostEvent(body: string, token?: string) {
-    const headers: Record<string, string> = {}
-    if (token) headers.authorization = `Bearer ${token}`
-    return makeEvent('/api/slack.post', {}, headers, { method: 'POST', body })
-  }
-
-  it('有効な JWT + 正しいボディで投稿して 200', async () => {
-    vi.mocked(slackPost.postToSlack).mockResolvedValue({ ok: true })
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T999' }, 'test-secret')
-    const res = await handler(makePostEvent(BODY, token))
-    expect(res.statusCode).toBe(200)
-    expect(slackPost.postToSlack).toHaveBeenCalledWith(
-      'テレワークを開始します\nES1 PJ',
-      { botToken: 'xoxb-test', channelId: 'C123' }
-    )
-  })
-
-  it('JWT 無し・改竄 JWT は 401（Slack を呼ばない）', async () => {
-    expect((await handler(makePostEvent(BODY))).statusCode).toBe(401)
-    expect((await handler(makePostEvent(BODY, 'xx.yy.zz'))).statusCode).toBe(401)
-    expect(slackPost.postToSlack).not.toHaveBeenCalled()
-  })
-
-  it('不正なボディは 400（Slack を呼ばない）', async () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T999' }, 'test-secret')
-    const res = await handler(makePostEvent(JSON.stringify({ kind: 'free_text' }), token))
-    expect(res.statusCode).toBe(400)
-    expect(slackPost.postToSlack).not.toHaveBeenCalled()
-  })
-
-  it('Slack API 失敗は 502', async () => {
-    vi.mocked(slackPost.postToSlack).mockResolvedValue({ error: 'channel_not_found' })
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T999' }, 'test-secret')
-    expect((await handler(makePostEvent(BODY, token))).statusCode).toBe(502)
   })
 })
 

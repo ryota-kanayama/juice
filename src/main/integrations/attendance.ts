@@ -4,11 +4,10 @@ import type { SettingsStore } from '../settingsStore'
 import type { AuthStore } from '../auth/authStore'
 import type { AttendanceSendResult } from '../../shared/ipc'
 import { sendWhiteboardLeave } from './whiteboard'
-import { sendSlackTeleworkEnd } from './slack'
 
 /**
  * Lambda 経由で勤怠を送信する。user_name は Lambda が JWT から解決する。
- * 成功時はホワイトボード退勤 + Slack 終了通知も発火（非同期）。
+ * 成功時はホワイトボード退勤も発火（非同期）。
  */
 export async function sendAttendance(
   settingsStore: SettingsStore,
@@ -26,7 +25,6 @@ export async function sendAttendance(
   )
   if (result.ok) {
     sendWhiteboardLeave(settingsStore, authStore).catch(err => logger.error('Whiteboard leave failed:', err))
-    sendSlackTeleworkEnd(settingsStore, authStore).catch(err => logger.error('Slack telework end failed:', err))
   }
   return result
 }

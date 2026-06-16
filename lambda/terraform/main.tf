@@ -61,7 +61,6 @@ resource "aws_lambda_function" "juice_proxy" {
     variables = {
       SLACK_CLIENT_ID           = var.slack_client_id
       ALLOWED_TEAM_ID           = var.allowed_team_id
-      SLACK_CHANNEL_ID          = var.slack_channel_id
       ATTENDANCE_API_URL        = var.attendance_api_url
       WHITEBOARD_API_URL        = var.whiteboard_api_url
       ATTENDANCE_USER_OVERRIDES = var.attendance_user_overrides
