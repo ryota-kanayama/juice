@@ -11,14 +11,11 @@ export interface SettingsState {
   elapsedMinutes: number
   pomodoroEnabled: boolean
   whiteboardEnabled: boolean
-  slackProjectCode: string
-  slackProjectName: string
   setTheme: (themeId: string) => void
   setIdle: (enabled: boolean, minutes: number) => void
   setElapsed: (enabled: boolean, minutes: number) => void
   setPomodoro: (enabled: boolean) => void
   setWhiteboard: (enabled: boolean) => void
-  setSlack: (projectCode: string, projectName: string) => void
 }
 
 /** 設定画面のオーケストレーション。各設定の読み出し・即時反映・永続化を統括。 */
@@ -30,8 +27,6 @@ export function useSettings(): SettingsState {
   const [elapsedMinutes, setElapsedMinutes] = useState(30)
   const [pomodoroEnabled, setPomodoroEnabled] = useState(false)
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
-  const [slackProjectCode, setSlackProjectCode] = useState('')
-  const [slackProjectName, setSlackProjectName] = useState('')
 
   useEffect(() => {
     const offThemeChanged = settingsRepository.onThemeChanged(setActiveThemeId)
@@ -50,16 +45,12 @@ export function useSettings(): SettingsState {
     settingsRepository.getWhiteboard().then(({ enabled }) => {
       setWhiteboardEnabled(enabled)
     })
-    settingsRepository.getSlack().then(({ projectCode, projectName }) => {
-      setSlackProjectCode(projectCode)
-      setSlackProjectName(projectName)
-    })
     return offThemeChanged
   }, [])
 
   return {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    whiteboardEnabled, slackProjectCode, slackProjectName,
+    whiteboardEnabled,
 
     setTheme: (themeId): void => {
       // 即時反映（IPC待ちなし）
@@ -84,11 +75,6 @@ export function useSettings(): SettingsState {
     setWhiteboard: (enabled): void => {
       setWhiteboardEnabled(enabled)
       settingsRepository.setWhiteboard(enabled)
-    },
-    setSlack: (projectCode, projectName): void => {
-      setSlackProjectCode(projectCode)
-      setSlackProjectName(projectName)
-      settingsRepository.setSlack(projectCode.trim(), projectName.trim())
     },
   }
 }

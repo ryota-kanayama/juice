@@ -34,7 +34,6 @@ cp terraform.tfvars.example terraform.tfvars
 #   allowed_team_id: ワークスペースの team ID
 #     （ブラウザで Slack を開いた URL app.slack.com/client/TXXXXXXX/...
 #      の T 始まりの部分）
-#   slack_channel_id: 既存 .env の MAIN_VITE_SLACK_CHANNEL_ID
 #   attendance_api_url / whiteboard_api_url: 既存 .env の各 URL
 ```
 
@@ -48,7 +47,6 @@ put() { aws ssm put-parameter --region "$REGION" --type SecureString --overwrite
 
 put SLACK_CLIENT_SECRET "手順1で控えた Client Secret"
 put SESSION_SECRET      "$(openssl rand -hex 32)"   # JWT の HS256 署名鍵
-put SLACK_BOT_TOKEN     "既存 .env の MAIN_VITE_SLACK_BOT_TOKEN"
 put ATTENDANCE_API_KEY  "既存 .env の MAIN_VITE_ATTENDANCE_API_KEY"
 put WHITEBOARD_API_KEY  "既存 .env の MAIN_VITE_WHITEBOARD_API_KEY"
 ```
@@ -94,11 +92,11 @@ curl -si "<FunctionUrl>auth/me" | head -1
 # サインイン後（アプリで実施）、JWT を使って 200 を確認
 curl -si -H "Authorization: Bearer <JWT>" "<FunctionUrl>auth/me"
 
-# 改竄 JWT での投稿は 401
+# 改竄 JWT での勤怠送信は 401
 curl -si -X POST -H "Authorization: Bearer xx.yy.zz" \
   -H "Content-Type: application/json" \
-  -d '{"kind":"telework_start","projectCode":"ES1","projectName":"PJ"}' \
-  "<FunctionUrl>api/slack.post" | head -1
+  -d '{"text":"勤怠\n8:30 17:30 60"}' \
+  "<FunctionUrl>api/attendance.send" | head -1
 ```
 
 アプリでの E2E は **パッケージ版で確認する**
@@ -116,7 +114,7 @@ open dist-release/mac-arm64/Juice.app
   （Console → Budgets → Create budget）
 - **コード更新**: `npm run build` → `terraform apply`
 - **キーローテーション**: SSM のパラメータを更新する（apply 不要、次のコールド起動で反映）
-  例: `aws ssm put-parameter --type SecureString --overwrite --name /juice-proxy/SLACK_BOT_TOKEN --value '新トークン'`
+  例: `aws ssm put-parameter --type SecureString --overwrite --name /juice-proxy/ATTENDANCE_API_KEY --value '新キー'`
 - **全セッション失効**: `SESSION_SECRET` パラメータを新しい値に更新する（全 JWT が無効化される）
   例: `aws ssm put-parameter --type SecureString --overwrite --name /juice-proxy/SESSION_SECRET --value "$(openssl rand -hex 32)"`
 - **個別失効（退職者・紛失端末）**: `juice-revocations` テーブルに当該ユーザーの

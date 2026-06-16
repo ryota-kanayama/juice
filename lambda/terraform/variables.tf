@@ -15,11 +15,6 @@ variable "allowed_team_id" {
   type        = string
 }
 
-variable "slack_channel_id" {
-  description = "テレワーク通知の投稿先チャンネル ID"
-  type        = string
-}
-
 variable "attendance_api_url" {
   description = "勤怠 API の URL（.env から移設）"
   type        = string

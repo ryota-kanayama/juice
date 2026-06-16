@@ -1,8 +1,7 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
 import { useSettings } from '../../hooks/useSettings'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -39,8 +38,8 @@ export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
   const {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    whiteboardEnabled, slackProjectCode, slackProjectName,
-    setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard, setSlack,
+    whiteboardEnabled,
+    setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard,
   } = useSettings()
 
   return (
@@ -206,38 +205,6 @@ export function SettingsView() {
                     id="whiteboard"
                     checked={whiteboardEnabled}
                     onCheckedChange={setWhiteboard}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <h2 className={heading} style={{ marginTop: '1.5rem' }}>Slack連携</h2>
-            <Card>
-              <CardContent className="flex flex-col gap-3 p-3.5">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="slack-pj-code" className="text-[13px] text-foreground">PJコード</Label>
-                  <Input
-                    id="slack-pj-code"
-                    type="text"
-                    className="h-8"
-                    value={slackProjectCode}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setSlack(e.target.value, slackProjectName)
-                    }
-                    placeholder="PJコード"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="slack-pj-name" className="text-[13px] text-foreground">プロジェクト名</Label>
-                  <Input
-                    id="slack-pj-name"
-                    type="text"
-                    className="h-8"
-                    value={slackProjectName}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setSlack(slackProjectCode, e.target.value)
-                    }
-                    placeholder="プロジェクト名"
                   />
                 </div>
               </CardContent>

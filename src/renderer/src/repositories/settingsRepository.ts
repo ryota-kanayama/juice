@@ -39,13 +39,6 @@ export const settingsRepository = {
     return window.electronAPI.setWhiteboardSettings(enabled)
   },
 
-  getSlack(): Promise<{ projectCode: string; projectName: string }> {
-    return window.electronAPI.getSlackSettings()
-  },
-  setSlack(projectCode: string, projectName: string): Promise<void> {
-    return window.electronAPI.setSlackSettings(projectCode, projectName)
-  },
-
   completeSetup(): Promise<void> {
     return window.electronAPI.completeSetup()
   },

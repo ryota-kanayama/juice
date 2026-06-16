@@ -1,11 +1,10 @@
 # terraform.tfvars にコピーして実値を記入する（terraform.tfvars は gitignore 済み）
 #
-# 秘密値（SLACK_CLIENT_SECRET / SESSION_SECRET / SLACK_BOT_TOKEN /
+# 秘密値（SLACK_CLIENT_SECRET / SESSION_SECRET /
 # ATTENDANCE_API_KEY / WHITEBOARD_API_KEY）はここには書かない。
 # SSM Parameter Store(SecureString) に CLI で投入する（README 参照）。tfstate に載せない。
 slack_client_id    = "1234567890.1234567890123"
 allowed_team_id    = "TXXXXXXXX"
-slack_channel_id   = "CXXXXXXXX"
 attendance_api_url = "https://example.com/api/receive_slack_post"
 whiteboard_api_url = "https://example.com"
 # ssm_secret_prefix は省略可（デフォルト "/juice-proxy/"）。

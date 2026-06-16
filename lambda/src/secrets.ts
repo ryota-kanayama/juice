@@ -7,7 +7,6 @@ import { SSMClient, GetParametersCommand } from '@aws-sdk/client-ssm'
 export interface Secrets {
   SLACK_CLIENT_SECRET: string
   SESSION_SECRET: string
-  SLACK_BOT_TOKEN: string
   ATTENDANCE_API_KEY: string
   WHITEBOARD_API_KEY: string
 }
@@ -15,7 +14,6 @@ export interface Secrets {
 const SECRET_KEYS: (keyof Secrets)[] = [
   'SLACK_CLIENT_SECRET',
   'SESSION_SECRET',
-  'SLACK_BOT_TOKEN',
   'ATTENDANCE_API_KEY',
   'WHITEBOARD_API_KEY',
 ]

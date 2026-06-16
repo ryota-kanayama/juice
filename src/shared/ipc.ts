@@ -18,11 +18,6 @@ export interface WhiteboardSettings {
   enabled: boolean
 }
 
-export interface SlackSettings {
-  projectCode: string
-  projectName: string
-}
-
 export interface PomodoroSettings {
   enabled: boolean
 }
@@ -62,8 +57,6 @@ export interface IpcContract {
   // settings: integrations
   'settings:getWhiteboardSettings': [void, WhiteboardSettings]
   'settings:setWhiteboardSettings': [{ enabled: boolean }, void]
-  'settings:getSlackSettings': [void, SlackSettings]
-  'settings:setSlackSettings': [SlackSettings, void]
 
   // timer signals
   'timer:started': [void, void]

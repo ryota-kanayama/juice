@@ -13,7 +13,6 @@ const PREFIX = '/juice-proxy/'
 const PARAMS = [
   { Name: `${PREFIX}SLACK_CLIENT_SECRET`, Value: 'cs' },
   { Name: `${PREFIX}SESSION_SECRET`, Value: 'ss' },
-  { Name: `${PREFIX}SLACK_BOT_TOKEN`, Value: 'bt' },
   { Name: `${PREFIX}ATTENDANCE_API_KEY`, Value: 'ak' },
   { Name: `${PREFIX}WHITEBOARD_API_KEY`, Value: 'wk' },
 ]
@@ -29,17 +28,17 @@ afterEach(() => {
 })
 
 describe('loadSecrets', () => {
-  it('SSM から5つの秘密を取得し、WithDecryption 付きで全名を要求する', async () => {
+  it('SSM から4つの秘密を取得し、WithDecryption 付きで全名を要求する', async () => {
     mockSend.mockResolvedValue({ Parameters: PARAMS })
     const secrets = await loadSecrets()
     expect(secrets).toEqual({
-      SLACK_CLIENT_SECRET: 'cs', SESSION_SECRET: 'ss', SLACK_BOT_TOKEN: 'bt',
+      SLACK_CLIENT_SECRET: 'cs', SESSION_SECRET: 'ss',
       ATTENDANCE_API_KEY: 'ak', WHITEBOARD_API_KEY: 'wk',
     })
     const cmd = mockSend.mock.calls[0][0]
     expect(cmd.input.WithDecryption).toBe(true)
     expect(cmd.input.Names).toContain(`${PREFIX}SESSION_SECRET`)
-    expect(cmd.input.Names).toHaveLength(5)
+    expect(cmd.input.Names).toHaveLength(4)
   })
 
   it('同一コンテナ内ではキャッシュし、2回目は SSM を呼ばない', async () => {
@@ -50,7 +49,7 @@ describe('loadSecrets', () => {
   })
 
   it('取得できないパラメータがあれば throw する', async () => {
-    mockSend.mockResolvedValue({ Parameters: PARAMS.slice(0, 4) }) // WHITEBOARD_API_KEY 欠落
+    mockSend.mockResolvedValue({ Parameters: PARAMS.slice(0, 3) }) // WHITEBOARD_API_KEY 欠落
     await expect(loadSecrets()).rejects.toThrow('WHITEBOARD_API_KEY')
   })
 
