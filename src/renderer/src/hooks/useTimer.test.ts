@@ -10,7 +10,6 @@ vi.stubGlobal('electronAPI', {
   saveSession: mockSaveSession,
   updateSession: mockUpdateSession,
   getSessions: vi.fn().mockResolvedValue([]),
-  openCalendar: vi.fn().mockResolvedValue(undefined),
   resizeWindow: vi.fn().mockResolvedValue(undefined),
   openUrl: vi.fn().mockResolvedValue(undefined),
   hideWindow: vi.fn().mockResolvedValue(undefined),
