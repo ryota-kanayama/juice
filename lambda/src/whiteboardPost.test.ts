@@ -15,39 +15,41 @@ function mockFetchSequence(responses: Array<{ ok: boolean; status?: number }>): 
 }
 
 describe('postWhiteboard', () => {
-  it('telework は magnet=2 と出勤=true を順に送る', async () => {
+  it('telework は 出勤打刻=true → magnet=2 を順に送る', async () => {
     const fetchMock = mockFetchSequence([{ ok: true }, { ok: true }])
     const result = await postWhiteboard('telework', EMAIL, OPTS)
     expect(result).toEqual({ ok: true })
-    const [magnetUrl, magnetInit] = fetchMock.mock.calls[0]
-    expect(magnetUrl).toBe('https://wb.test/api/magnet?apiKey=WBKEY')
-    expect(JSON.parse(magnetInit.body)).toEqual({ magnet_id: 2, email: EMAIL })
-    const [attUrl, attInit] = fetchMock.mock.calls[1]
+    // 1回目: 打刻（表示ステータスより先に確定させる）
+    const [attUrl, attInit] = fetchMock.mock.calls[0]
     expect(attUrl).toBe('https://wb.test/api/attendance?apiKey=WBKEY')
     const params = new URLSearchParams(String(attInit.body))
     expect(params.get('come_to_the_office')).toBe('true')
     expect(params.get('email')).toBe(EMAIL)
+    // 2回目: magnet（表示ステータス）
+    const [magnetUrl, magnetInit] = fetchMock.mock.calls[1]
+    expect(magnetUrl).toBe('https://wb.test/api/magnet?apiKey=WBKEY')
+    expect(JSON.parse(magnetInit.body)).toEqual({ magnet_id: 2, email: EMAIL })
   })
 
-  it('leave は magnet=3 と出勤=false を送る', async () => {
+  it('leave は 出勤打刻=false → magnet=3 を送る', async () => {
     const fetchMock = mockFetchSequence([{ ok: true }, { ok: true }])
     await postWhiteboard('leave', EMAIL, OPTS)
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).magnet_id).toBe(3)
     expect(
-      new URLSearchParams(String(fetchMock.mock.calls[1][1].body)).get('come_to_the_office')
+      new URLSearchParams(String(fetchMock.mock.calls[0][1].body)).get('come_to_the_office')
     ).toBe('false')
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).magnet_id).toBe(3)
   })
 
-  it('magnet 失敗時は attendance を呼ばず error を返す', async () => {
-    const fetchMock = mockFetchSequence([{ ok: false, status: 500 }])
+  it('打刻失敗時は magnet を呼ばず error を返す', async () => {
+    const fetchMock = mockFetchSequence([{ ok: false, status: 502 }])
     const result = await postWhiteboard('telework', EMAIL, OPTS)
-    expect(result).toEqual({ error: 'magnet: 500' })
+    expect(result).toEqual({ error: 'attendance: 502' })
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('attendance 失敗は error を返す', async () => {
-    mockFetchSequence([{ ok: true }, { ok: false, status: 502 }])
-    expect(await postWhiteboard('telework', EMAIL, OPTS)).toEqual({ error: 'attendance: 502' })
+  it('magnet 失敗は error を返す（打刻は成功済みなので誤表示は残らない）', async () => {
+    mockFetchSequence([{ ok: true }, { ok: false, status: 500 }])
+    expect(await postWhiteboard('telework', EMAIL, OPTS)).toEqual({ error: 'magnet: 500' })
   })
 
   it('ネットワークエラーでも throw しない', async () => {
