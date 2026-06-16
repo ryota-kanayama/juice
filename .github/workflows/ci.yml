@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同じブランチで新しい push があれば実行中のジョブをキャンセルする
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck / test / lint / knip
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            lambda/package-lock.json
+
+      # ルートの依存。typecheck / test / lint / knip すべてここを使う
+      - name: Install dependencies (root)
+        run: npm ci
+
+      # lambda の依存。typecheck（lambda/tsconfig.json）と lambda の vitest テストに必要
+      - name: Install dependencies (lambda)
+        run: npm ci
+        working-directory: lambda
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Knip (dead code)
+        run: npm run knip
