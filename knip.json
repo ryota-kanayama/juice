@@ -8,10 +8,10 @@
   "project": ["src/**/*.{ts,tsx}"],
   "ignore": [
     "src/main/env.d.ts",
-    "src/renderer/src/env.d.ts"
+    "src/renderer/src/env.d.ts",
+    "src/renderer/src/components/ui/**"
   ],
   "ignoreDependencies": [
-    "preact",
     "@electron-toolkit/preload",
     "@electron-toolkit/utils",
     "@electron-toolkit/eslint-config-prettier"
