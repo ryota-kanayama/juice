@@ -46,6 +46,50 @@ export function applySessionEdit(
   return { session: updated }
 }
 
+/** "YYYY-MM-DDTHH:mm:ss" の時刻部分を "HH:mm" で差し替える（日付は保持、秒は00） */
+function replaceTimePart(dateTime: string, hhmm: string): string {
+  return `${dateTime.slice(0, 10)}T${hhmm}:00`
+}
+
+/** 区間の長さ合計（分・四捨五入）。endTime=null の区間は0として扱う */
+function sumIntervalMinutes(times: Session['times']): number {
+  const totalMs = times.reduce((acc, t) => {
+    if (!t.endTime) return acc
+    return acc + (new Date(t.endTime).getTime() - new Date(t.startTime).getTime())
+  }, 0)
+  return Math.round(totalMs / 60000)
+}
+
+/**
+ * 最初の区間の開始時刻と最後の区間の終了時刻（時刻 HH:mm のみ）を差し替え、
+ * totalTime を全区間の長さ合計から再計算する。
+ * 区間なし・稼働中・終了≤開始の場合は元のセッションをそのまま返す。
+ */
+export function applyTimeEdit(
+  session: Session,
+  edit: { startTime: string; endTime: string }
+): Session {
+  if (session.times.length === 0) return session
+  const last = session.times[session.times.length - 1]
+  if (!last.endTime) return session // 稼働中は対象外
+
+  const first = session.times[0]
+  const newStart = replaceTimePart(first.startTime, edit.startTime)
+  const newEnd = replaceTimePart(last.endTime, edit.endTime)
+  if (new Date(newEnd).getTime() <= new Date(newStart).getTime()) return session
+
+  const times = session.times.map((t, i) => {
+    if (i === 0 && i === session.times.length - 1) {
+      return { ...t, startTime: newStart, endTime: newEnd }
+    }
+    if (i === 0) return { ...t, startTime: newStart }
+    if (i === session.times.length - 1) return { ...t, endTime: newEnd }
+    return t
+  })
+
+  return { ...session, times, totalTime: sumIntervalMinutes(times) }
+}
+
 /** 手動追加用の新規セッションを組み立てる（区間なしの確定済みセッション） */
 export function createManualSession(params: {
   name: string

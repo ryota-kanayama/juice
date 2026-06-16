@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   applySessionEdit,
+  applyTimeEdit,
   createManualSession,
   appendRunningInterval,
   hasRunningInterval,
@@ -124,6 +125,60 @@ describe('applySessionEdit', () => {
     expect(session.totalTime).toBe(90)
     expect(session.times).toEqual([])
     expect(adjustedStartMs).toBeUndefined()
+  })
+})
+
+describe('applyTimeEdit', () => {
+  it('単一区間: 開始/終了を差し替え totalTime を再計算する', () => {
+    const updated = applyTimeEdit(makeSession(), { startTime: '10:00', endTime: '11:00' })
+    expect(updated.times).toEqual([
+      { startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T11:00:00' },
+    ])
+    expect(updated.totalTime).toBe(60)
+  })
+
+  it('複数区間: 最初の開始と最後の終了のみ変更し、中間区間は不変・totalTime は全区間合計', () => {
+    const multi = makeSession({
+      times: [
+        { startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:30:00' },
+        { startTime: '2026-05-20T12:00:00', endTime: '2026-05-20T12:30:00' },
+        { startTime: '2026-05-20T14:00:00', endTime: '2026-05-20T14:45:00' },
+      ],
+      totalTime: 105,
+    })
+    const updated = applyTimeEdit(multi, { startTime: '09:00', endTime: '15:00' })
+    expect(updated.times).toEqual([
+      { startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:30:00' }, // 90
+      { startTime: '2026-05-20T12:00:00', endTime: '2026-05-20T12:30:00' }, // 30（不変）
+      { startTime: '2026-05-20T14:00:00', endTime: '2026-05-20T15:00:00' }, // 60
+    ])
+    expect(updated.totalTime).toBe(180)
+  })
+
+  it('終了 <= 開始 の不正値なら元のセッションを変更せず返す', () => {
+    const original = makeSession()
+    const updated = applyTimeEdit(original, { startTime: '11:00', endTime: '10:00' })
+    expect(updated).toEqual(original)
+  })
+
+  it('時刻のみ変更し、各区間の日付部分は保持する', () => {
+    const updated = applyTimeEdit(makeSession(), { startTime: '10:15', endTime: '10:45' })
+    expect(updated.times[0].startTime).toBe('2026-05-20T10:15:00')
+    expect(updated.times[0].endTime).toBe('2026-05-20T10:45:00')
+  })
+
+  it('稼働中（最後の区間が endTime=null）のセッションは変更せず返す', () => {
+    const running = makeSession({
+      times: [{ startTime: '2026-05-20T10:00:00', endTime: null }],
+    })
+    const updated = applyTimeEdit(running, { startTime: '09:00', endTime: '11:00' })
+    expect(updated).toEqual(running)
+  })
+
+  it('区間が空のセッションは変更せず返す', () => {
+    const empty = makeSession({ times: [] })
+    const updated = applyTimeEdit(empty, { startTime: '09:00', endTime: '11:00' })
+    expect(updated).toEqual(empty)
   })
 })
 
