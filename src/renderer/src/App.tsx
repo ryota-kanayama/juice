@@ -2,9 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { TimerForm } from './components/Popover/TimerForm'
 import { ActiveTimer } from './components/Popover/ActiveTimer'
 import { SessionList } from './components/Popover/SessionList'
-import { useTimer } from './hooks/useTimer'
 import { useSessions, type SessionsState } from './hooks/useSessions'
-import type { Session } from './types/session'
+import { useTimerSession } from './hooks/useTimerSession'
 import styles from './App.module.css'
 import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
@@ -175,109 +174,64 @@ function PopoverView() {
 }
 
 export function TimerPage({ sessions }: { sessions: SessionsState }) {
-  const { isRunning, elapsedSeconds, baseSeconds, fillSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime } = useTimer()
-  const workday = useWorkday(sessions.today)
-  const suggestions = useSuggestions(sessions.todaySessions, sessions.today)
-  const [activeTimerName, setActiveTimerName] = useState('')
-  const [activeTimerProjectCode, setActiveTimerProjectCode] = useState('')
-  const [activeTimerWorkCategory, setActiveTimerWorkCategory] = useState('')
-  const [midnightSession, setMidnightSession] = useState<Session | null>(null)
-  const [stopError, setStopError] = useState(false)
-
-  const handleStart = (name: string, projectCode = '', workCategory = ''): void => {
-    setActiveTimerName(name)
-    setActiveTimerProjectCode(projectCode)
-    setActiveTimerWorkCategory(workCategory)
-    start(name)
-  }
-
-  const handleStartMore = (session: Session): void => {
-    setActiveTimerName(session.name)
-    setActiveTimerProjectCode(session.projectCode)
-    setActiveTimerWorkCategory(session.workCategory)
-    sessions.applyStartMore(session)
-    startMore(session)
-  }
-
-  const handleStop = async (projectCode: string, workCategory: string): Promise<void> => {
-    let result: Session | null
-    try {
-      result = await stop({ projectCode, workCategory })
-    } catch (err) {
-      // 保存に失敗してもタイマーは継続している（計測データは保持）。再試行を促す。
-      console.error('セッションの保存に失敗しました:', err)
-      setStopError(true)
-      return
-    }
-    if (!result) return
-    setStopError(false)
-    // 日付を跨いだ場合はリストに追加せず通知バナーを表示
-    if (result.date !== sessions.today) {
-      setMidnightSession(result)
-      return
-    }
-    sessions.upsertToday(result)
-  }
-
-  const handleDelete = async (sessionId: string): Promise<void> => {
-    if (sessionId === activeSessionId) cancel()
-    await sessions.remove(sessionId)
-  }
+  const ts = useTimerSession(sessions)
+  const workday = useWorkday(ts.today)
+  const suggestions = useSuggestions(ts.todaySessions, ts.today)
 
   return (
     <div className={styles.timerPage}>
-      {midnightSession && (
+      {ts.midnightSession && (
         <div className={styles.midnightBanner}>
-          <span>「{midnightSession.name}」を {midnightSession.date} として保存しました</span>
-          <button onClick={() => setMidnightSession(null)}><Xmark width={14} height={14} /></button>
+          <span>「{ts.midnightSession.name}」を {ts.midnightSession.date} として保存しました</span>
+          <button onClick={ts.dismissMidnightSession}><Xmark width={14} height={14} /></button>
         </div>
       )}
 
-      {stopError && (
+      {ts.stopError && (
         <div className={styles.midnightBanner}>
           <span>保存に失敗しました。タイマーは継続中です。もう一度停止してください</span>
-          <button onClick={() => setStopError(false)}><Xmark width={14} height={14} /></button>
+          <button onClick={ts.dismissStopError}><Xmark width={14} height={14} /></button>
         </div>
       )}
 
-      {isRunning ? (
+      {ts.isRunning ? (
         /* 稼働時: ActiveTimerのみ */
         <div className={styles.runningLayout}>
           <ActiveTimer
-            name={activeTimerName}
-            elapsedSeconds={elapsedSeconds}
-            baseSeconds={baseSeconds}
-            fillSeconds={fillSeconds}
-            color={activeColor}
-            initialProjectCode={activeTimerProjectCode}
-            initialWorkCategory={activeTimerWorkCategory}
+            name={ts.activeTimerName}
+            elapsedSeconds={ts.elapsedSeconds}
+            baseSeconds={ts.baseSeconds}
+            fillSeconds={ts.fillSeconds}
+            color={ts.activeColor}
+            initialProjectCode={ts.activeTimerProjectCode}
+            initialWorkCategory={ts.activeTimerWorkCategory}
             projectCodeSuggestions={suggestions.projectCodes}
             workCategorySuggestions={suggestions.workCategories}
-            onStop={handleStop}
+            onStop={ts.stop}
           />
         </div>
       ) : !workday.workStart ? (
         /* 業務開始前: オーバーレイで覆う */
         <div className={styles.idleContent}>
           <WorkStartOverlay
-            date={sessions.today}
+            date={ts.today}
             onStart={workday.startWork}
-            onTeleworkStart={sessions.startTelework}
+            onTeleworkStart={ts.startTelework}
           />
         </div>
       ) : (
         /* 待機時: スクロール可能なコンテナ */
         <div className={styles.idleContent}>
-          <TimerForm onStart={handleStart} nameSuggestions={suggestions.names} />
+          <TimerForm onStart={ts.start} nameSuggestions={suggestions.names} />
           <SessionList
-            sessions={sessions.todaySessions}
-            today={sessions.today}
-            isRunning={isRunning}
-            onUpdate={sessions.update}
-            onStartMore={handleStartMore}
-            onDelete={handleDelete}
-            onAdjustStartTime={ms => adjustStartTime(new Date(ms))}
-            onAdd={sessions.add}
+            sessions={ts.todaySessions}
+            today={ts.today}
+            isRunning={ts.isRunning}
+            onUpdate={ts.update}
+            onStartMore={ts.startMore}
+            onDelete={ts.remove}
+            onAdjustStartTime={ms => ts.adjustStartTime(new Date(ms))}
+            onAdd={ts.add}
             workStart={workday.workStart}
             workEnd={workday.workEnd}
             onWorkEnd={workday.endWork}
