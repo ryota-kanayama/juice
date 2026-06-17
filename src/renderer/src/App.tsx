@@ -17,6 +17,7 @@ import { windowRepository } from './repositories/windowRepository'
 import { User, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStatus } from './hooks/useAuthStatus'
+import { DailyDataProvider } from './daily/DailyDataContext'
 
 type Page = 'timer' | 'calendar' | 'attendance'
 
@@ -68,6 +69,7 @@ function PopoverView() {
   }, [menuOpen])
 
   return (
+    <DailyDataProvider>
     <div className={styles.app}>
       {/* ヘッダー */}
       <header className={styles.header}>
@@ -168,6 +170,7 @@ function PopoverView() {
         </button>
       </nav>
     </div>
+    </DailyDataProvider>
   )
 }
 
