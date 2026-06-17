@@ -31,6 +31,10 @@ export function DailyDataProvider({ children }: { children: ReactNode }) {
     dailyRepository.getMonth(yearMonth).then(month => {
       // 既にローカル更新済みの日（prev）を優先し、楽観反映を上書きしない
       setDays(prev => ({ ...month.days, ...prev }))
+    }).catch((err) => {
+      // ロード失敗時は loadedRef から外し、次回 ensureMonth で再試行できるようにする
+      console.error(`[DailyDataProvider] getMonth(${yearMonth}) の取得に失敗しました:`, err)
+      loadedRef.current.delete(yearMonth)
     })
   }, [])
 
