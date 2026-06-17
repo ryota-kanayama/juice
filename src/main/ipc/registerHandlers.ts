@@ -2,6 +2,7 @@ import { app } from 'electron'
 import type { SessionStore } from '../sessionStore'
 import type { SettingsStore } from '../settingsStore'
 import type { AuthStore } from '../auth/authStore'
+import type { DailyStore } from '../dailyStore'
 import { startSignIn } from '../auth/signIn'
 import { logger } from '../logger'
 import { handle } from './handle'
@@ -24,6 +25,7 @@ export function registerIpcHandlers(
   sessionStore: SessionStore,
   settingsStore: SettingsStore,
   authStore: AuthStore,
+  dailyStore: DailyStore,
 ): void {
   // sessions
   handle('sessions:get', (_, yearMonth) => sessionStore.getSessions(yearMonth))
@@ -38,6 +40,12 @@ export function registerIpcHandlers(
   handle('sessions:delete', async (_, { id, yearMonth }) => {
     await sessionStore.deleteSession(id, yearMonth)
   })
+
+  // daily（日次勤務データ）
+  handle('daily:getMonth', (_, yearMonth) => dailyStore.getMonth(yearMonth))
+  handle('daily:setDay', (_, { date, patch }) => dailyStore.setDay(date, patch))
+  handle('daily:prune', (_, { keepDays }) => dailyStore.prune(keepDays))
+  handle('daily:importLegacy', (_, { entries }) => dailyStore.importLegacy(entries))
 
   // settings: theme
   handle('settings:getTheme', () => settingsStore.getTheme())

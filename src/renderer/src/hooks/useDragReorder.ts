@@ -1,12 +1,9 @@
 import { useRef, useState, type DragEvent, type RefObject } from 'react'
-import { dailyStore } from '../dailyStore'
 
 interface Params {
   /** 現在の表示順のセッションID配列 */
   orderedIds: string[]
-  /** "YYYY-MM-DD"（順序の保存キー） */
-  todayKey: string
-  /** 並び替え確定時に新しい順序を通知する（customOrder の更新） */
+  /** 並び替え確定時に新しい順序を通知する（保存も呼び出し側で行う） */
   onReorder: (order: string[]) => void
   page: number
   totalPages: number
@@ -29,7 +26,7 @@ interface DragReorder {
  * ページをまたぐドラッグ（端部ホールドでページ切替）と、
  * ドラッグ元がアンマウントされる場合でも drop / dragend のどちらか一度で確定する処理を扱う。
  */
-export function useDragReorder({ orderedIds, todayKey, onReorder, page, totalPages, changePage }: Params): DragReorder {
+export function useDragReorder({ orderedIds, onReorder, page, totalPages, changePage }: Params): DragReorder {
   const dragItemRef = useRef<string | null>(null)
   const dragOverItemRef = useRef<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
@@ -101,7 +98,6 @@ export function useDragReorder({ orderedIds, todayKey, onReorder, page, totalPag
     currentOrder.splice(fromIdx, 1)
     currentOrder.splice(toIdx, 0, fromId)
 
-    dailyStore.setSessionOrder(todayKey, currentOrder)
     onReorder(currentOrder)
   }
 

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { SettingsStore } from './settingsStore'
-import { rm, mkdir, writeFile, readFile } from 'fs/promises'
+import { rm, mkdir, writeFile, readFile, mkdtemp } from 'fs/promises'
 import { join } from 'path'
-import os from 'os'
+import os, { tmpdir } from 'os'
 
 const testDir = join(os.tmpdir(), 'juice-settings-test-' + Date.now())
 
@@ -140,5 +140,39 @@ describe('SettingsStore', () => {
     expect(await store.getElapsedSettings()).toEqual({ enabled: true, minutes: 60 })
     expect(await store.getPomodoroSettings()).toEqual({ enabled: true })
     expect(await store.getWhiteboardSettings()).toEqual({ enabled: true })
+  })
+})
+
+describe('SettingsStore — 未知キーの掃除', () => {
+  let dir: string
+  let store: SettingsStore
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'settings-test-'))
+    store = new SettingsStore(dir)
+  })
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('死にフィールドを読み込んでも書き戻し時に落ちる', async () => {
+    const path = join(dir, 'settings.json')
+    await writeFile(path, JSON.stringify({
+      themeId: 'grape',
+      slackProjectCode: 'SE26010',
+      slackProjectName: 'X',
+      userName: 'Ryota',
+      whiteboardEmail: '',
+    }), 'utf-8')
+
+    // 任意の set で書き戻しを誘発する
+    await store.setTheme('grape')
+
+    const written = JSON.parse(await readFile(path, 'utf-8'))
+    expect(written.slackProjectCode).toBeUndefined()
+    expect(written.slackProjectName).toBeUndefined()
+    expect(written.userName).toBeUndefined()
+    expect(written.whiteboardEmail).toBeUndefined()
+    expect(written.themeId).toBe('grape')
   })
 })
