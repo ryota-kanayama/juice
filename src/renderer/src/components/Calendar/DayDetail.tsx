@@ -3,7 +3,6 @@ import type { Session } from '../../types/session'
 import { orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit } from '../../domain/session'
 import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
-import { dailyStore } from '../../dailyStore'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { SessionFormDialog, type SessionFormValues } from '../Popover/SessionFormDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
@@ -16,6 +15,7 @@ import { resolveJuiceColor } from '../../domain/colors'
 interface Props {
   date: string | null
   sessions: Session[]
+  sessionOrder?: string[] | null
   onUpdate?: (session: Session) => Promise<void>
   onBack?: () => void
   suggestions?: Suggestions
@@ -23,7 +23,7 @@ interface Props {
 
 const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
 
-export function DayDetail({ date, sessions, onUpdate, onBack, suggestions = EMPTY_SUGGESTIONS }: Props) {
+export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBack, suggestions = EMPTY_SUGGESTIONS }: Props) {
   // 編集ダイアログ。開くたびに対象セッションの値で初期化する
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<SessionFormValues>(EMPTY_FORM)
@@ -34,7 +34,7 @@ export function DayDetail({ date, sessions, onUpdate, onBack, suggestions = EMPT
     setEditTargetId(null)
   }, [date])
 
-  const sortedSessions = orderSessions(sessions, date ? dailyStore.getSessionOrder(date) : null)
+  const sortedSessions = orderSessions(sessions, sessionOrder)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
   const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
