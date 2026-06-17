@@ -2,6 +2,7 @@ import { app, nativeImage } from 'electron'
 import { join } from 'path'
 import os from 'os'
 import { SessionStore } from './sessionStore'
+import { DailyStore } from './dailyStore'
 import { SettingsStore } from './settingsStore'
 import { AuthStore } from './auth/authStore'
 import { handleAuthCallback } from './auth/signIn'
@@ -35,6 +36,7 @@ process.on('SIGINT', () => app.quit())
 // 全ストアで userData を使い、dev とパッケージ版のセッション・設定・認証データを一貫して分離する。
 const dataDir = app.getPath('userData')
 const sessionStore = new SessionStore(dataDir)
+const dailyStore = new DailyStore(dataDir)
 const settingsStore = new SettingsStore(dataDir)
 const authStore = new AuthStore(dataDir)
 
@@ -53,7 +55,7 @@ app.whenReady().then(async () => {
     app.dock?.setIcon(dockIcon)
   }
 
-  registerIpcHandlers(sessionStore, settingsStore, authStore)
+  registerIpcHandlers(sessionStore, settingsStore, authStore, dailyStore)
 
   // 初回セットアップ判定
   const needsSetup = !(await settingsStore.isSetupCompleted())
