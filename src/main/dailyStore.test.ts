@@ -3,6 +3,7 @@ import { mkdtemp, rm, readFile, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { DailyStore } from './dailyStore'
+import { formatLocalDate } from '../shared/sessionUtils'
 
 let dir: string
 let store: DailyStore
@@ -60,11 +61,12 @@ describe('DailyStore', () => {
   })
 
   it('prune は keepDays より古い日付を削除する', async () => {
+    const recent = formatLocalDate(Date.now())
     await store.setDay('2000-01-01', { workStart: '09:00' })
-    await store.setDay('2026-06-17', { workStart: '09:00' })
+    await store.setDay(recent, { workStart: '09:00' })
     await store.prune(90)
     expect(await store.getDay('2000-01-01')).toBeNull()
-    expect(await store.getDay('2026-06-17')).not.toBeNull()
+    expect(await store.getDay(recent)).not.toBeNull()
   })
 
   it('不正な yearMonth / date は throw する', async () => {

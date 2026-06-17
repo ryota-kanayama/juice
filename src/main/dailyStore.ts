@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir, rename, readdir } from 'fs/promises'
 import { join } from 'path'
 import type { DailyMonth, DayRecord } from '../shared/types'
+import { formatLocalDate } from '../shared/sessionUtils'
 import { createSerialQueue } from './serialQueue'
 
 /** "YYYY-MM"。ファイルパス連結前にパストラバーサルを防ぐため検証する */
@@ -84,8 +85,7 @@ export class DailyStore {
 
   /** keepDays より古い日付エントリを全月ファイルから削除する */
   async prune(keepDays: number): Promise<void> {
-    const cutoffMs = Date.now() - keepDays * 24 * 60 * 60 * 1000
-    const cutoff = new Date(cutoffMs).toISOString().slice(0, 10) // "YYYY-MM-DD"
+    const cutoff = formatLocalDate(Date.now() - keepDays * 24 * 60 * 60 * 1000)
     let files: string[]
     try {
       files = await readdir(this.dataDir)
