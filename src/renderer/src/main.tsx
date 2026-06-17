@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { migrateLegacyDailyData } from './daily/migrateLegacy'
 import { dailyRepository } from './repositories/dailyRepository'
 import { settingsRepository } from './repositories/settingsRepository'
@@ -23,7 +24,9 @@ async function bootstrap(): Promise<void> {
 
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </React.StrictMode>
   )
 }
