@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Session } from '../types/session'
 import { orderSessions } from '../../../shared/sessionUtils'
-import { dailyStore } from '../dailyStore'
+import { useDailyData } from '../daily/DailyDataContext'
 import { buildAttendanceText, isValidWorkTime } from '../domain/attendance'
 import { attendanceRepository } from '../repositories/attendanceRepository'
 
@@ -25,10 +25,12 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
 
-  const todayKey = today
-  const workStart = dailyStore.getWorkStart(todayKey)
-  const workEnd = dailyStore.getWorkEnd(todayKey)
-  const orderedSessions = orderSessions(sessions, dailyStore.getSessionOrder(todayKey))
+  const daily = useDailyData()
+  useEffect(() => { daily.ensureMonth(today.slice(0, 7)) }, [today, daily])
+  const day = daily.getDay(today)
+  const workStart = day?.workStart ?? null
+  const workEnd = day?.workEnd ?? null
+  const orderedSessions = orderSessions(sessions, day?.sessionOrder ?? null)
   const text = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
 
   const canSend = isValidWorkTime(workStart) && isValidWorkTime(workEnd) && sessions.length > 0
