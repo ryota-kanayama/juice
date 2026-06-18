@@ -12,6 +12,7 @@ import { CalendarPage } from './components/Calendar/CalendarPage'
 import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
 import { useWorkday } from './hooks/useWorkday'
 import { useSuggestions } from './hooks/useSuggestions'
+import { useBreak } from './hooks/useBreak'
 import { windowRepository } from './repositories/windowRepository'
 import { User, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
@@ -176,6 +177,7 @@ function PopoverView() {
 export function TimerPage({ sessions }: { sessions: SessionsState }) {
   const ts = useTimerSession(sessions)
   const workday = useWorkday(ts.today)
+  const breakState = useBreak(ts, workday)
   const suggestions = useSuggestions(ts.todaySessions, ts.today)
 
   return (
@@ -208,6 +210,8 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
             projectCodeSuggestions={suggestions.projectCodes}
             workCategorySuggestions={suggestions.workCategories}
             onStop={ts.stop}
+            onBreak={() => { void breakState.handleBreakStart(ts.activeTimerProjectCode, ts.activeTimerWorkCategory) }}
+            isOnBreak={breakState.isOnBreak}
           />
         </div>
       ) : !workday.workStart ? (
@@ -235,10 +239,10 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
             workStart={workday.workStart}
             workEnd={workday.workEnd}
             onWorkEnd={workday.endWork}
-            breakStart={null}
-            breakEnd={null}
-            onBreakStart={() => {}}
-            onBreakEnd={() => {}}
+            breakStart={workday.breakStart}
+            breakEnd={workday.breakEnd}
+            onBreakStart={() => { void breakState.handleBreakStart('', '') }}
+            onBreakEnd={() => { breakState.handleBreakEnd() }}
             suggestions={suggestions}
           />
         </div>
