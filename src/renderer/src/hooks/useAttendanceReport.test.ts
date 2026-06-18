@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { calcBreakMinutes } from './useAttendanceReport'
 
+// Note: useAttendanceReport hook automatically updates breakMinutes when breakEnd changes.
+// To prevent remount from overwriting manual edits, the hook uses a ref to track the last
+// auto-set breakEnd value and only recalculates when breakEnd differs from that ref.
+// The calcBreakMinutes function itself is pure and tested below.
+
 describe('calcBreakMinutes', () => {
   it('12:00〜13:00 は 60', () => {
     expect(calcBreakMinutes('12:00', '13:00')).toBe(60)
