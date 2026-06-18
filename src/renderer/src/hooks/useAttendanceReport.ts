@@ -5,6 +5,19 @@ import { useDailyData } from '../daily/DailyDataContext'
 import { buildAttendanceText, isValidWorkTime } from '../domain/attendance'
 import { attendanceRepository } from '../repositories/attendanceRepository'
 
+function parseHHMMLocal(t: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t)
+  if (!m) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+export function calcBreakMinutes(start: string | null, end: string | null): number {
+  if (!start || !end) return 60
+  const s = parseHHMMLocal(start)
+  const e = parseHHMMLocal(end)
+  return (s != null && e != null && e > s) ? e - s : 60
+}
+
 export interface AttendanceReportState {
   breakMinutes: number
   setBreakMinutes: (value: number) => void
@@ -22,16 +35,27 @@ export interface AttendanceReportState {
 
 /** 勤怠レポート画面のオーケストレーション。domain / repository を組み合わせ state を持つ。 */
 export function useAttendanceReport(sessions: Session[], today: string): AttendanceReportState {
-  const [breakMinutes, setBreakMinutes] = useState(60)
-  const [copied, setCopied] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
-
   const daily = useDailyData()
   useEffect(() => { daily.ensureMonth(today.slice(0, 7)) }, [today, daily])
   const day = daily.getDay(today)
   const workStart = day?.workStart ?? null
   const workEnd = day?.workEnd ?? null
+  const breakStart = day?.breakStart ?? null
+  const breakEnd = day?.breakEnd ?? null
+
+  const [breakMinutes, setBreakMinutes] = useState(() => calcBreakMinutes(breakStart, breakEnd))
+
+  // breakEnd が初めてセットされたとき（休憩終了後）に breakMinutes を自動更新する
+  useEffect(() => {
+    if (breakEnd) {
+      setBreakMinutes(calcBreakMinutes(breakStart, breakEnd))
+    }
+  }, [breakEnd, breakStart])
+
+  const [copied, setCopied] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
+
   const orderedSessions = orderSessions(sessions, day?.sessionOrder ?? null)
   const { text, overageMinutes } = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
 
