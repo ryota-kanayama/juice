@@ -10,6 +10,7 @@ vi.stubGlobal('electronAPI', {
   getSessions: vi.fn().mockResolvedValue([]),
   getDailyMonth,
   setDailyDay: vi.fn().mockResolvedValue(undefined),
+  getBreakBehaviorSettings: vi.fn().mockResolvedValue({ behavior: 'stop' }),
 })
 
 function stubSessions(): SessionsState {

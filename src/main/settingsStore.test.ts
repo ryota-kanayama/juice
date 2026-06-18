@@ -141,6 +141,17 @@ describe('SettingsStore', () => {
     expect(await store.getPomodoroSettings()).toEqual({ enabled: true })
     expect(await store.getWhiteboardSettings()).toEqual({ enabled: true })
   })
+
+  it('getBreakBehaviorSettings はデフォルト stop を返す', async () => {
+    const result = await store.getBreakBehaviorSettings()
+    expect(result.behavior).toBe('stop')
+  })
+
+  it('setBreakBehaviorSettings で pause を永続化できる', async () => {
+    await store.setBreakBehaviorSettings('pause')
+    const result = await store.getBreakBehaviorSettings()
+    expect(result.behavior).toBe('pause')
+  })
 })
 
 describe('SettingsStore — 未知キーの掃除', () => {

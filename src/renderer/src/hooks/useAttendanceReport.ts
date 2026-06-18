@@ -1,9 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Session } from '../types/session'
 import { orderSessions } from '../../../shared/sessionUtils'
 import { useDailyData } from '../daily/DailyDataContext'
 import { buildAttendanceText, isValidWorkTime } from '../domain/attendance'
 import { attendanceRepository } from '../repositories/attendanceRepository'
+
+function parseHHMMLocal(t: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t)
+  if (!m) return null
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
+export function calcBreakMinutes(start: string | null, end: string | null): number {
+  if (!start || !end) return 60
+  const s = parseHHMMLocal(start)
+  const e = parseHHMMLocal(end)
+  return (s != null && e != null && e > s) ? e - s : 60
+}
 
 export interface AttendanceReportState {
   breakMinutes: number
@@ -22,16 +35,31 @@ export interface AttendanceReportState {
 
 /** 勤怠レポート画面のオーケストレーション。domain / repository を組み合わせ state を持つ。 */
 export function useAttendanceReport(sessions: Session[], today: string): AttendanceReportState {
-  const [breakMinutes, setBreakMinutes] = useState(60)
-  const [copied, setCopied] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
-
   const daily = useDailyData()
   useEffect(() => { daily.ensureMonth(today.slice(0, 7)) }, [today, daily])
   const day = daily.getDay(today)
   const workStart = day?.workStart ?? null
   const workEnd = day?.workEnd ?? null
+  const breakStart = day?.breakStart ?? null
+  const breakEnd = day?.breakEnd ?? null
+
+  const [breakMinutes, setBreakMinutes] = useState(() => calcBreakMinutes(breakStart, breakEnd))
+
+  // breakEnd が初めてセットされたとき（休憩終了後）に breakMinutes を自動更新する
+  // コンポーネント再マウント時に同じ breakEnd で再計算するのを避けるため、ref で最後に自動設定した値を追跡
+  const autoSetBreakEndRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (breakEnd && breakEnd !== autoSetBreakEndRef.current) {
+      setBreakMinutes(calcBreakMinutes(breakStart, breakEnd))
+      autoSetBreakEndRef.current = breakEnd
+    }
+  }, [breakEnd, breakStart])
+
+  const [copied, setCopied] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
+
   const orderedSessions = orderSessions(sessions, day?.sessionOrder ?? null)
   const { text, overageMinutes } = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
 

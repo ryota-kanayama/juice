@@ -78,6 +78,8 @@ export function registerIpcHandlers(
   handle('settings:setWhiteboardSettings', async (_, { enabled }) => {
     await settingsStore.setWhiteboardSettings(enabled)
   })
+  handle('settings:getBreakBehaviorSettings', () => settingsStore.getBreakBehaviorSettings())
+  handle('settings:setBreakBehaviorSettings', (_, { behavior }) => settingsStore.setBreakBehaviorSettings(behavior))
 
   // timer signals
   handle('timer:started', () => {

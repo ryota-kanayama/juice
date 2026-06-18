@@ -20,6 +20,7 @@ async function resolveFillSeconds(): Promise<number> {
 
 export interface TimerState {
   isRunning: boolean
+  isPaused: boolean
   elapsedSeconds: number
   /** 延長時に引き継ぐ累計秒（表示用オフセット）。新規タイマーでは0 */
   baseSeconds: number
@@ -32,6 +33,8 @@ export interface TimerState {
   stop: (opts?: { projectCode?: string; workCategory?: string }) => Promise<Session | null>
   cancel: () => void
   adjustStartTime: (newStartDate: Date) => void
+  pause: () => void
+  resume: () => void
 }
 
 export function useTimer(): TimerState {
@@ -42,6 +45,8 @@ export function useTimer(): TimerState {
   const [activeColor, setActiveColor] = useState<string>(JUICE_COLOR_KEYS[0])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
+  const [isPaused, setIsPaused] = useState(false)
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<Date | null>(null)
   const nameRef = useRef<string>('')
@@ -49,9 +54,14 @@ export function useTimer(): TimerState {
   const activeColorRef = useRef<string>(JUICE_COLOR_KEYS[0])
   const isRunningRef = useRef<boolean>(false)
   const extendingSessionRef = useRef<Session | null>(null)
+  const isPausedRef = useRef<boolean>(false)
+  const pausedSecondsRef = useRef<number>(0)
 
   const start = useCallback((name: string, color?: string) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
+    isPausedRef.current = false
+    pausedSecondsRef.current = 0
+    setIsPaused(false)
     extendingSessionRef.current = null
     const c = color ?? randomColor()
     startTimeRef.current = new Date()
@@ -76,6 +86,9 @@ export function useTimer(): TimerState {
 
   const startMore = useCallback((existingSession: Session) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
+    isPausedRef.current = false
+    pausedSecondsRef.current = 0
+    setIsPaused(false)
     extendingSessionRef.current = existingSession
     startTimeRef.current = new Date()
     nameRef.current = existingSession.name
@@ -99,6 +112,12 @@ export function useTimer(): TimerState {
 
   const stop = useCallback(async (opts?: { projectCode?: string; workCategory?: string }): Promise<Session | null> => {
     if (!startTimeRef.current || !isRunningRef.current) return null
+    // pause 中に stop した場合は startTimeRef を巻き戻してから通常の stop 処理へ
+    if (isPausedRef.current) {
+      startTimeRef.current = new Date(Date.now() - pausedSecondsRef.current * 1000)
+      isPausedRef.current = false
+      setIsPaused(false)
+    }
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
@@ -169,6 +188,9 @@ export function useTimer(): TimerState {
 
   const cancel = useCallback(() => {
     if (!isRunningRef.current) return
+    isPausedRef.current = false
+    pausedSecondsRef.current = 0
+    setIsPaused(false)
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
@@ -192,5 +214,30 @@ export function useTimer(): TimerState {
     timerRepository.adjustStartTime(newStartDate.getTime())
   }, [])
 
-  return { isRunning, elapsedSeconds, baseSeconds, fillSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime }
+  const pause = useCallback((): void => {
+    if (!isRunningRef.current || isPausedRef.current) return
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    pausedSecondsRef.current = startTimeRef.current
+      ? Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000)
+      : 0
+    isPausedRef.current = true
+    setIsPaused(true)
+  }, [])
+
+  const resume = useCallback((): void => {
+    if (!isRunningRef.current || !isPausedRef.current) return
+    startTimeRef.current = new Date(Date.now() - pausedSecondsRef.current * 1000)
+    isPausedRef.current = false
+    setIsPaused(false)
+    intervalRef.current = setInterval(() => {
+      if (startTimeRef.current) {
+        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000))
+      }
+    }, 1000)
+  }, [])
+
+  return { isRunning, isPaused, elapsedSeconds, baseSeconds, fillSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime, pause, resume }
 }

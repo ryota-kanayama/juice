@@ -39,6 +39,13 @@ export const settingsRepository = {
     return window.electronAPI.setWhiteboardSettings(enabled)
   },
 
+  getBreakBehavior(): Promise<{ behavior: 'stop' | 'pause' }> {
+    return window.electronAPI.getBreakBehaviorSettings()
+  },
+  setBreakBehavior(behavior: 'stop' | 'pause'): Promise<void> {
+    return window.electronAPI.setBreakBehaviorSettings(behavior)
+  },
+
   completeSetup(): Promise<void> {
     return window.electronAPI.completeSetup()
   },

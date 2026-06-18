@@ -11,6 +11,7 @@ interface Settings {
   pomodoroEnabled: boolean
   setupCompleted: boolean
   whiteboardEnabled: boolean
+  breakBehavior: 'stop' | 'pause'
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS: Settings = {
   pomodoroEnabled: false,
   setupCompleted: false,
   whiteboardEnabled: false,
+  breakBehavior: 'stop',
 }
 
 export class SettingsStore {
@@ -95,6 +97,7 @@ export class SettingsStore {
         pomodoroEnabled: parsed.pomodoroEnabled ?? DEFAULT_SETTINGS.pomodoroEnabled,
         setupCompleted: parsed.setupCompleted ?? DEFAULT_SETTINGS.setupCompleted,
         whiteboardEnabled: parsed.whiteboardEnabled ?? DEFAULT_SETTINGS.whiteboardEnabled,
+        breakBehavior: (parsed.breakBehavior === 'pause' ? 'pause' : 'stop'),
       }
     }
     try {
@@ -177,5 +180,14 @@ export class SettingsStore {
 
   async setWhiteboardSettings(enabled: boolean): Promise<void> {
     await this.update(s => ({ ...s, whiteboardEnabled: enabled }))
+  }
+
+  async getBreakBehaviorSettings(): Promise<{ behavior: 'stop' | 'pause' }> {
+    const s = await this.readAll()
+    return { behavior: s.breakBehavior }
+  }
+
+  async setBreakBehaviorSettings(behavior: 'stop' | 'pause'): Promise<void> {
+    await this.update(s => ({ ...s, breakBehavior: behavior }))
   }
 }

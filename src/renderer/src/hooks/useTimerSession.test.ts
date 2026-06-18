@@ -24,9 +24,13 @@ const mockTimerStop = vi.fn()
 const mockTimerCancel = vi.fn()
 const mockTimerAdjustStartTime = vi.fn()
 
+const mockTimerPause = vi.fn()
+const mockTimerResume = vi.fn()
+
 function makeTimerMock(overrides = {}) {
   return {
     isRunning: false,
+    isPaused: false,
     elapsedSeconds: 0,
     baseSeconds: 0,
     fillSeconds: 1500,
@@ -37,6 +41,8 @@ function makeTimerMock(overrides = {}) {
     stop: mockTimerStop,
     cancel: mockTimerCancel,
     adjustStartTime: mockTimerAdjustStartTime,
+    pause: mockTimerPause,
+    resume: mockTimerResume,
     ...overrides,
   }
 }
