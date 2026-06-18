@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react'
 import type { Session } from '../../types/session'
 import { useAttendanceReport } from '../../hooks/useAttendanceReport'
 import { Card } from '@/components/ui/card'
@@ -19,17 +20,45 @@ export function AttendanceReport({ sessions, today }: Props) {
   const { breakMinutes, setBreakMinutes, text, overageMinutes, canSend, copied, sending, sendResult, copy, send } =
     useAttendanceReport(sessions, today)
 
+  // 入力フィールドはローカル文字列 state で管理し、blur / Enter で確定する。
+  // これにより途中入力（"4" → "45"）でカーソルが飛んだり値がリセットされるのを防ぐ。
+  const [inputValue, setInputValue] = useState(String(breakMinutes))
+  const inputFocusedRef = useRef(false)
+
+  // 外部（自動計算）から breakMinutes が変わったときだけ inputValue に反映する
+  useEffect(() => {
+    if (!inputFocusedRef.current) {
+      setInputValue(String(breakMinutes))
+    }
+  }, [breakMinutes])
+
+  function commitInput(raw: string): void {
+    const n = parseInt(raw, 10)
+    if (!isNaN(n) && n >= 0) {
+      setBreakMinutes(n)
+      setInputValue(String(n))
+    } else {
+      setInputValue(String(breakMinutes))
+    }
+  }
+
   return (
     <Card className="flex min-h-0 flex-1 flex-col rounded-xl bg-[var(--glass-bg)] p-3 [backdrop-filter:blur(12px)]">
       <div className="mb-3 flex items-center gap-2">
         <Label htmlFor="break" className="text-xs text-muted-foreground">休憩</Label>
         <Input
           id="break"
-          type="number"
+          type="text"
+          inputMode="numeric"
           className="h-8 w-14 text-right text-[13px]"
-          value={breakMinutes}
-          min={0}
-          onChange={e => setBreakMinutes(Number(e.target.value))}
+          value={inputValue}
+          onChange={e => setInputValue(e.target.value)}
+          onFocus={() => { inputFocusedRef.current = true }}
+          onBlur={() => {
+            inputFocusedRef.current = false
+            commitInput(inputValue)
+          }}
+          onKeyDown={e => { if (e.key === 'Enter') commitInput(inputValue) }}
         />
         <span className="text-xs text-muted-foreground">分</span>
       </div>
