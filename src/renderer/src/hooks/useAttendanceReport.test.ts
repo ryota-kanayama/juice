@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcBreakMinutes } from './useAttendanceReport'
+import { calcBreakMinutes } from '../domain/attendance'
 
 // Note: useAttendanceReport hook automatically updates breakMinutes when breakEnd changes.
 // To prevent remount from overwriting manual edits, the hook uses a ref to track the last

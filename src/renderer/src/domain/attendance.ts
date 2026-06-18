@@ -9,6 +9,14 @@ function parseHHMM(t: string): number | null {
   return Number(m[1]) * 60 + Number(m[2])
 }
 
+/** 休憩開始〜終了の差分を分で返す。どちらか null または逆順なら 60（デフォルト）。 */
+export function calcBreakMinutes(start: string | null, end: string | null): number {
+  if (!start || !end) return 60
+  const s = parseHHMM(start)
+  const e = parseHHMM(end)
+  return (s != null && e != null && e > s) ? e - s : 60
+}
+
 /** "HH:mm" 形式として妥当か */
 export function isValidWorkTime(t: string | null): boolean {
   return !!t && /^\d{1,2}:\d{2}$/.test(t)
