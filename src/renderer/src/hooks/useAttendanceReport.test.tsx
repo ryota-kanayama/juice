@@ -92,3 +92,33 @@ describe('useAttendanceReport — 送信結果の分類', () => {
     }
   })
 })
+
+describe('useAttendanceReport — workStart/workEnd setter', () => {
+  it('setWorkStart が daily.setDay を workStart で呼ぶ', async () => {
+    const setDailyDay = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('electronAPI', {
+      getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
+      setDailyDay,
+    })
+    const { result } = renderHook(
+      () => useAttendanceReport([makeSession()], '2026-06-12'),
+      { wrapper },
+    )
+    await act(async () => { result.current.setWorkStart('09:00') })
+    expect(setDailyDay).toHaveBeenCalledWith('2026-06-12', expect.objectContaining({ workStart: '09:00' }))
+  })
+
+  it('setWorkEnd が daily.setDay を workEnd で呼ぶ', async () => {
+    const setDailyDay = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('electronAPI', {
+      getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
+      setDailyDay,
+    })
+    const { result } = renderHook(
+      () => useAttendanceReport([makeSession()], '2026-06-12'),
+      { wrapper },
+    )
+    await act(async () => { result.current.setWorkEnd('18:00') })
+    expect(setDailyDay).toHaveBeenCalledWith('2026-06-12', expect.objectContaining({ workEnd: '18:00' }))
+  })
+})

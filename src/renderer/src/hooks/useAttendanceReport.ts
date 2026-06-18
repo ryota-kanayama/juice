@@ -8,6 +8,10 @@ import { attendanceRepository } from '../repositories/attendanceRepository'
 export interface AttendanceReportState {
   breakMinutes: number
   setBreakMinutes: (value: number) => void
+  workStart: string | null
+  setWorkStart: (time: string) => void
+  workEnd: string | null
+  setWorkEnd: (time: string) => void
   text: string
   /** タイマー合計が実労働時間を超えた分数。超過なければ null */
   overageMinutes: number | null
@@ -35,6 +39,14 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
 
   const setBreakMinutes = (value: number): void => {
     void daily.setDay(today, { breakMinutes: value })
+  }
+
+  const setWorkStart = (time: string): void => {
+    void daily.setDay(today, { workStart: time })
+  }
+
+  const setWorkEnd = (time: string): void => {
+    void daily.setDay(today, { workEnd: time })
   }
 
   const [copied, setCopied] = useState(false)
@@ -74,5 +86,5 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
     }
   }
 
-  return { breakMinutes, setBreakMinutes, text, overageMinutes, canSend, copied, sending, sendResult, copy, send }
+  return { breakMinutes, setBreakMinutes, workStart, setWorkStart, workEnd, setWorkEnd, text, overageMinutes, canSend, copied, sending, sendResult, copy, send }
 }
