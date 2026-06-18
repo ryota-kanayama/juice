@@ -20,8 +20,9 @@ describe('buildAttendanceText', () => {
     // 勤務: 08:37〜18:40 = 603分, 休憩60分 → 実労働543分
     // タイマー合計: 180分, 差分: 363分 → 180+363=543
     const sessions = [makeSession()]
-    const result = buildAttendanceText(sessions, '08:37', '18:40', 60)
-    expect(result).toBe('勤怠\n08:37 18:40 60\nZZ テスト作業 設計 543')
+    const { text, overageMinutes } = buildAttendanceText(sessions, '08:37', '18:40', 60)
+    expect(text).toBe('勤怠\n08:37 18:40 60\nZZ テスト作業 設計 543')
+    expect(overageMinutes).toBeNull()
   })
 
   it('複数タスクの場合、差分は最後のタスクにのみ加算される', () => {
@@ -31,49 +32,54 @@ describe('buildAttendanceText', () => {
       makeSession({ id: 'a', taskId: 't1', name: '社内MTG', projectCode: 'ZZ', workCategory: '打合せ', totalTime: 180 }),
       makeSession({ id: 'b', taskId: 't2', name: '1on1', projectCode: 'ZZ', workCategory: '打合せ', totalTime: 60 }),
     ]
-    const result = buildAttendanceText(sessions, '08:37', '18:40', 60)
-    expect(result).toBe('勤怠\n08:37 18:40 60\nZZ 社内MTG 打合せ 180\nZZ 1on1 打合せ 363')
+    const { text, overageMinutes } = buildAttendanceText(sessions, '08:37', '18:40', 60)
+    expect(text).toBe('勤怠\n08:37 18:40 60\nZZ 社内MTG 打合せ 180\nZZ 1on1 打合せ 363')
+    expect(overageMinutes).toBeNull()
   })
 
   it('タイマー合計が実労働時間と同じなら変化しない（差分0）', () => {
     // 勤務: 09:00〜12:00 = 180分, 休憩0分 → 実労働180分
     // タイマー合計: 180分, 差分: 0分
     const sessions = [makeSession()]
-    const result = buildAttendanceText(sessions, '09:00', '12:00', 0)
-    expect(result).toBe('勤怠\n09:00 12:00 0\nZZ テスト作業 設計 180')
+    const { text, overageMinutes } = buildAttendanceText(sessions, '09:00', '12:00', 0)
+    expect(text).toBe('勤怠\n09:00 12:00 0\nZZ テスト作業 設計 180')
+    expect(overageMinutes).toBeNull()
   })
 
-  it('タイマー合計が実労働時間を超える場合は最後のタスクから差し引いて合計を一致させる', () => {
+  it('タイマー合計が実労働時間を超える場合は自動調整せず overageMinutes を返す', () => {
     // 勤務: 09:00〜12:00 = 180分, 休憩0分 → 実労働180分
-    // タイマー合計: 200分, 差分: -20分 → 200-20=180
+    // タイマー合計: 200分, 超過: 20分
     const sessions = [makeSession({ totalTime: 200 })]
-    const result = buildAttendanceText(sessions, '09:00', '12:00', 0)
-    expect(result).toBe('勤怠\n09:00 12:00 0\nZZ テスト作業 設計 180')
+    const { text, overageMinutes } = buildAttendanceText(sessions, '09:00', '12:00', 0)
+    expect(text).toBe('勤怠\n09:00 12:00 0\nZZ テスト作業 設計 200')
+    expect(overageMinutes).toBe(20)
   })
 
-  it('マイナス差分が最後のタスクを超える場合は手前のタスクへ繰り越す', () => {
+  it('複数タスクで超過している場合もすべてのタスクがそのまま残る', () => {
     // 勤務: 09:00〜12:00 = 180分, 休憩30分 → 実労働150分
-    // タイマー合計: 180+60=240分, 差分: -90分
-    // 末尾 1on1(60) → 60-90=-30 で 0 にして除外、残り -30 を 社内MTG(180) へ → 150
+    // タイマー合計: 180+60=240分, 超過: 90分 → 全タスク維持
     const sessions = [
       makeSession({ id: 'a', taskId: 't1', name: '社内MTG', projectCode: 'ZZ', workCategory: '打合せ', totalTime: 180 }),
       makeSession({ id: 'b', taskId: 't2', name: '1on1', projectCode: 'ZZ', workCategory: '打合せ', totalTime: 60 }),
     ]
-    const result = buildAttendanceText(sessions, '09:00', '12:00', 30)
-    expect(result).toBe('勤怠\n09:00 12:00 30\nZZ 社内MTG 打合せ 150')
+    const { text, overageMinutes } = buildAttendanceText(sessions, '09:00', '12:00', 30)
+    expect(text).toBe('勤怠\n09:00 12:00 30\nZZ 社内MTG 打合せ 180\nZZ 1on1 打合せ 60')
+    expect(overageMinutes).toBe(90)
   })
 
   it('totalTimeが0のセッションはスキップする', () => {
     const sessions = [
       makeSession({ totalTime: 0 }),
     ]
-    const result = buildAttendanceText(sessions, '08:37', '18:40', 60)
-    expect(result).toBe('勤怠\n08:37 18:40 60')
+    const { text, overageMinutes } = buildAttendanceText(sessions, '08:37', '18:40', 60)
+    expect(text).toBe('勤怠\n08:37 18:40 60')
+    expect(overageMinutes).toBeNull()
   })
 
   it('workStart/workEndがnullの場合は差分加算しない', () => {
     const sessions = [makeSession()]
-    const result = buildAttendanceText(sessions, null, null, 60)
-    expect(result).toBe('勤怠\n  60\nZZ テスト作業 設計 180')
+    const { text, overageMinutes } = buildAttendanceText(sessions, null, null, 60)
+    expect(text).toBe('勤怠\n  60\nZZ テスト作業 設計 180')
+    expect(overageMinutes).toBeNull()
   })
 })
