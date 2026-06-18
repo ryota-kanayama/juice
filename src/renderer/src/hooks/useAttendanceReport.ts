@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Session } from '../types/session'
 import { orderSessions } from '../../../shared/sessionUtils'
 import { useDailyData } from '../daily/DailyDataContext'
@@ -30,16 +30,7 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
   const breakStart = day?.breakStart ?? null
   const breakEnd = day?.breakEnd ?? null
 
-  const [breakMinutes, setBreakMinutesRaw] = useState(() => calcBreakMinutes(breakStart, breakEnd))
-
-  // ユーザーが手動で値を変更したかどうかを追跡する
-  // 初回データロード時に手動入力を上書きしないために使う
-  const userEditedRef = useRef(false)
-
-  const setBreakMinutes = useCallback((value: number) => {
-    userEditedRef.current = true
-    setBreakMinutesRaw(value)
-  }, [])
+  const [breakMinutes, setBreakMinutes] = useState(() => calcBreakMinutes(breakStart, breakEnd))
 
   // breakEnd が初めてセットされたとき（休憩終了後）に breakMinutes を自動更新する
   // コンポーネント再マウント時に同じ breakEnd で再計算するのを避けるため、ref で最後に自動設定した値を追跡
@@ -47,12 +38,7 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
 
   useEffect(() => {
     if (breakEnd && breakEnd !== autoSetBreakEndRef.current) {
-      // autoSetBreakEndRef が null = 非同期で初期データがロードされてきたケース
-      // その場合はユーザーが手動入力済みなら上書きしない（休憩終了イベントは常に更新する）
-      const isInitialDataLoad = autoSetBreakEndRef.current === null
-      if (!isInitialDataLoad || !userEditedRef.current) {
-        setBreakMinutesRaw(calcBreakMinutes(breakStart, breakEnd))
-      }
+      setBreakMinutes(calcBreakMinutes(breakStart, breakEnd))
       autoSetBreakEndRef.current = breakEnd
     }
   }, [breakEnd, breakStart])
