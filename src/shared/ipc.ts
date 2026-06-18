@@ -22,6 +22,10 @@ export interface PomodoroSettings {
   enabled: boolean
 }
 
+export interface BreakBehaviorSettings {
+  behavior: 'stop' | 'pause'
+}
+
 export interface AuthStatus {
   signedIn: boolean
   name?: string
@@ -63,6 +67,8 @@ export interface IpcContract {
   // settings: integrations
   'settings:getWhiteboardSettings': [void, WhiteboardSettings]
   'settings:setWhiteboardSettings': [{ enabled: boolean }, void]
+  'settings:getBreakBehaviorSettings': [void, BreakBehaviorSettings]
+  'settings:setBreakBehaviorSettings': [{ behavior: 'stop' | 'pause' }, void]
 
   // timer signals
   'timer:started': [void, void]

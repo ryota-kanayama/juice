@@ -2,7 +2,7 @@
 
 import type { Session, DailyMonth, DayRecord } from '../../shared/types'
 import type {
-  AttendanceSendResult, AuthStatus, PomodoroSettings, ToggleSettings, WhiteboardSettings,
+  AttendanceSendResult, AuthStatus, BreakBehaviorSettings, PomodoroSettings, ToggleSettings, WhiteboardSettings,
 } from '../../shared/ipc'
 
 // preload が contextBridge 経由でレンダラーに公開する API。
@@ -34,6 +34,8 @@ interface ElectronAPI {
   // settings: integrations
   getWhiteboardSettings: () => Promise<WhiteboardSettings>
   setWhiteboardSettings: (enabled: boolean) => Promise<void>
+  getBreakBehaviorSettings: () => Promise<BreakBehaviorSettings>
+  setBreakBehaviorSettings: (behavior: 'stop' | 'pause') => Promise<void>
 
   // timer signals
   timerStarted: () => Promise<void>

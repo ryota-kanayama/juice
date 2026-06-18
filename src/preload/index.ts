@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // settings: integrations
   getWhiteboardSettings: () => invoke('settings:getWhiteboardSettings', undefined),
   setWhiteboardSettings: (enabled: boolean) => invoke('settings:setWhiteboardSettings', { enabled }),
+  getBreakBehaviorSettings: () => invoke('settings:getBreakBehaviorSettings', undefined),
+  setBreakBehaviorSettings: (behavior: 'stop' | 'pause') => invoke('settings:setBreakBehaviorSettings', { behavior }),
 
   // timer signals
   timerStarted: () => invoke('timer:started', undefined),
