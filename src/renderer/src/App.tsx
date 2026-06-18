@@ -235,6 +235,10 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
             workStart={workday.workStart}
             workEnd={workday.workEnd}
             onWorkEnd={workday.endWork}
+            breakStart={null}
+            breakEnd={null}
+            onBreakStart={() => {}}
+            onBreakEnd={() => {}}
             suggestions={suggestions}
           />
         </div>

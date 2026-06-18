@@ -352,7 +352,7 @@ describe('SessionList — 業務終了', () => {
 
   it('終了→時刻を変更→確定で onWorkEnd が "HH:mm" で呼ばれる', () => {
     const onWorkEnd = vi.fn()
-    renderWithProvider(<SessionList sessions={[makeSession()]} workStart="09:00" onWorkEnd={onWorkEnd} />)
+    renderWithProvider(<SessionList sessions={[makeSession()]} workStart="09:00" breakStart="12:00" breakEnd="13:00" onWorkEnd={onWorkEnd} />)
     fireEvent.click(screen.getByRole('button', { name: '終了' }))
     fireEvent.change(screen.getByLabelText('時'), { target: { value: '18' } })
     fireEvent.change(screen.getByLabelText('分'), { target: { value: '30' } })
@@ -362,12 +362,47 @@ describe('SessionList — 業務終了', () => {
 
   it('時刻セグメントでの Enter がラッパー経由で確定し onWorkEnd を呼ぶ', () => {
     const onWorkEnd = vi.fn()
-    renderWithProvider(<SessionList sessions={[makeSession()]} workStart="09:00" onWorkEnd={onWorkEnd} />)
+    renderWithProvider(<SessionList sessions={[makeSession()]} workStart="09:00" breakStart="12:00" breakEnd="13:00" onWorkEnd={onWorkEnd} />)
     fireEvent.click(screen.getByRole('button', { name: '終了' }))
     fireEvent.change(screen.getByLabelText('時'), { target: { value: '18' } })
     fireEvent.change(screen.getByLabelText('分'), { target: { value: '30' } })
     fireEvent.keyDown(screen.getByLabelText('分'), { key: 'Enter' })
     expect(onWorkEnd).toHaveBeenCalledWith('18:30')
+  })
+})
+
+describe('SessionList フッターボタン遷移', () => {
+  beforeEach(() => { mockDayStore = {}; setDailyDay.mockClear() })
+
+  it('breakStart=null のとき「休憩」ボタンが表示される', () => {
+    renderWithProvider(<SessionList sessions={[]} workStart="09:00" breakStart={null} />)
+    expect(screen.getByRole('button', { name: '休憩' })).toBeDefined()
+  })
+
+  it('「休憩」を押すと onBreakStart が呼ばれる', async () => {
+    const user = userEvent.setup()
+    const onBreakStart = vi.fn()
+    renderWithProvider(<SessionList sessions={[]} workStart="09:00" breakStart={null} onBreakStart={onBreakStart} />)
+    await user.click(screen.getByRole('button', { name: '休憩' }))
+    expect(onBreakStart).toHaveBeenCalled()
+  })
+
+  it('breakStart あり breakEnd=null のとき「休憩終了」が表示される', () => {
+    renderWithProvider(<SessionList sessions={[]} workStart="09:00" breakStart="12:00" breakEnd={null} />)
+    expect(screen.getByRole('button', { name: '休憩終了' })).toBeDefined()
+  })
+
+  it('「休憩終了」を押すと onBreakEnd が呼ばれる', async () => {
+    const user = userEvent.setup()
+    const onBreakEnd = vi.fn()
+    renderWithProvider(<SessionList sessions={[]} workStart="09:00" breakStart="12:00" breakEnd={null} onBreakEnd={onBreakEnd} />)
+    await user.click(screen.getByRole('button', { name: '休憩終了' }))
+    expect(onBreakEnd).toHaveBeenCalled()
+  })
+
+  it('breakStart あり breakEnd あり のとき「終了」が表示される', () => {
+    renderWithProvider(<SessionList sessions={[]} workStart="09:00" breakStart="12:00" breakEnd="13:00" />)
+    expect(screen.getByRole('button', { name: '終了' })).toBeDefined()
   })
 })
 

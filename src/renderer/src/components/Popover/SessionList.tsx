@@ -31,12 +31,16 @@ interface Props {
   workStart?: string | null
   workEnd?: string | null
   onWorkEnd?: (time: string) => void
+  breakStart?: string | null
+  breakEnd?: string | null
+  onBreakStart?: () => void
+  onBreakEnd?: () => void
   suggestions?: Suggestions
 }
 
 const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
 
-export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, workStart = null, workEnd = null, onWorkEnd, suggestions = EMPTY_SUGGESTIONS }: Props) {
+export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, workStart = null, workEnd = null, onWorkEnd, breakStart = null, breakEnd = null, onBreakStart, onBreakEnd, suggestions = EMPTY_SUGGESTIONS }: Props) {
   const todayKey = today ?? formatLocalDate(Date.now())
   const daily = useDailyData()
   useEffect(() => { daily.ensureMonth(todayKey.slice(0, 7)) }, [todayKey, daily])
@@ -237,14 +241,19 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         <CardContent className="flex items-center justify-between px-3 py-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5">
             {workStart && !workEnd && (
-              <Button
-                variant="destructive"
-                size="sm"
-                className="h-7"
-                onClick={handleWorkEnd}
-              >
-                終了
-              </Button>
+              breakStart === null ? (
+                <Button variant="outline" size="sm" className="h-7" onClick={onBreakStart}>
+                  休憩
+                </Button>
+              ) : breakEnd === null ? (
+                <Button variant="outline" size="sm" className="h-7" onClick={onBreakEnd}>
+                  休憩終了
+                </Button>
+              ) : (
+                <Button variant="destructive" size="sm" className="h-7" onClick={handleWorkEnd}>
+                  終了
+                </Button>
+              )
             )}
             <span className="min-w-[90px] text-[11px] text-[var(--text-muted)]">
               {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}
