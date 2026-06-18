@@ -25,6 +25,7 @@ export interface DayRecord {
   workEnd?: string
   breakStart?: string | null
   breakEnd?: string | null
+  breakMinutes?: number
   telework?: boolean
   sessionOrder?: string[]
   /** UTC ISO8601。setDay で main 側が打刻（将来の同期での last-write-wins 用） */
