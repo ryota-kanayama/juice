@@ -210,7 +210,7 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
             projectCodeSuggestions={suggestions.projectCodes}
             workCategorySuggestions={suggestions.workCategories}
             onStop={ts.stop}
-            onBreak={() => { void breakState.handleBreakStart(ts.activeTimerProjectCode, ts.activeTimerWorkCategory) }}
+            onBreak={workday.breakStart === null ? () => { void breakState.handleBreakStart(ts.activeTimerProjectCode, ts.activeTimerWorkCategory) } : undefined}
             isOnBreak={breakState.isOnBreak}
           />
         </div>
