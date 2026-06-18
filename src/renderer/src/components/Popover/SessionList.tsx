@@ -242,11 +242,11 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
           <div className="flex items-center gap-1.5">
             {workStart && !workEnd && (
               breakStart === null ? (
-                <Button variant="outline" size="sm" className="h-7" onClick={onBreakStart}>
+                <Button variant="outline" size="sm" className="h-7 border-amber-400 text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950" onClick={onBreakStart}>
                   休憩
                 </Button>
               ) : breakEnd === null ? (
-                <Button variant="outline" size="sm" className="h-7" onClick={onBreakEnd}>
+                <Button variant="outline" size="sm" className="h-7 border-amber-400 text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950" onClick={onBreakEnd}>
                   休憩終了
                 </Button>
               ) : (

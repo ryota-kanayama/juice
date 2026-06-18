@@ -106,7 +106,7 @@ export function ActiveTimer({ name, elapsedSeconds, baseSeconds = 0, fillSeconds
 
         <div className="flex gap-2">
           {onBreak && (
-            <Button variant="outline" size="lg" onClick={onBreak}>
+            <Button variant="outline" size="lg" className="border-amber-400 text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950" onClick={onBreak}>
               {isOnBreak ? '休憩終了' : '休憩'}
             </Button>
           )}
