@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Session } from '../../types/session'
 import { useAttendanceReport } from '../../hooks/useAttendanceReport'
+import { isValidWorkTime } from '../../domain/attendance'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -39,9 +40,9 @@ export function AttendanceReport({ sessions, today }: Props) {
 
   function confirmDialog(): void {
     if (editField === 'workStart') {
-      setWorkStart(dialogValue)
+      if (isValidWorkTime(dialogValue)) setWorkStart(dialogValue)
     } else if (editField === 'workEnd') {
-      setWorkEnd(dialogValue)
+      if (isValidWorkTime(dialogValue)) setWorkEnd(dialogValue)
     } else if (editField === 'break') {
       const n = parseInt(dialogValue, 10)
       if (!isNaN(n) && n >= 0) setBreakMinutes(n)
@@ -54,7 +55,7 @@ export function AttendanceReport({ sessions, today }: Props) {
       <Dialog open={editField !== null} onOpenChange={open => { if (!open) setEditField(null) }}>
         <DialogContent className="max-w-[220px]" aria-describedby={undefined}>
           <DialogTitle>
-            {editField === 'workStart' ? '出勤時刻' : editField === 'workEnd' ? '退勤時刻' : '休憩時間'}
+            {editField === 'workStart' ? '出勤時刻' : editField === 'workEnd' ? '退勤時刻' : editField === 'break' ? '休憩時間' : ''}
           </DialogTitle>
           <div onKeyDown={e => { if (e.key === 'Enter') confirmDialog() }}>
             {editField === 'break' ? (
