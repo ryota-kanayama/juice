@@ -94,4 +94,18 @@ describe('useBreak', () => {
     act(() => { result.current.handleBreakEnd() })
     expect(ts.startMore).toHaveBeenCalledWith(session)
   })
+
+  it('handleBreakEnd は setBreakMinutes を呼ぶ（breakStart からの差分）', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-18T13:00:00'))
+    try {
+      const workday = makeMockWorkday({ breakStart: '12:00' })
+      const { result } = renderHook(() => useBreak(makeMockTs(), workday))
+      await act(async () => { await result.current.handleBreakStart('', '') })
+      act(() => { result.current.handleBreakEnd() })
+      expect(workday.setBreakMinutes).toHaveBeenCalledWith(60)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

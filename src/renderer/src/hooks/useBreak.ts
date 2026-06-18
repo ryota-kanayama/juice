@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { calcBreakMinutes } from '../domain/attendance'
 import { settingsRepository } from '../repositories/settingsRepository'
 import type { TimerSessionState } from './useTimerSession'
 import type { WorkdayState } from './useWorkday'
@@ -40,7 +41,9 @@ export function useBreak(ts: TimerSessionState, workday: WorkdayState): BreakSta
   }, [ts, workday])
 
   const handleBreakEnd = useCallback((): void => {
-    workday.endBreak(nowHHMM())
+    const endTime = nowHHMM()
+    workday.endBreak(endTime)
+    workday.setBreakMinutes(calcBreakMinutes(workday.breakStart, endTime))
     setIsOnBreak(false)
     if (behaviorRef.current === 'pause') {
       ts.resume()
