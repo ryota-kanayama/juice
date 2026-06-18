@@ -18,7 +18,7 @@ app.setPath(
   'userData',
   app.isPackaged
     ? join(os.homedir(), 'Library', 'Application Support', 'Juice')
-    : join(os.homedir(), 'Library', 'Application Support', 'juice-timer-dev')
+    : join(os.homedir(), 'Library', 'Application Support', 'juice-dev')
 )
 
 // 複数インスタンスの起動を防ぐ（プロダクション向け）
@@ -32,7 +32,7 @@ if (!app.requestSingleInstanceLock()) {
 process.on('SIGTERM', () => app.quit())
 process.on('SIGINT', () => app.quit())
 
-// 上で setPath('userData', ...) によって dev は juice-timer-dev、パッケージ版は Juice に分離済み。
+// 上で setPath('userData', ...) によって dev は juice-dev、パッケージ版は Juice に分離済み。
 // 全ストアで userData を使い、dev とパッケージ版のセッション・設定・認証データを一貫して分離する。
 const dataDir = app.getPath('userData')
 const sessionStore = new SessionStore(dataDir)
