@@ -13,6 +13,7 @@ export interface WorkdayState {
   endWork: (time: string) => void
   startBreak: (time: string) => void
   endBreak: (time: string) => void
+  setBreakMinutes: (minutes: number) => void
 }
 
 /** 日付（todayKey）ごとの勤怠時刻を日次ストアと同期する。 */
@@ -46,5 +47,9 @@ export function useWorkday(todayKey: string): WorkdayState {
     void daily.setDay(todayKey, { breakEnd: time })
   }, [todayKey, daily])
 
-  return { workStart, workEnd, breakStart, breakEnd, telework, startWork, endWork, startBreak, endBreak }
+  const setBreakMinutes = useCallback((minutes: number): void => {
+    void daily.setDay(todayKey, { breakMinutes: minutes })
+  }, [todayKey, daily])
+
+  return { workStart, workEnd, breakStart, breakEnd, telework, startWork, endWork, startBreak, endBreak, setBreakMinutes }
 }
