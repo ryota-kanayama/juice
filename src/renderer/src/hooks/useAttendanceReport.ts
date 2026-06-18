@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import type { Session } from '../types/session'
 import { orderSessions } from '../../../shared/sessionUtils'
 import { useDailyData } from '../daily/DailyDataContext'
@@ -30,18 +30,12 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
   const breakStart = day?.breakStart ?? null
   const breakEnd = day?.breakEnd ?? null
 
-  const [breakMinutes, setBreakMinutes] = useState(() => calcBreakMinutes(breakStart, breakEnd))
+  // DayRecord に保存済みの値を優先し、なければ breakStart/breakEnd から計算する
+  const breakMinutes = day?.breakMinutes ?? calcBreakMinutes(breakStart, breakEnd)
 
-  // breakEnd が初めてセットされたとき（休憩終了後）に breakMinutes を自動更新する
-  // コンポーネント再マウント時に同じ breakEnd で再計算するのを避けるため、ref で最後に自動設定した値を追跡
-  const autoSetBreakEndRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (breakEnd && breakEnd !== autoSetBreakEndRef.current) {
-      setBreakMinutes(calcBreakMinutes(breakStart, breakEnd))
-      autoSetBreakEndRef.current = breakEnd
-    }
-  }, [breakEnd, breakStart])
+  const setBreakMinutes = (value: number): void => {
+    void daily.setDay(today, { breakMinutes: value })
+  }
 
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
