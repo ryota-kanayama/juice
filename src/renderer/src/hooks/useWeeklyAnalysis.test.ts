@@ -47,6 +47,11 @@ describe('calcActualMinutes', () => {
   it('record が null の場合は null を返す', () => {
     expect(calcActualMinutes(null)).toBeNull()
   })
+
+  it('breakMinutes も breakStart/breakEnd も未設定の場合は休憩 0 分として計算する', () => {
+    const record: DayRecord = { workStart: '09:00', workEnd: '18:00' }
+    expect(calcActualMinutes(record)).toBe(540)
+  })
 })
 
 describe('buildDayAnalysis', () => {

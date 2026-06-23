@@ -49,7 +49,11 @@ export function calcActualMinutes(record: DayRecord | null): number | null {
     return h * 60 + m
   }
   const totalMins = parseHHMM(record.workEnd) - parseHHMM(record.workStart)
-  const breakMins = record.breakMinutes ?? calcBreakMinutes(record.breakStart ?? null, record.breakEnd ?? null)
+  const breakMins = record.breakMinutes != null
+    ? record.breakMinutes
+    : (record.breakStart && record.breakEnd)
+      ? calcBreakMinutes(record.breakStart, record.breakEnd)
+      : 0
   return Math.max(0, totalMins - breakMins)
 }
 
