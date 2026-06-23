@@ -36,6 +36,8 @@ interface ElectronAPI {
   setWhiteboardSettings: (enabled: boolean) => Promise<void>
   getBreakBehaviorSettings: () => Promise<BreakBehaviorSettings>
   setBreakBehaviorSettings: (behavior: 'stop' | 'pause') => Promise<void>
+  getMainProjectCode: () => Promise<string>
+  setMainProjectCode: (code: string) => Promise<void>
 
   // timer signals
   timerStarted: () => Promise<void>
