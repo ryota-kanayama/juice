@@ -70,6 +70,10 @@ export interface IpcContract {
   'settings:getBreakBehaviorSettings': [void, BreakBehaviorSettings]
   'settings:setBreakBehaviorSettings': [{ behavior: 'stop' | 'pause' }, void]
 
+  // settings: analysis
+  'settings:getMainProjectCode': [void, string]
+  'settings:setMainProjectCode': [code: string, void]
+
   // timer signals
   'timer:started': [void, void]
   'timer:stopped': [void, void]

@@ -154,6 +154,38 @@ describe('SettingsStore', () => {
   })
 })
 
+describe('mainProjectCode', () => {
+  let store: SettingsStore
+  let dir: string
+
+  beforeEach(async () => {
+    const { mkdtemp } = await import('fs/promises')
+    const { tmpdir } = await import('os')
+    const { join } = await import('path')
+    dir = await mkdtemp(join(tmpdir(), 'settings-mainproj-'))
+    store = new SettingsStore(dir)
+  })
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('未設定時は空文字を返す', async () => {
+    expect(await store.getMainProjectCode()).toBe('')
+  })
+
+  it('設定・取得できる', async () => {
+    await store.setMainProjectCode('PROJ-001')
+    expect(await store.getMainProjectCode()).toBe('PROJ-001')
+  })
+
+  it('空文字に戻せる', async () => {
+    await store.setMainProjectCode('PROJ-001')
+    await store.setMainProjectCode('')
+    expect(await store.getMainProjectCode()).toBe('')
+  })
+})
+
 describe('SettingsStore — 未知キーの掃除', () => {
   let dir: string
   let store: SettingsStore
