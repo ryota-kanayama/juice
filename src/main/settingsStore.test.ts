@@ -159,9 +159,6 @@ describe('mainProjectCode', () => {
   let dir: string
 
   beforeEach(async () => {
-    const { mkdtemp } = await import('fs/promises')
-    const { tmpdir } = await import('os')
-    const { join } = await import('path')
     dir = await mkdtemp(join(tmpdir(), 'settings-mainproj-'))
     store = new SettingsStore(dir)
   })
