@@ -68,11 +68,11 @@ export function WeeklyAnalysisModal({ date, onClose }: Props) {
               <tr className="font-semibold">
                 <td className="py-[5px] whitespace-nowrap">稼働率</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center tabular-nums text-[var(--accent)]">
+                  <td key={d.date} className="py-[5px] text-center text-[9px] tabular-nums text-[var(--accent)]">
                     {fmt(d.utilizationRate, '%')}
                   </td>
                 ))}
-                <td className="py-[5px] text-center tabular-nums text-[var(--accent)]">
+                <td className="py-[5px] text-center text-[9px] tabular-nums text-[var(--accent)]">
                   {fmt(analysis.weeklyAvgUtilization, '%')}
                 </td>
               </tr>
