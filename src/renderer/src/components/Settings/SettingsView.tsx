@@ -38,8 +38,8 @@ export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
   const {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    whiteboardEnabled,
-    setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard,
+    whiteboardEnabled, breakBehavior,
+    setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard, setBreakBehavior,
   } = useSettings()
 
   return (
@@ -181,6 +181,21 @@ export function SettingsView() {
                     onCheckedChange={setPomodoro}
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            <Separator />
+            <h3 className={heading}>休憩</h3>
+            <Card>
+              <CardContent className="flex items-center justify-between gap-4 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">タイマーを一時停止する</p>
+                  <p className="text-xs text-muted-foreground">OFF の場合、休憩ボタンを押すとタイマーが停止します（デフォルト）</p>
+                </div>
+                <Switch
+                  checked={breakBehavior === 'pause'}
+                  onCheckedChange={checked => setBreakBehavior(checked ? 'pause' : 'stop')}
+                />
               </CardContent>
             </Card>
           </>

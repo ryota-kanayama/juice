@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   IpcChannel, IpcArg, IpcReturn, IpcEventName, IpcEventPayload, AuthStatus,
 } from '../shared/ipc'
+import type { DayRecord } from '../shared/types'
 
 // 型付き invoke ラッパー: IpcContract に登録のないチャンネル / 不一致な引数はコンパイルエラー
 function invoke<C extends IpcChannel>(channel: C, arg: IpcArg<C>): Promise<IpcReturn<C>> {
@@ -24,6 +25,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   updateSession: (session) => invoke('sessions:update', session),
   deleteSession: (id: string, yearMonth: string) => invoke('sessions:delete', { id, yearMonth }),
 
+  // daily（日次勤務データ）
+  getDailyMonth: (yearMonth: string) => invoke('daily:getMonth', yearMonth),
+  setDailyDay: (date: string, patch: DayRecord) => invoke('daily:setDay', { date, patch }),
+  pruneDaily: (keepDays: number) => invoke('daily:prune', { keepDays }),
+  importLegacyDaily: (entries: Array<{ date: string; record: DayRecord }>) =>
+    invoke('daily:importLegacy', { entries }),
+
   // settings: theme / notifications
   getTheme: () => invoke('settings:getTheme', undefined),
   setTheme: (themeId: string) => invoke('settings:setTheme', themeId),
@@ -39,6 +47,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // settings: integrations
   getWhiteboardSettings: () => invoke('settings:getWhiteboardSettings', undefined),
   setWhiteboardSettings: (enabled: boolean) => invoke('settings:setWhiteboardSettings', { enabled }),
+  getBreakBehaviorSettings: () => invoke('settings:getBreakBehaviorSettings', undefined),
+  setBreakBehaviorSettings: (behavior: 'stop' | 'pause') => invoke('settings:setBreakBehaviorSettings', { behavior }),
 
   // timer signals
   timerStarted: () => invoke('timer:started', undefined),

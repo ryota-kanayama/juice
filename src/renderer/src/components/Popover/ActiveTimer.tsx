@@ -17,6 +17,8 @@ interface Props {
   projectCodeSuggestions?: string[]
   workCategorySuggestions?: string[]
   onStop: (projectCode: string, workCategory: string) => void
+  onBreak?: () => void
+  isOnBreak?: boolean
 }
 
 // fillSeconds で満杯（最大100%）。デフォルトは25分
@@ -27,7 +29,7 @@ function juiceLevel(seconds: number, fillSeconds: number): number {
   return Math.min((seconds / fillSeconds) * 100, 100)
 }
 
-export function ActiveTimer({ name, elapsedSeconds, baseSeconds = 0, fillSeconds = DEFAULT_FILL_SECONDS, color, initialProjectCode, initialWorkCategory, projectCodeSuggestions = [], workCategorySuggestions = [], onStop }: Props) {
+export function ActiveTimer({ name, elapsedSeconds, baseSeconds = 0, fillSeconds = DEFAULT_FILL_SECONDS, color, initialProjectCode, initialWorkCategory, projectCodeSuggestions = [], workCategorySuggestions = [], onStop, onBreak, isOnBreak = false }: Props) {
   const [projectCode, setProjectCode] = useState(initialProjectCode ?? '')
   const [workCategory, setWorkCategory] = useState(initialWorkCategory ?? '')
   const resolvedColor = resolveJuiceColor(color)
@@ -102,9 +104,16 @@ export function ActiveTimer({ name, elapsedSeconds, baseSeconds = 0, fillSeconds
           />
         </div>
 
-        <Button variant="outline" size="lg" onClick={() => onStop(projectCode, workCategory)}>
-          やめる
-        </Button>
+        <div className="flex gap-2">
+          {onBreak && (
+            <Button variant="outline" size="lg" className="border-amber-400 text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950" onClick={onBreak}>
+              {isOnBreak ? '休憩終了' : '休憩'}
+            </Button>
+          )}
+          <Button variant="outline" size="lg" onClick={() => onStop(projectCode, workCategory)}>
+            やめる
+          </Button>
+        </div>
       </div>
     </Card>
   )

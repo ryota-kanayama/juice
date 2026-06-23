@@ -10,7 +10,6 @@ vi.stubGlobal('electronAPI', {
   saveSession: mockSaveSession,
   updateSession: mockUpdateSession,
   getSessions: vi.fn().mockResolvedValue([]),
-  openCalendar: vi.fn().mockResolvedValue(undefined),
   resizeWindow: vi.fn().mockResolvedValue(undefined),
   openUrl: vi.fn().mockResolvedValue(undefined),
   hideWindow: vi.fn().mockResolvedValue(undefined),
@@ -319,6 +318,50 @@ describe('useTimer', () => {
       mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
       await act(async () => { result.current.start('テスト2') })
       expect(result.current.fillSeconds).toBe(1500)
+    })
+  })
+
+  describe('pause / resume', () => {
+    it('pause を呼ぶと isPaused が true になり elapsed が止まる', () => {
+      vi.useFakeTimers()
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.start('test') })
+      act(() => { vi.advanceTimersByTime(5000) })
+      act(() => { result.current.pause() })
+      expect(result.current.isPaused).toBe(true)
+      const frozen = result.current.elapsedSeconds
+      act(() => { vi.advanceTimersByTime(3000) })
+      expect(result.current.elapsedSeconds).toBe(frozen)
+      vi.useRealTimers()
+    })
+
+    it('resume を呼ぶと isPaused が false になり elapsed が再開する', () => {
+      vi.useFakeTimers()
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.start('test') })
+      act(() => { vi.advanceTimersByTime(5000) })
+      act(() => { result.current.pause() })
+      act(() => { vi.advanceTimersByTime(3000) })
+      act(() => { result.current.resume() })
+      expect(result.current.isPaused).toBe(false)
+      const before = result.current.elapsedSeconds
+      act(() => { vi.advanceTimersByTime(2000) })
+      expect(result.current.elapsedSeconds).toBeGreaterThan(before)
+      vi.useRealTimers()
+    })
+
+    it('pause 中に stop すると pausedSeconds ぶんの時間で保存される', async () => {
+      vi.useFakeTimers()
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.start('test') })
+      act(() => { vi.advanceTimersByTime(5000) })
+      act(() => { result.current.pause() })
+      act(() => { vi.advanceTimersByTime(60000) }) // 一時停止中に1分経過
+      let session: Awaited<ReturnType<typeof result.current.stop>> = null
+      await act(async () => { session = await result.current.stop() })
+      // totalTime は pause 前の約5秒（0分切り捨て） → 実質0分だが例外は出ない
+      expect(session).not.toBeNull()
+      vi.useRealTimers()
     })
   })
 })

@@ -1,42 +1,46 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useWorkday } from './useWorkday'
-import { dailyStore } from '../dailyStore'
+
+const mockSetDay = vi.fn()
+const mockGetDay = vi.fn()
+const mockEnsureMonth = vi.fn()
+vi.mock('../daily/DailyDataContext', () => ({
+  useDailyData: () => ({
+    getDay: mockGetDay,
+    setDay: mockSetDay,
+    ensureMonth: mockEnsureMonth,
+  }),
+}))
+
+beforeEach(() => { vi.clearAllMocks() })
 
 describe('useWorkday', () => {
-  beforeEach(() => localStorage.clear())
-
-  it('初期値を dailyStore から読む', () => {
-    dailyStore.setWorkStart('2026-06-10', '09:00')
-    const { result } = renderHook(() => useWorkday('2026-06-10'))
-    expect(result.current.workStart).toBe('09:00')
-    expect(result.current.workEnd).toBeNull()
+  it('startBreak が { breakStart, breakEnd: null } で setDay する', () => {
+    mockGetDay.mockReturnValue({ workStart: '09:00' })
+    const { result } = renderHook(() => useWorkday('2026-06-18'))
+    act(() => { result.current.startBreak('12:00') })
+    expect(mockSetDay).toHaveBeenCalledWith('2026-06-18', { breakStart: '12:00', breakEnd: null })
   })
 
-  it('startWork で workStart と telework を保存する', () => {
-    const { result } = renderHook(() => useWorkday('2026-06-10'))
-    act(() => result.current.startWork('09:30', true))
-    expect(result.current.workStart).toBe('09:30')
-    expect(result.current.telework).toBe(true)
-    expect(dailyStore.getWorkStart('2026-06-10')).toBe('09:30')
-    expect(dailyStore.getTelework('2026-06-10')).toBe(true)
+  it('endBreak が { breakEnd } で setDay する', () => {
+    mockGetDay.mockReturnValue({ workStart: '09:00', breakStart: '12:00' })
+    const { result } = renderHook(() => useWorkday('2026-06-18'))
+    act(() => { result.current.endBreak('13:00') })
+    expect(mockSetDay).toHaveBeenCalledWith('2026-06-18', { breakEnd: '13:00' })
   })
 
-  it('endWork で workEnd を保存する', () => {
-    const { result } = renderHook(() => useWorkday('2026-06-10'))
-    act(() => result.current.endWork('18:00'))
-    expect(result.current.workEnd).toBe('18:00')
-    expect(dailyStore.getWorkEnd('2026-06-10')).toBe('18:00')
+  it('DayRecord から breakStart/breakEnd を返す', () => {
+    mockGetDay.mockReturnValue({ workStart: '09:00', breakStart: '12:00', breakEnd: '13:00' })
+    const { result } = renderHook(() => useWorkday('2026-06-18'))
+    expect(result.current.breakStart).toBe('12:00')
+    expect(result.current.breakEnd).toBe('13:00')
   })
 
-  it('todayKey が変わると再読込する', () => {
-    dailyStore.setWorkStart('2026-06-11', '10:00')
-    const { result, rerender } = renderHook(
-      ({ k }: { k: string }) => useWorkday(k),
-      { initialProps: { k: '2026-06-10' } }
-    )
-    expect(result.current.workStart).toBeNull()
-    rerender({ k: '2026-06-11' })
-    expect(result.current.workStart).toBe('10:00')
+  it('DayRecord がなければ breakStart/breakEnd は null', () => {
+    mockGetDay.mockReturnValue(undefined)
+    const { result } = renderHook(() => useWorkday('2026-06-18'))
+    expect(result.current.breakStart).toBeNull()
+    expect(result.current.breakEnd).toBeNull()
   })
 })

@@ -9,9 +9,27 @@ function parseHHMM(t: string): number | null {
   return Number(m[1]) * 60 + Number(m[2])
 }
 
+/** 休憩開始〜終了の差分を分で返す。どちらか null または逆順なら 60（デフォルト）。 */
+export function calcBreakMinutes(start: string | null, end: string | null): number {
+  if (!start || !end) return 60
+  const s = parseHHMM(start)
+  const e = parseHHMM(end)
+  return (s != null && e != null && e > s) ? e - s : 60
+}
+
 /** "HH:mm" 形式として妥当か */
 export function isValidWorkTime(t: string | null): boolean {
   return !!t && /^\d{1,2}:\d{2}$/.test(t)
+}
+
+export interface AttendanceTextResult {
+  /** 勤怠システムへ送るテキスト */
+  text: string
+  /**
+   * タイマー合計が実労働時間を超えた分数。超過がなければ null。
+   * 超過時は自動調整せずこの値を警告として UI に表示する。
+   */
+  overageMinutes: number | null
 }
 
 /** 勤怠報告テキストを生成する */
@@ -20,7 +38,7 @@ export function buildAttendanceText(
   workStart: string | null,
   workEnd: string | null,
   breakMinutes: number
-): string {
+): AttendanceTextResult {
   const map = new Map<string, { name: string; projectCode: string; workCategory: string; totalMinutes: number }>()
 
   for (const s of sessions) {
@@ -39,37 +57,33 @@ export function buildAttendanceText(
     }
   }
 
-  let groups = Array.from(map.values()).filter(g => g.totalMinutes > 0)
+  const groups = Array.from(map.values()).filter(g => g.totalMinutes > 0)
 
-  // 勤務時間から休憩を引いた実労働時間と、タイマー合計の差分を末尾のタスクから順に調整し、
-  // 報告合計を実労働時間に一致させる。
-  // - プラス差分（計測しきれなかった分）: 最後のタスクに加算
-  // - マイナス差分（タイマー超過）: 最後のタスクから差し引き、負になる分は手前へ繰り越す
+  let overageMinutes: number | null = null
+
+  // 勤務時間から休憩を引いた実労働時間とタイマー合計を比較する。
+  // - プラス差分（計測漏れ）: 最後のタスクに加算して合計を実労働時間に合わせる
+  // - マイナス差分（タイマー超過）: 自動調整せず overageMinutes として返す
   if (groups.length > 0 && workStart && workEnd) {
     const startMin = parseHHMM(workStart)
     const endMin = parseHHMM(workEnd)
     if (startMin != null && endMin != null) {
       const actualWorkMinutes = endMin - startMin - breakMinutes
       const timerTotal = groups.reduce((sum, g) => sum + g.totalMinutes, 0)
-      let diff = actualWorkMinutes - timerTotal
-      for (let i = groups.length - 1; i >= 0 && diff !== 0; i--) {
-        const adjusted = groups[i].totalMinutes + diff
-        if (adjusted >= 0) {
-          groups[i].totalMinutes = adjusted
-          diff = 0
-        } else {
-          // このタスクで吸収しきれないマイナス分を手前へ繰り越す
-          diff = adjusted
-          groups[i].totalMinutes = 0
-        }
+      const diff = actualWorkMinutes - timerTotal
+      if (diff > 0) {
+        groups[groups.length - 1].totalMinutes += diff
+      } else if (diff < 0) {
+        overageMinutes = -diff
       }
-      // 調整で 0 になったタスクは報告から除く
-      groups = groups.filter(g => g.totalMinutes > 0)
     }
   }
 
   const timeLine = `${workStart ?? ''} ${workEnd ?? ''} ${breakMinutes}`
   const taskLines = groups.map(g => `${g.projectCode} ${g.name} ${g.workCategory} ${g.totalMinutes}`)
 
-  return ['勤怠', timeLine, ...taskLines].join('\n')
+  return {
+    text: ['勤怠', timeLine, ...taskLines].join('\n'),
+    overageMinutes,
+  }
 }

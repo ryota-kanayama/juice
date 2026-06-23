@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { formatLocalDate, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit, applyTimeEdit, hasRunningInterval } from '../../domain/session'
-import { dailyStore } from '../../dailyStore'
+import { useDailyData } from '../../daily/DailyDataContext'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { SessionFormDialog, type SessionFormValues } from './SessionFormDialog'
@@ -32,13 +32,19 @@ interface Props {
   workStart?: string | null
   workEnd?: string | null
   onWorkEnd?: (time: string) => void
+  breakStart?: string | null
+  breakEnd?: string | null
+  onBreakStart?: () => void
+  onBreakEnd?: () => void
   suggestions?: Suggestions
 }
 
 const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
 
-export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, workStart = null, workEnd = null, onWorkEnd, suggestions = EMPTY_SUGGESTIONS }: Props) {
+export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, workStart = null, workEnd = null, onWorkEnd, breakStart = null, breakEnd = null, onBreakStart, onBreakEnd, suggestions = EMPTY_SUGGESTIONS }: Props) {
   const todayKey = today ?? formatLocalDate(Date.now())
+  const daily = useDailyData()
+  useEffect(() => { daily.ensureMonth(todayKey.slice(0, 7)) }, [todayKey, daily])
 
   const [endPickerOpen, setEndPickerOpen] = useState(false)
   const [timePickerValue, setTimePickerValue] = useState('')
@@ -55,28 +61,16 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
   const { expandedId, setExpandedId } = useExpandedItem()
 
-  // カスタム順序（ドラッグ&ドロップ）またはデフォルトの時刻順
-  const [customOrder, setCustomOrder] = useState<string[] | null>(
-    () => dailyStore.getSessionOrder(todayKey)
-  )
+  // カスタム順序（ドラッグ&ドロップ）またはデフォルトの時刻順。日次ストアが正。
+  const customOrder = daily.getDay(todayKey)?.sessionOrder ?? null
 
-  // 日付変更時にカスタム順序をリセット
-  useEffect(() => {
-    setCustomOrder(dailyStore.getSessionOrder(todayKey))
-  }, [todayKey])
-
-  // セッションの追加/削除に customOrder を追従させる。
-  // orderSessions の結果（削除IDを除き、新規IDを末尾に取り込んだ順）で正規化して
-  // 表示と localStorage を一致させ、死んだIDが溜まるのを防ぐ。
+  // セッションの追加/削除に customOrder を追従させる。死んだIDを除き新規IDを末尾へ。
   useEffect(() => {
     if (!customOrder) return
     const synced = orderSessions(sessions, customOrder).map(s => s.id)
     const changed = synced.length !== customOrder.length || synced.some((id, i) => id !== customOrder[i])
-    if (changed) {
-      setCustomOrder(synced)
-      dailyStore.setSessionOrder(todayKey, synced)
-    }
-  }, [sessions, customOrder, todayKey])
+    if (changed) void daily.setDay(todayKey, { sessionOrder: synced })
+  }, [sessions, customOrder, todayKey, daily])
 
   const sortedSessions = orderSessions(sessions, customOrder)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
@@ -88,8 +82,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     handleDragStart, handleDragOver, handleListDragOver, handleDragLeave, handleDrop, handleDragEnd,
   } = useDragReorder({
     orderedIds: sortedSessions.map(s => s.id),
-    todayKey,
-    onReorder: setCustomOrder,
+    onReorder: (order) => { void daily.setDay(todayKey, { sessionOrder: order }) },
     page,
     totalPages,
     changePage,
@@ -265,14 +258,19 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         <CardContent className="flex items-center justify-between px-3 py-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5">
             {workStart && !workEnd && (
-              <Button
-                variant="destructive"
-                size="sm"
-                className="h-7"
-                onClick={handleWorkEnd}
-              >
-                終了
-              </Button>
+              breakStart === null ? (
+                <Button variant="outline" size="sm" className="h-7 border-amber-400 text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950" onClick={onBreakStart}>
+                  休憩
+                </Button>
+              ) : breakEnd === null ? (
+                <Button variant="outline" size="sm" className="h-7 border-amber-400 text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950" onClick={onBreakEnd}>
+                  休憩終了
+                </Button>
+              ) : (
+                <Button variant="destructive" size="sm" className="h-7" onClick={handleWorkEnd}>
+                  終了
+                </Button>
+              )
             )}
             <span className="min-w-[90px] text-[11px] text-[var(--text-muted)]">
               {workStart ? `${workStart}${workEnd ? `〜${workEnd}` : '〜'}` : ''}

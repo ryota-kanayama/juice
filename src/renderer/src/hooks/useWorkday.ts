@@ -1,39 +1,55 @@
-import { useState, useEffect, useCallback } from 'react'
-import { dailyStore } from '../dailyStore'
+import { useEffect, useCallback } from 'react'
+import { useDailyData } from '../daily/DailyDataContext'
 
 export interface WorkdayState {
   workStart: string | null
   workEnd: string | null
+  breakStart: string | null
+  breakEnd: string | null
   telework: boolean
   /** 業務開始時刻と在宅フラグを保存する */
   startWork: (time: string, telework: boolean) => void
   /** 業務終了時刻を保存する */
   endWork: (time: string) => void
+  startBreak: (time: string) => void
+  endBreak: (time: string) => void
+  setBreakMinutes: (minutes: number) => void
 }
 
-/** 日付（todayKey）ごとの勤怠時刻を localStorage と同期する。日付が変わると再読込する。 */
+/** 日付（todayKey）ごとの勤怠時刻を日次ストアと同期する。 */
 export function useWorkday(todayKey: string): WorkdayState {
-  const [workStart, setWorkStart] = useState<string | null>(() => dailyStore.getWorkStart(todayKey))
-  const [workEnd, setWorkEnd] = useState<string | null>(() => dailyStore.getWorkEnd(todayKey))
-  const [telework, setTelework] = useState<boolean>(() => dailyStore.getTelework(todayKey))
+  const daily = useDailyData()
 
   useEffect(() => {
-    setWorkStart(dailyStore.getWorkStart(todayKey))
-    setWorkEnd(dailyStore.getWorkEnd(todayKey))
-    setTelework(dailyStore.getTelework(todayKey))
-  }, [todayKey])
+    daily.ensureMonth(todayKey.slice(0, 7))
+  }, [todayKey, daily])
+
+  const day = daily.getDay(todayKey)
+  const workStart = day?.workStart ?? null
+  const workEnd = day?.workEnd ?? null
+  const breakStart = day?.breakStart ?? null
+  const breakEnd = day?.breakEnd ?? null
+  const telework = day?.telework ?? false
 
   const startWork = useCallback((time: string, tw: boolean): void => {
-    dailyStore.setWorkStart(todayKey, time)
-    dailyStore.setTelework(todayKey, tw)
-    setWorkStart(time)
-    setTelework(tw)
-  }, [todayKey])
+    void daily.setDay(todayKey, { workStart: time, telework: tw })
+  }, [todayKey, daily])
 
   const endWork = useCallback((time: string): void => {
-    dailyStore.setWorkEnd(todayKey, time)
-    setWorkEnd(time)
-  }, [todayKey])
+    void daily.setDay(todayKey, { workEnd: time })
+  }, [todayKey, daily])
 
-  return { workStart, workEnd, telework, startWork, endWork }
+  const startBreak = useCallback((time: string): void => {
+    void daily.setDay(todayKey, { breakStart: time, breakEnd: null })
+  }, [todayKey, daily])
+
+  const endBreak = useCallback((time: string): void => {
+    void daily.setDay(todayKey, { breakEnd: time })
+  }, [todayKey, daily])
+
+  const setBreakMinutes = useCallback((minutes: number): void => {
+    void daily.setDay(todayKey, { breakMinutes: minutes })
+  }, [todayKey, daily])
+
+  return { workStart, workEnd, breakStart, breakEnd, telework, startWork, endWork, startBreak, endBreak, setBreakMinutes }
 }

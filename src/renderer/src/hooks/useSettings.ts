@@ -11,11 +11,13 @@ export interface SettingsState {
   elapsedMinutes: number
   pomodoroEnabled: boolean
   whiteboardEnabled: boolean
+  breakBehavior: 'stop' | 'pause'
   setTheme: (themeId: string) => void
   setIdle: (enabled: boolean, minutes: number) => void
   setElapsed: (enabled: boolean, minutes: number) => void
   setPomodoro: (enabled: boolean) => void
   setWhiteboard: (enabled: boolean) => void
+  setBreakBehavior: (b: 'stop' | 'pause') => void
 }
 
 /** 設定画面のオーケストレーション。各設定の読み出し・即時反映・永続化を統括。 */
@@ -27,6 +29,7 @@ export function useSettings(): SettingsState {
   const [elapsedMinutes, setElapsedMinutes] = useState(30)
   const [pomodoroEnabled, setPomodoroEnabled] = useState(false)
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
+  const [breakBehavior, setBreakBehaviorState] = useState<'stop' | 'pause'>('stop')
 
   useEffect(() => {
     const offThemeChanged = settingsRepository.onThemeChanged(setActiveThemeId)
@@ -45,12 +48,13 @@ export function useSettings(): SettingsState {
     settingsRepository.getWhiteboard().then(({ enabled }) => {
       setWhiteboardEnabled(enabled)
     })
+    settingsRepository.getBreakBehavior().then(({ behavior }) => setBreakBehaviorState(behavior))
     return offThemeChanged
   }, [])
 
   return {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    whiteboardEnabled,
+    whiteboardEnabled, breakBehavior,
 
     setTheme: (themeId): void => {
       // 即時反映（IPC待ちなし）
@@ -75,6 +79,10 @@ export function useSettings(): SettingsState {
     setWhiteboard: (enabled): void => {
       setWhiteboardEnabled(enabled)
       settingsRepository.setWhiteboard(enabled)
+    },
+    setBreakBehavior: (b): void => {
+      setBreakBehaviorState(b)
+      settingsRepository.setBreakBehavior(b)
     },
   }
 }

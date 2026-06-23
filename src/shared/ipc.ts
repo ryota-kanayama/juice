@@ -1,4 +1,4 @@
-import type { Session } from './types'
+import type { Session, DailyMonth, DayRecord } from './types'
 
 // IPC コントラクト: メインプロセスとレンダラーで共有する契約。
 // チャンネル名のリテラル衝突、ハンドラ追加忘れ、引数/戻り値のドリフトを型で防ぐ。
@@ -20,6 +20,10 @@ export interface WhiteboardSettings {
 
 export interface PomodoroSettings {
   enabled: boolean
+}
+
+export interface BreakBehaviorSettings {
+  behavior: 'stop' | 'pause'
 }
 
 export interface AuthStatus {
@@ -44,6 +48,12 @@ export interface IpcContract {
   'sessions:update': [session: Session, void]
   'sessions:delete': [{ id: string; yearMonth: string }, void]
 
+  // daily（日次勤務データ）
+  'daily:getMonth': [yearMonth: string, DailyMonth]
+  'daily:setDay': [{ date: string; patch: DayRecord }, void]
+  'daily:prune': [{ keepDays: number }, void]
+  'daily:importLegacy': [{ entries: Array<{ date: string; record: DayRecord }> }, void]
+
   // settings: theme / notifications
   'settings:getTheme': [void, string]
   'settings:setTheme': [themeId: string, void]
@@ -57,6 +67,8 @@ export interface IpcContract {
   // settings: integrations
   'settings:getWhiteboardSettings': [void, WhiteboardSettings]
   'settings:setWhiteboardSettings': [{ enabled: boolean }, void]
+  'settings:getBreakBehaviorSettings': [void, BreakBehaviorSettings]
+  'settings:setBreakBehaviorSettings': [{ behavior: 'stop' | 'pause' }, void]
 
   // timer signals
   'timer:started': [void, void]

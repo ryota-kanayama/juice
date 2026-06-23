@@ -11,6 +11,7 @@ interface Settings {
   pomodoroEnabled: boolean
   setupCompleted: boolean
   whiteboardEnabled: boolean
+  breakBehavior: 'stop' | 'pause'
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS: Settings = {
   pomodoroEnabled: false,
   setupCompleted: false,
   whiteboardEnabled: false,
+  breakBehavior: 'stop',
 }
 
 export class SettingsStore {
@@ -83,8 +85,20 @@ export class SettingsStore {
 
   private async readAll(): Promise<Settings> {
     const parse = (content: string): Settings => {
-      const parsed = JSON.parse(content)
-      return { ...DEFAULT_SETTINGS, ...parsed, themeId: this.migrateThemeId(parsed.themeId ?? DEFAULT_SETTINGS.themeId) }
+      const parsed = JSON.parse(content) as Partial<Settings>
+      // Settings の既知キーだけを採用し、未知キー（旧 slackProjectCode 等）を捨てる。
+      // 各キーは欠落時 DEFAULT_SETTINGS で補完する。
+      return {
+        themeId: this.migrateThemeId(parsed.themeId ?? DEFAULT_SETTINGS.themeId),
+        idleNotificationEnabled: parsed.idleNotificationEnabled ?? DEFAULT_SETTINGS.idleNotificationEnabled,
+        idleNotificationMinutes: parsed.idleNotificationMinutes ?? DEFAULT_SETTINGS.idleNotificationMinutes,
+        elapsedNotificationEnabled: parsed.elapsedNotificationEnabled ?? DEFAULT_SETTINGS.elapsedNotificationEnabled,
+        elapsedNotificationMinutes: parsed.elapsedNotificationMinutes ?? DEFAULT_SETTINGS.elapsedNotificationMinutes,
+        pomodoroEnabled: parsed.pomodoroEnabled ?? DEFAULT_SETTINGS.pomodoroEnabled,
+        setupCompleted: parsed.setupCompleted ?? DEFAULT_SETTINGS.setupCompleted,
+        whiteboardEnabled: parsed.whiteboardEnabled ?? DEFAULT_SETTINGS.whiteboardEnabled,
+        breakBehavior: (parsed.breakBehavior === 'pause' ? 'pause' : 'stop'),
+      }
     }
     try {
       return parse(await readFile(this.filePath, 'utf-8'))
@@ -166,5 +180,14 @@ export class SettingsStore {
 
   async setWhiteboardSettings(enabled: boolean): Promise<void> {
     await this.update(s => ({ ...s, whiteboardEnabled: enabled }))
+  }
+
+  async getBreakBehaviorSettings(): Promise<{ behavior: 'stop' | 'pause' }> {
+    const s = await this.readAll()
+    return { behavior: s.breakBehavior }
+  }
+
+  async setBreakBehaviorSettings(behavior: 'stop' | 'pause'): Promise<void> {
+    await this.update(s => ({ ...s, breakBehavior: behavior }))
   }
 }

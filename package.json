@@ -1,5 +1,5 @@
 {
-  "name": "juice-timer",
+  "name": "juice",
   "version": "1.0.0",
   "description": "macOS menu bar timer app",
   "main": "out/main/index.js",
@@ -73,7 +73,7 @@
     "vitest": "^4.0.18"
   },
   "build": {
-    "appId": "com.kanaami.juice-timer",
+    "appId": "com.kanaami.juice",
     "productName": "Juice",
     "mac": {
       "category": "public.app-category.productivity",

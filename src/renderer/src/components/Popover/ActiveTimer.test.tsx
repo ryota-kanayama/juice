@@ -154,4 +154,41 @@ describe('ActiveTimer', () => {
     const juiceLevel = container.querySelector('[data-testid="juice-level"]')
     expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
   })
+
+  describe('休憩ボタン', () => {
+    const basePropsWithOnBreak = {
+      name: 'テスト作業',
+      elapsedSeconds: 300,
+      baseSeconds: 0,
+      fillSeconds: 1500,
+      color: '#FF9500',
+      initialProjectCode: 'PJ',
+      initialWorkCategory: '開発',
+      projectCodeSuggestions: [],
+      workCategorySuggestions: [],
+      onStop: vi.fn(),
+    }
+
+    it('onBreak が渡されると「休憩」ボタンが表示される', () => {
+      render(<ActiveTimer {...basePropsWithOnBreak} onBreak={vi.fn()} isOnBreak={false} />)
+      expect(screen.getByRole('button', { name: '休憩' })).toBeDefined()
+    })
+
+    it('「休憩」を押すと onBreak が呼ばれる', async () => {
+      const onBreak = vi.fn()
+      render(<ActiveTimer {...basePropsWithOnBreak} onBreak={onBreak} isOnBreak={false} />)
+      await userEvent.click(screen.getByRole('button', { name: '休憩' }))
+      expect(onBreak).toHaveBeenCalled()
+    })
+
+    it('isOnBreak=true のとき「休憩終了」が表示される', () => {
+      render(<ActiveTimer {...basePropsWithOnBreak} onBreak={vi.fn()} isOnBreak={true} />)
+      expect(screen.getByRole('button', { name: '休憩終了' })).toBeDefined()
+    })
+
+    it('onBreak が渡されないと休憩ボタンは表示されない', () => {
+      render(<ActiveTimer {...basePropsWithOnBreak} />)
+      expect(screen.queryByRole('button', { name: '休憩' })).toBeNull()
+    })
+  })
 })

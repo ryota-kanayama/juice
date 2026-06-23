@@ -30,6 +30,11 @@ export function MonthView({
 
   const sessionDateSet = new Set(sessionDates)
 
+  const todayStr = (() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  })()
+
   // 曜日見出し(auto) + 週の行(均等)で残り高さを埋める
   const numWeekRows = Math.ceil(cells.length / 7)
 
@@ -60,6 +65,7 @@ export function MonthView({
           const dateStr = `${year}-${pad(month)}-${pad(day)}`
           const hasSession = sessionDateSet.has(dateStr)
           const isSelected = selectedDate === dateStr
+          const isToday = dateStr === todayStr
           const dayOfWeek = new Date(year, month - 1, day).getDay()
           const isSunday = dayOfWeek === 0
           const isSaturday = dayOfWeek === 6
@@ -79,7 +85,9 @@ export function MonthView({
                 hasSession ? 'font-semibold' : '',
                 isSelected
                   ? 'bg-[image:var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)]'
-                  : 'bg-transparent hover:bg-[var(--accent-light)]',
+                  : isToday
+                    ? 'bg-[var(--today-light)] hover:bg-[var(--today-light)]'
+                    : 'bg-transparent hover:bg-[var(--accent-light)]',
                 textColor,
               ].filter(Boolean).join(' ')}
               title={isHoliday ? holidays[dateStr] : undefined}

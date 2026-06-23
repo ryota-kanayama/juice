@@ -1,14 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Session } from '../types/session'
 import { orderSessions } from '../../../shared/sessionUtils'
-import { dailyStore } from '../dailyStore'
-import { buildAttendanceText, isValidWorkTime } from '../domain/attendance'
+import { useDailyData } from '../daily/DailyDataContext'
+import { buildAttendanceText, isValidWorkTime, calcBreakMinutes } from '../domain/attendance'
 import { attendanceRepository } from '../repositories/attendanceRepository'
 
 export interface AttendanceReportState {
   breakMinutes: number
   setBreakMinutes: (value: number) => void
+  workStart: string | null
+  setWorkStart: (time: string) => void
+  workEnd: string | null
+  setWorkEnd: (time: string) => void
   text: string
+  /** タイマー合計が実労働時間を超えた分数。超過なければ null */
+  overageMinutes: number | null
   canSend: boolean
   copied: boolean
   sending: boolean
@@ -20,16 +26,35 @@ export interface AttendanceReportState {
 
 /** 勤怠レポート画面のオーケストレーション。domain / repository を組み合わせ state を持つ。 */
 export function useAttendanceReport(sessions: Session[], today: string): AttendanceReportState {
-  const [breakMinutes, setBreakMinutes] = useState(60)
+  const daily = useDailyData()
+  useEffect(() => { daily.ensureMonth(today.slice(0, 7)) }, [today, daily])
+  const day = daily.getDay(today)
+  const workStart = day?.workStart ?? null
+  const workEnd = day?.workEnd ?? null
+  const breakStart = day?.breakStart ?? null
+  const breakEnd = day?.breakEnd ?? null
+
+  // DayRecord に保存済みの値を優先し、なければ breakStart/breakEnd から計算する
+  const breakMinutes = day?.breakMinutes ?? calcBreakMinutes(breakStart, breakEnd)
+
+  const setBreakMinutes = (value: number): void => {
+    void daily.setDay(today, { breakMinutes: value })
+  }
+
+  const setWorkStart = (time: string): void => {
+    void daily.setDay(today, { workStart: time })
+  }
+
+  const setWorkEnd = (time: string): void => {
+    void daily.setDay(today, { workEnd: time })
+  }
+
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
 
-  const todayKey = today
-  const workStart = dailyStore.getWorkStart(todayKey)
-  const workEnd = dailyStore.getWorkEnd(todayKey)
-  const orderedSessions = orderSessions(sessions, dailyStore.getSessionOrder(todayKey))
-  const text = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
+  const orderedSessions = orderSessions(sessions, day?.sessionOrder ?? null)
+  const { text, overageMinutes } = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
 
   const canSend = isValidWorkTime(workStart) && isValidWorkTime(workEnd) && sessions.length > 0
 
@@ -61,5 +86,5 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
     }
   }
 
-  return { breakMinutes, setBreakMinutes, text, canSend, copied, sending, sendResult, copy, send }
+  return { breakMinutes, setBreakMinutes, workStart, setWorkStart, workEnd, setWorkEnd, text, overageMinutes, canSend, copied, sending, sendResult, copy, send }
 }
