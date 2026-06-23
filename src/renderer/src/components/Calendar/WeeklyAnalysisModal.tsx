@@ -16,63 +16,63 @@ export function WeeklyAnalysisModal({ date, onClose }: Props) {
 
   return (
     <Dialog open={date !== null} onOpenChange={open => { if (!open) onClose() }}>
-      <DialogContent className="w-[296px] gap-2 p-4" aria-describedby={undefined}>
-        <DialogTitle className="text-[13px] font-bold leading-tight">
+      <DialogContent className="w-[306px] gap-2 p-4" aria-describedby={undefined}>
+        <DialogTitle className="text-[14px] font-bold leading-tight">
           週次分析{analysis ? ` — ${analysis.weekLabel}` : ''}
         </DialogTitle>
 
         {loading || !analysis ? (
-          <p className="py-3 text-center text-[11px] text-muted-foreground">読み込み中…</p>
+          <p className="py-3 text-center text-[12px] text-muted-foreground">読み込み中…</p>
         ) : (
-          <table className="w-full border-collapse text-[11px]">
+          <table className="w-full border-collapse text-[12px]">
             <thead>
               <tr>
-                <th className="pb-1 text-left text-[10px] font-medium text-muted-foreground"></th>
+                <th className="pb-1.5 text-left text-[11px] font-medium text-muted-foreground"></th>
                 {analysis.days.map(d => (
-                  <th key={d.date} className="pb-1 w-[38px] text-center text-[10px] font-medium text-muted-foreground">
+                  <th key={d.date} className="pb-1.5 w-[38px] text-center text-[11px] font-medium text-muted-foreground">
                     {d.dayLabel}
                   </th>
                 ))}
-                <th className="pb-1 w-[38px] text-center text-[10px] font-medium text-muted-foreground">平均</th>
+                <th className="pb-1.5 w-[38px] text-center text-[11px] font-medium text-muted-foreground">平均</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               <tr>
-                <td className="py-[5px] text-muted-foreground whitespace-nowrap">所定(分)</td>
+                <td className="py-1.5 text-muted-foreground whitespace-nowrap">所定(分)</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center tabular-nums">{d.scheduledMinutes}</td>
+                  <td key={d.date} className="py-1.5 text-center tabular-nums">{d.scheduledMinutes}</td>
                 ))}
-                <td className="py-[5px] text-center text-muted-foreground">—</td>
+                <td className="py-1.5 text-center text-muted-foreground">—</td>
               </tr>
               <tr>
-                <td className="py-[5px] text-muted-foreground whitespace-nowrap">実稼働(分)</td>
+                <td className="py-1.5 text-muted-foreground whitespace-nowrap">実稼働(分)</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center tabular-nums">{fmt(d.actualMinutes)}</td>
+                  <td key={d.date} className="py-1.5 text-center tabular-nums">{fmt(d.actualMinutes)}</td>
                 ))}
-                <td className="py-[5px] text-center text-muted-foreground">—</td>
+                <td className="py-1.5 text-center text-muted-foreground">—</td>
               </tr>
               <tr>
-                <td className="py-[5px] text-muted-foreground whitespace-nowrap">PJ外(分)</td>
+                <td className="py-1.5 text-muted-foreground whitespace-nowrap">PJ外(分)</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center tabular-nums">{d.nonProjectMinutes}</td>
+                  <td key={d.date} className="py-1.5 text-center tabular-nums">{d.nonProjectMinutes}</td>
                 ))}
-                <td className="py-[5px] text-center text-muted-foreground">—</td>
+                <td className="py-1.5 text-center text-muted-foreground">—</td>
               </tr>
               <tr>
-                <td className="py-[5px] text-muted-foreground whitespace-nowrap">想定外(分)</td>
+                <td className="py-1.5 text-muted-foreground whitespace-nowrap">想定外(分)</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center tabular-nums">{d.unexpectedMinutes}</td>
+                  <td key={d.date} className="py-1.5 text-center tabular-nums">{d.unexpectedMinutes}</td>
                 ))}
-                <td className="py-[5px] text-center text-muted-foreground">—</td>
+                <td className="py-1.5 text-center text-muted-foreground">—</td>
               </tr>
               <tr className="font-semibold">
-                <td className="py-[5px] whitespace-nowrap">稼働率</td>
+                <td className="py-1.5 whitespace-nowrap">稼働率</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center tabular-nums text-[var(--accent)]">
+                  <td key={d.date} className="py-1.5 text-center tabular-nums text-[var(--accent)]">
                     {fmt(d.utilizationRate, '%')}
                   </td>
                 ))}
-                <td className="py-[5px] text-center tabular-nums text-[var(--accent)]">
+                <td className="py-1.5 text-center tabular-nums text-[var(--accent)]">
                   {fmt(analysis.weeklyAvgUtilization, '%')}
                 </td>
               </tr>
