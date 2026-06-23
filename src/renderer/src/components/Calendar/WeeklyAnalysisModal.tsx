@@ -16,70 +16,68 @@ export function WeeklyAnalysisModal({ date, onClose }: Props) {
 
   return (
     <Dialog open={date !== null} onOpenChange={open => { if (!open) onClose() }}>
-      <DialogContent className="max-w-[560px]" aria-describedby={undefined}>
-        <DialogTitle className="text-[14px] font-bold">
+      <DialogContent className="w-[296px]" aria-describedby={undefined}>
+        <DialogTitle className="text-[13px] font-bold">
           週次分析{analysis ? ` — ${analysis.weekLabel}` : ''}
         </DialogTitle>
 
         {loading || !analysis ? (
-          <p className="py-4 text-center text-[13px] text-muted-foreground">読み込み中…</p>
+          <p className="py-4 text-center text-[12px] text-muted-foreground">読み込み中…</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[12px]">
-              <thead>
-                <tr>
-                  <th className="py-1.5 pr-3 text-left text-[11px] font-medium text-muted-foreground"></th>
-                  {analysis.days.map(d => (
-                    <th key={d.date} className="px-2 py-1.5 text-center text-[11px] font-medium text-muted-foreground">
-                      {d.dayLabel}
-                    </th>
-                  ))}
-                  <th className="px-2 py-1.5 text-center text-[11px] font-medium text-muted-foreground">週平均</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                <tr>
-                  <td className="py-2 pr-3 text-[11px] text-muted-foreground whitespace-nowrap">所定稼働時間 (m)</td>
-                  {analysis.days.map(d => (
-                    <td key={d.date} className="px-2 py-2 text-center tabular-nums">{d.scheduledMinutes}</td>
-                  ))}
-                  <td className="px-2 py-2 text-center text-muted-foreground">—</td>
-                </tr>
-                <tr>
-                  <td className="py-2 pr-3 text-[11px] text-muted-foreground whitespace-nowrap">実稼働時間 (m)</td>
-                  {analysis.days.map(d => (
-                    <td key={d.date} className="px-2 py-2 text-center tabular-nums">{fmt(d.actualMinutes)}</td>
-                  ))}
-                  <td className="px-2 py-2 text-center text-muted-foreground">—</td>
-                </tr>
-                <tr>
-                  <td className="py-2 pr-3 text-[11px] text-muted-foreground whitespace-nowrap">PJ外作業 (m)</td>
-                  {analysis.days.map(d => (
-                    <td key={d.date} className="px-2 py-2 text-center tabular-nums">{d.nonProjectMinutes}</td>
-                  ))}
-                  <td className="px-2 py-2 text-center text-muted-foreground">—</td>
-                </tr>
-                <tr>
-                  <td className="py-2 pr-3 text-[11px] text-muted-foreground whitespace-nowrap">想定外作業 (m)</td>
-                  {analysis.days.map(d => (
-                    <td key={d.date} className="px-2 py-2 text-center tabular-nums">{d.unexpectedMinutes}</td>
-                  ))}
-                  <td className="px-2 py-2 text-center text-muted-foreground">—</td>
-                </tr>
-                <tr className="font-semibold">
-                  <td className="py-2 pr-3 text-[11px] text-foreground whitespace-nowrap">稼働率</td>
-                  {analysis.days.map(d => (
-                    <td key={d.date} className="px-2 py-2 text-center tabular-nums text-[var(--accent)]">
-                      {fmt(d.utilizationRate, '%')}
-                    </td>
-                  ))}
-                  <td className="px-2 py-2 text-center tabular-nums text-[var(--accent)]">
-                    {fmt(analysis.weeklyAvgUtilization, '%')}
+          <table className="w-full border-collapse text-[11px]">
+            <thead>
+              <tr>
+                <th className="pb-1.5 pr-2 text-left text-[10px] font-medium text-muted-foreground"></th>
+                {analysis.days.map(d => (
+                  <th key={d.date} className="px-1 pb-1.5 text-center text-[10px] font-medium text-muted-foreground">
+                    {d.dayLabel}
+                  </th>
+                ))}
+                <th className="px-1 pb-1.5 text-center text-[10px] font-medium text-muted-foreground">週平均</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr>
+                <td className="py-1.5 pr-2 text-[10px] text-muted-foreground whitespace-nowrap">所定 (m)</td>
+                {analysis.days.map(d => (
+                  <td key={d.date} className="px-1 py-1.5 text-center tabular-nums">{d.scheduledMinutes}</td>
+                ))}
+                <td className="px-1 py-1.5 text-center text-muted-foreground">—</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-2 text-[10px] text-muted-foreground whitespace-nowrap">実稼働 (m)</td>
+                {analysis.days.map(d => (
+                  <td key={d.date} className="px-1 py-1.5 text-center tabular-nums">{fmt(d.actualMinutes)}</td>
+                ))}
+                <td className="px-1 py-1.5 text-center text-muted-foreground">—</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-2 text-[10px] text-muted-foreground whitespace-nowrap">PJ外 (m)</td>
+                {analysis.days.map(d => (
+                  <td key={d.date} className="px-1 py-1.5 text-center tabular-nums">{d.nonProjectMinutes}</td>
+                ))}
+                <td className="px-1 py-1.5 text-center text-muted-foreground">—</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 pr-2 text-[10px] text-muted-foreground whitespace-nowrap">想定外 (m)</td>
+                {analysis.days.map(d => (
+                  <td key={d.date} className="px-1 py-1.5 text-center tabular-nums">{d.unexpectedMinutes}</td>
+                ))}
+                <td className="px-1 py-1.5 text-center text-muted-foreground">—</td>
+              </tr>
+              <tr className="font-semibold">
+                <td className="py-1.5 pr-2 text-[10px] text-foreground whitespace-nowrap">稼働率</td>
+                {analysis.days.map(d => (
+                  <td key={d.date} className="px-1 py-1.5 text-center tabular-nums text-[var(--accent)]">
+                    {fmt(d.utilizationRate, '%')}
                   </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                ))}
+                <td className="px-1 py-1.5 text-center tabular-nums text-[var(--accent)]">
+                  {fmt(analysis.weeklyAvgUtilization, '%')}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         )}
       </DialogContent>
     </Dialog>
