@@ -12,6 +12,7 @@ interface Settings {
   setupCompleted: boolean
   whiteboardEnabled: boolean
   breakBehavior: 'stop' | 'pause'
+  mainProjectCode: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: Settings = {
   setupCompleted: false,
   whiteboardEnabled: false,
   breakBehavior: 'stop',
+  mainProjectCode: '',
 }
 
 export class SettingsStore {
@@ -98,6 +100,7 @@ export class SettingsStore {
         setupCompleted: parsed.setupCompleted ?? DEFAULT_SETTINGS.setupCompleted,
         whiteboardEnabled: parsed.whiteboardEnabled ?? DEFAULT_SETTINGS.whiteboardEnabled,
         breakBehavior: (parsed.breakBehavior === 'pause' ? 'pause' : 'stop'),
+        mainProjectCode: parsed.mainProjectCode ?? DEFAULT_SETTINGS.mainProjectCode,
       }
     }
     try {
@@ -189,5 +192,14 @@ export class SettingsStore {
 
   async setBreakBehaviorSettings(behavior: 'stop' | 'pause'): Promise<void> {
     await this.update(s => ({ ...s, breakBehavior: behavior }))
+  }
+
+  async getMainProjectCode(): Promise<string> {
+    const s = await this.readAll()
+    return s.mainProjectCode
+  }
+
+  async setMainProjectCode(code: string): Promise<void> {
+    await this.update(s => ({ ...s, mainProjectCode: code }))
   }
 }

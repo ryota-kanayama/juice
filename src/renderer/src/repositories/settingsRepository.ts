@@ -46,6 +46,13 @@ export const settingsRepository = {
     return window.electronAPI.setBreakBehaviorSettings(behavior)
   },
 
+  getMainProjectCode(): Promise<string> {
+    return window.electronAPI.getMainProjectCode()
+  },
+  setMainProjectCode(code: string): Promise<void> {
+    return window.electronAPI.setMainProjectCode(code)
+  },
+
   completeSetup(): Promise<void> {
     return window.electronAPI.completeSetup()
   },

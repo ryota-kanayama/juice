@@ -19,11 +19,12 @@ interface Props {
   onUpdate?: (session: Session) => Promise<void>
   onBack?: () => void
   suggestions?: Suggestions
+  onOpenAnalysis?: () => void
 }
 
 const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
 
-export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBack, suggestions = EMPTY_SUGGESTIONS }: Props) {
+export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBack, suggestions = EMPTY_SUGGESTIONS, onOpenAnalysis }: Props) {
   // 編集ダイアログ。開くたびに対象セッションの値で初期化する
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<SessionFormValues>(EMPTY_FORM)
@@ -127,10 +128,17 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBac
 
       <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
-      <Card className="mb-2 mt-2 shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]">
-        <CardContent className="flex items-center justify-end px-3 py-2 text-right text-[11px]">
+      <Card
+        className={`mb-2 mt-2 shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]${onOpenAnalysis ? ' cursor-pointer' : ''}`}
+        onDoubleClick={onOpenAnalysis}
+        title={onOpenAnalysis ? 'ダブルクリックで週次分析を表示' : undefined}
+      >
+        <CardContent className="flex items-center justify-between px-3 py-2 text-[11px]">
+          {onOpenAnalysis && (
+            <span className="text-[var(--text-muted)]">ダブルクリックで週次分析を開く</span>
+          )}
           {sessions.length > 0 && (
-            <span>注いだ時間: <strong>{totalMinutes}分</strong></span>
+            <span className="ml-auto text-right">注いだ時間: <strong>{totalMinutes}分</strong></span>
           )}
         </CardContent>
       </Card>

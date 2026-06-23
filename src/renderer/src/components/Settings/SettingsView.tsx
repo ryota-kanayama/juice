@@ -15,12 +15,13 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-type Section = 'theme' | 'notification' | 'account'
+type Section = 'theme' | 'notification' | 'account' | 'analysis'
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: 'theme', label: 'テーマ' },
   { id: 'notification', label: '通知' },
   { id: 'account', label: '連携' },
+  { id: 'analysis', label: '分析' },
 ]
 
 const heading = 'mb-2 mt-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground'
@@ -38,8 +39,8 @@ export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
   const {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    whiteboardEnabled, breakBehavior,
-    setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard, setBreakBehavior,
+    whiteboardEnabled, breakBehavior, mainProjectCode,
+    setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard, setBreakBehavior, setMainProjectCode,
   } = useSettings()
 
   return (
@@ -220,6 +221,35 @@ export function SettingsView() {
                     id="whiteboard"
                     checked={whiteboardEnabled}
                     onCheckedChange={setWhiteboard}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* ─── 分析 ─── */}
+        {activeSection === 'analysis' && (
+          <>
+            <h2 className={heading}>プロジェクト</h2>
+            <Card>
+              <CardContent className="p-0">
+                <div className="flex items-center justify-between gap-3 p-3.5">
+                  <div>
+                    <Label htmlFor="mainProjectCode" className="text-[13px] font-medium text-foreground">
+                      主プロジェクトコード
+                    </Label>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      週次分析でこのコード以外の作業を「PJ外作業」として集計します
+                    </p>
+                  </div>
+                  <input
+                    id="mainProjectCode"
+                    type="text"
+                    value={mainProjectCode}
+                    onChange={e => setMainProjectCode(e.target.value)}
+                    placeholder="例: PROJ-001"
+                    className="h-8 w-32 rounded-md border border-input bg-background px-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </div>
               </CardContent>

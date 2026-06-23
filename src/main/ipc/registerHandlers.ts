@@ -81,6 +81,10 @@ export function registerIpcHandlers(
   handle('settings:getBreakBehaviorSettings', () => settingsStore.getBreakBehaviorSettings())
   handle('settings:setBreakBehaviorSettings', (_, { behavior }) => settingsStore.setBreakBehaviorSettings(behavior))
 
+  // settings: analysis
+  handle('settings:getMainProjectCode', () => settingsStore.getMainProjectCode())
+  handle('settings:setMainProjectCode', (_, code) => settingsStore.setMainProjectCode(code))
+
   // timer signals
   handle('timer:started', () => {
     onTimerStarted(settingsStore)
