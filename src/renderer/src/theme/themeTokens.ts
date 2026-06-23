@@ -58,6 +58,8 @@ function lightVars(p: ThemeParams): Record<string, string> {
     '--accent-secondary': oklchToHex(p.accentLightness - 0.06, p.accentChroma, p.accentHue),
     '--accent-hover': oklchToHex(p.accentLightness - 0.05, p.accentChroma, p.accentHue),
     '--accent-light': oklchToHex(0.93, p.accentChroma * 0.35, p.accentHue),
+    '--today': oklchToHex(p.accentLightness, p.accentChroma, p.accentHue),
+    '--today-light': oklchToHex(0.93, p.accentChroma * 0.35, p.accentHue),
     '--glass-bg': bgCard,
     '--glass-border': border,
   }
@@ -84,6 +86,8 @@ function darkVars(p: ThemeParams): Record<string, string> {
     '--accent-secondary': oklchToHex(p.accentLightness - 0.05, accentChroma, p.accentHue),
     '--accent-hover': oklchToHex(Math.min(p.accentLightness + 0.05, 0.97), accentChroma, p.accentHue),
     '--accent-light': oklchToHex(0.3, accentChroma * 0.5, p.accentHue),
+    '--today': oklchToHex(p.accentLightness, accentChroma, p.accentHue),
+    '--today-light': oklchToHex(0.3, accentChroma * 0.5, p.accentHue),
     '--glass-bg': bgCard,
     '--glass-border': border,
     '--shadow-glass': '0 1px 3px rgba(0, 0, 0, 0.4)',
