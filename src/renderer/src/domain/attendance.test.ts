@@ -25,6 +25,12 @@ describe('buildAttendanceText', () => {
     expect(overageMinutes).toBeNull()
   })
 
+  it('名前の前後・中間の空白を全て除去して出力する', () => {
+    const sessions = [makeSession({ name: '  テ スト　作業  ' })]
+    const { text } = buildAttendanceText(sessions, '08:37', '18:40', 60)
+    expect(text).toBe('勤怠\n08:37 18:40 60\nZZ テスト作業 設計 543')
+  })
+
   it('複数タスクの場合、差分は最後のタスクにのみ加算される', () => {
     // 勤務: 08:37〜18:40 = 603分, 休憩60分 → 実労働543分
     // タイマー合計: 180+60=240分, 差分: 303分 → 最後のタスク: 60+303=363
