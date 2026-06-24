@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { formatLocalDate, formatTimeFromDate, orderSessions } from '../../../../shared/sessionUtils'
-import { applySessionEdit, applyTimeEdit, hasRunningInterval } from '../../domain/session'
+import { applySessionEdit } from '../../domain/session'
 import { useDailyData } from '../../daily/DailyDataContext'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { SessionFormDialog, type SessionFormValues } from './SessionFormDialog'
-import { SessionTimeEditDialog } from './SessionTimeEditDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { usePagination } from '../../hooks/usePagination'
@@ -55,7 +54,6 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<SessionFormValues>(EMPTY_FORM)
   // 時刻編集ダイアログ。区間を持つ完了済みセッションのみ対象
-  const [timeEditTargetId, setTimeEditTargetId] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
@@ -141,20 +139,6 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     try {
       await onUpdate(updated)
       if (adjustedStartMs != null) onAdjustStartTime?.(adjustedStartMs)
-    } catch { /* IPC errors are logged by main process */ }
-  }
-
-  // 区間を持つ完了済みセッションのみ時刻編集できる
-  const canEditTime = (session: Session): boolean =>
-    session.times.length > 0 && !hasRunningInterval(session)
-
-  const handleTimeEditConfirm = async (startTime: string, endTime: string) => {
-    const session = timeEditTargetId ? sessions.find(s => s.id === timeEditTargetId) : null
-    setTimeEditTargetId(null)
-    if (!session || !onUpdate) return
-    const updated = applyTimeEdit(session, { startTime, endTime })
-    try {
-      await onUpdate(updated)
     } catch { /* IPC errors are logged by main process */ }
   }
 
@@ -286,16 +270,16 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         <div
           ref={contextMenuRef}
           data-context-menu
-          className="fixed z-[1000] min-w-[120px] rounded-[8px] border border-border bg-card py-1 shadow-[var(--shadow-elevated)]"
+          className="fixed z-[1000] min-w-[120px] rounded-[8px] border border-border bg-card p-1 shadow-[var(--shadow-elevated)]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-foreground transition-colors duration-200 hover:bg-accent" onMouseDown={e => e.preventDefault()} onClick={openAddDialog}>
+          <button className="flex w-full cursor-pointer items-center gap-1.5 rounded-[6px] border-0 bg-transparent px-3 py-2 text-left text-[13px] text-foreground transition-colors duration-200 hover:bg-accent" onMouseDown={e => e.preventDefault()} onClick={openAddDialog}>
             <Timer width={14} height={14} /> 追加
           </button>
           {contextMenu.sessionId !== '' && (
             <>
               <button
-                className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-foreground transition-colors duration-200 hover:bg-accent"
+                className="flex w-full cursor-pointer items-center gap-1.5 rounded-[6px] border-0 bg-transparent px-3 py-2 text-left text-[13px] text-foreground transition-colors duration-200 hover:bg-accent"
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => {
                   const session = sessions.find(s => s.id === contextMenu.sessionId)
@@ -305,24 +289,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               >
                 <EditPencil width={14} height={14} /> 編集
               </button>
-              {(() => {
-                const session = sessions.find(s => s.id === contextMenu.sessionId)
-                return session && canEditTime(session) ? (
-                  <button
-                    className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-foreground transition-colors duration-200 hover:bg-accent"
-                    onMouseDown={e => e.preventDefault()}
-                    onClick={() => {
-                      const id = contextMenu.sessionId
-                      setContextMenu(null)
-                      setTimeEditTargetId(id)
-                    }}
-                  >
-                    <Timer width={14} height={14} /> 時刻を編集
-                  </button>
-                ) : null
-              })()}
               <button
-                className="flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
+                className="flex w-full cursor-pointer items-center gap-1.5 rounded-[6px] border-0 bg-transparent px-3 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => {
                   const id = contextMenu.sessionId
@@ -357,13 +325,6 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
         onChange={setEditDraft}
         onSubmit={handleEditConfirm}
         onClose={() => setEditTargetId(null)}
-      />
-
-      <SessionTimeEditDialog
-        open={timeEditTargetId !== null}
-        session={timeEditTargetId ? sessions.find(s => s.id === timeEditTargetId) ?? null : null}
-        onSubmit={handleTimeEditConfirm}
-        onClose={() => setTimeEditTargetId(null)}
       />
 
       {pendingDeleteId && (

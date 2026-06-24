@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SessionList } from './SessionList'
 import { DailyDataProvider } from '../../daily/DailyDataContext'
@@ -192,54 +192,6 @@ describe('SessionList — 編集', () => {
     await user.clear(screen.getByPlaceholderText('作業名（必須）'))
     await user.keyboard('{Enter}')
     expect(onUpdate).not.toHaveBeenCalled()
-  })
-})
-
-describe('SessionList — 時刻を編集', () => {
-  beforeEach(() => { mockDayStore = {}; setDailyDay.mockClear() })
-
-  it('完了セッションの右クリックメニューに「時刻を編集」が表示される', () => {
-    renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={vi.fn()} />)
-    fireEvent.contextMenu(screen.getByRole('listitem'))
-    expect(screen.getByText('時刻を編集')).toBeInTheDocument()
-  })
-
-  it('手動追加セッション（区間なし）では「時刻を編集」が表示されない', () => {
-    renderWithProvider(<SessionList sessions={[makeSession({ times: [] })]} onUpdate={vi.fn()} />)
-    fireEvent.contextMenu(screen.getByRole('listitem'))
-    expect(screen.queryByText('時刻を編集')).not.toBeInTheDocument()
-  })
-
-  it('稼働中（最後の区間が未終了）のセッションでは「時刻を編集」が表示されない', () => {
-    const running = makeSession({ times: [{ startTime: '2026-02-25T10:00:00', endTime: null }] })
-    renderWithProvider(<SessionList sessions={[running]} onUpdate={vi.fn()} />)
-    fireEvent.contextMenu(screen.getByRole('listitem'))
-    expect(screen.queryByText('時刻を編集')).not.toBeInTheDocument()
-  })
-
-  it('「時刻を編集」で専用ダイアログが開き開始/終了が表示される', async () => {
-    const user = userEvent.setup()
-    renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={vi.fn()} />)
-    fireEvent.contextMenu(screen.getByRole('listitem'))
-    await user.click(screen.getByText('時刻を編集'))
-    expect(screen.getByText('時刻を編集', { selector: 'h2, [role="heading"]' })).toBeInTheDocument()
-    const start = screen.getByRole('group', { name: '開始時刻' })
-    expect(within(start).getByLabelText('時')).toHaveValue('10')
-  })
-
-  it('時刻を変更して保存すると onUpdate が再計算された times/totalTime で呼ばれる', async () => {
-    const user = userEvent.setup()
-    const onUpdate = vi.fn().mockResolvedValue(undefined)
-    renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={onUpdate} />)
-    fireEvent.contextMenu(screen.getByRole('listitem'))
-    await user.click(screen.getByText('時刻を編集'))
-    const start = screen.getByRole('group', { name: '開始時刻' })
-    fireEvent.change(within(start).getByLabelText('時'), { target: { value: '09' } })
-    await user.click(screen.getByRole('button', { name: '保存' }))
-    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      totalTime: 105,
-      times: [{ startTime: '2026-02-25T09:00:00', endTime: '2026-02-25T10:45:00' }],
-    }))
   })
 })
 
