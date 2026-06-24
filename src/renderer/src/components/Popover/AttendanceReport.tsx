@@ -90,23 +90,23 @@ export function AttendanceReport({ sessions, today }: Props) {
       <div className="mb-3 flex items-center justify-between rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2 [backdrop-filter:blur(8px)]">
         <div className="flex items-center gap-3">
           <button
-            className="group flex cursor-pointer flex-col items-center gap-0.5 border-0 bg-transparent p-0"
-            onDoubleClick={() => openDialog('workStart')}
-            title="ダブルクリックで編集"
+            className={`group flex flex-col items-center gap-0.5 border-0 bg-transparent p-0 ${workStart ? 'cursor-pointer' : 'cursor-default'}`}
+            onDoubleClick={workStart ? () => openDialog('workStart') : undefined}
+            title={workStart ? 'ダブルクリックで編集' : undefined}
           >
             <span className="text-[10px] text-muted-foreground">出勤</span>
-            <span className={`text-[13px] font-semibold transition-colors group-hover:text-[var(--accent)] ${workStart ? 'text-foreground' : 'text-muted-foreground'}`}>
+            <span className={`text-[13px] font-semibold transition-colors ${workStart ? 'text-foreground group-hover:text-[var(--accent)]' : 'text-muted-foreground'}`}>
               {workStart ?? '--:--'}
             </span>
           </button>
           <span className="text-[13px] text-muted-foreground">〜</span>
           <button
-            className="group flex cursor-pointer flex-col items-center gap-0.5 border-0 bg-transparent p-0"
-            onDoubleClick={() => openDialog('workEnd')}
-            title="ダブルクリックで編集"
+            className={`group flex flex-col items-center gap-0.5 border-0 bg-transparent p-0 ${workEnd ? 'cursor-pointer' : 'cursor-default'}`}
+            onDoubleClick={workEnd ? () => openDialog('workEnd') : undefined}
+            title={workEnd ? 'ダブルクリックで編集' : undefined}
           >
             <span className="text-[10px] text-muted-foreground">退勤</span>
-            <span className={`text-[13px] font-semibold transition-colors group-hover:text-[var(--accent)] ${workEnd ? 'text-foreground' : 'text-muted-foreground'}`}>
+            <span className={`text-[13px] font-semibold transition-colors ${workEnd ? 'text-foreground group-hover:text-[var(--accent)]' : 'text-muted-foreground'}`}>
               {workEnd ?? '--:--'}
             </span>
           </button>
