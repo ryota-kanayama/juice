@@ -53,18 +53,18 @@ export function SetupView() {
       {/* Step 3: 連携設定（ホワイトボード連携 + 主PJコード） */}
       {step === 3 && (
         <div className="flex flex-1 flex-col animate-fade-in" key="step3">
-          <h2 className="mb-1 text-[15px] font-semibold">連携設定</h2>
-          <p className="mb-4 text-[12px] text-muted-foreground">
-            ホワイトボード連携と主プロジェクトコードを設定します。あとから設定 &gt; 連携 / 分析でも変更できます。
+          <h2 className="mb-0.5 text-[15px] font-semibold">連携設定</h2>
+          <p className="mb-3 text-[11px] leading-snug text-muted-foreground">
+            あとから設定 &gt; 連携 / 分析でも変更できます。
           </p>
-          <Card className="mb-3">
+          <Card className="mb-2">
             <CardContent className="p-0">
-              <div className="flex items-center justify-between gap-3 p-3.5">
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                 <div>
                   <Label htmlFor="whiteboard" className="text-[13px] font-medium text-foreground">
                     ホワイトボード連携
                   </Label>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
                     タイマー開始時に出勤 / 勤怠送信時に退勤
                   </p>
                 </div>
@@ -78,13 +78,13 @@ export function SetupView() {
           </Card>
           <Card>
             <CardContent className="p-0">
-              <div className="flex items-center justify-between gap-3 p-3.5">
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                 <div>
                   <Label htmlFor="mainProjectCode" className="text-[13px] font-medium text-foreground">
                     主プロジェクトコード
                   </Label>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    週次分析でこのコード以外の作業を「PJ外作業」として集計します
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    このコード以外を「PJ外作業」として集計します
                   </p>
                 </div>
                 <input
@@ -93,7 +93,7 @@ export function SetupView() {
                   value={mainProjectCode}
                   onChange={e => setMainProjectCode(e.target.value)}
                   placeholder="例: PROJ-001"
-                  className="h-8 w-32 rounded-md border border-input bg-background px-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="h-8 w-28 shrink-0 rounded-md border border-input bg-background px-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
             </CardContent>
