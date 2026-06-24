@@ -118,7 +118,6 @@ export function useWeeklyAnalysis(date: string | null): { analysis: WeeklyAnalys
 
       setAnalysis({ weekLabel, days, weeklyAvgUtilization })
     }).finally(() => setLoading(false))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
   return { analysis, loading }
