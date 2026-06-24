@@ -5,11 +5,16 @@ import { useAuthStatus } from '../../hooks/useAuthStatus'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 
-const TOTAL_STEPS = 3
+const TOTAL_STEPS = 4
 
 export function SetupView() {
-  const { activeThemeId, setTheme, complete } = useSetup()
+  const {
+    activeThemeId, setTheme, complete,
+    whiteboardEnabled, setWhiteboard, mainProjectCode, setMainProjectCode,
+  } = useSetup()
   const { status, signIn } = useAuthStatus()
   const [step, setStep] = useState(1)
 
@@ -45,9 +50,60 @@ export function SetupView() {
         </div>
       )}
 
-      {/* Step 3: テーマ選択 */}
+      {/* Step 3: 連携設定（ホワイトボード連携 + 主PJコード） */}
       {step === 3 && (
         <div className="flex flex-1 flex-col animate-fade-in" key="step3">
+          <h2 className="mb-1 text-[15px] font-semibold">連携設定</h2>
+          <p className="mb-4 text-[12px] text-muted-foreground">
+            ホワイトボード連携と主プロジェクトコードを設定します。あとから設定 &gt; 連携 / 分析でも変更できます。
+          </p>
+          <Card className="mb-3">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between gap-3 p-3.5">
+                <div>
+                  <Label htmlFor="whiteboard" className="text-[13px] font-medium text-foreground">
+                    ホワイトボード連携
+                  </Label>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    タイマー開始時に出勤 / 勤怠送信時に退勤
+                  </p>
+                </div>
+                <Switch
+                  id="whiteboard"
+                  checked={whiteboardEnabled}
+                  onCheckedChange={setWhiteboard}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between gap-3 p-3.5">
+                <div>
+                  <Label htmlFor="mainProjectCode" className="text-[13px] font-medium text-foreground">
+                    主プロジェクトコード
+                  </Label>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    週次分析でこのコード以外の作業を「PJ外作業」として集計します
+                  </p>
+                </div>
+                <input
+                  id="mainProjectCode"
+                  type="text"
+                  value={mainProjectCode}
+                  onChange={e => setMainProjectCode(e.target.value)}
+                  placeholder="例: PROJ-001"
+                  className="h-8 w-32 rounded-md border border-input bg-background px-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Step 4: テーマ選択 */}
+      {step === 4 && (
+        <div className="flex flex-1 flex-col animate-fade-in" key="step4">
           <div className="mb-5 text-center">
             <span className="mb-1 block text-[36px]">🧃</span>
             <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--text-primary)]">テーマ</h1>
@@ -96,6 +152,9 @@ export function SetupView() {
             </Button>
           )}
           {step === 3 && (
+            <Button className="flex-1" onClick={() => setStep(4)}>次へ</Button>
+          )}
+          {step === 4 && (
             <Button className="flex-1" onClick={complete}>完了</Button>
           )}
         </div>
