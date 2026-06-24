@@ -6,15 +6,23 @@ import { DEFAULT_THEME_ID } from '../theme/themeParams'
 export interface SetupState {
   activeThemeId: string
   setTheme: (themeId: string) => void
+  whiteboardEnabled: boolean
+  setWhiteboard: (enabled: boolean) => void
+  mainProjectCode: string
+  setMainProjectCode: (code: string) => void
   complete: () => Promise<void>
 }
 
-/** セットアップウィザードのオーケストレーション。テーマ即時反映と完了処理を統括。 */
+/** セットアップウィザードのオーケストレーション。テーマ即時反映と連携設定の保存、完了処理を統括。 */
 export function useSetup(): SetupState {
   const [activeThemeId, setActiveThemeId] = useState(DEFAULT_THEME_ID)
+  const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
+  const [mainProjectCode, setMainProjectCodeState] = useState('')
 
   useEffect(() => {
     settingsRepository.getTheme().then(setActiveThemeId)
+    settingsRepository.getWhiteboard().then(w => setWhiteboardEnabled(w.enabled))
+    settingsRepository.getMainProjectCode().then(setMainProjectCodeState)
     return settingsRepository.onThemeChanged(setActiveThemeId)
   }, [])
 
@@ -25,6 +33,16 @@ export function useSetup(): SetupState {
       applyTheme(themeId)
       setActiveThemeId(themeId)
       settingsRepository.setTheme(themeId)
+    },
+    whiteboardEnabled,
+    setWhiteboard: (enabled): void => {
+      setWhiteboardEnabled(enabled)
+      settingsRepository.setWhiteboard(enabled)
+    },
+    mainProjectCode,
+    setMainProjectCode: (code): void => {
+      setMainProjectCodeState(code)
+      settingsRepository.setMainProjectCode(code)
     },
     complete: async (): Promise<void> => {
       await settingsRepository.completeSetup()
