@@ -49,7 +49,7 @@ export function buildAttendanceText(
       existing.totalMinutes += minutes
     } else {
       map.set(key, {
-        name: s.name,
+        name: s.name.replace(/\s/g, ''),
         projectCode: s.projectCode ?? '',
         workCategory: s.workCategory ?? '',
         totalMinutes: minutes,
