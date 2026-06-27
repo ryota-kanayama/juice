@@ -20,7 +20,7 @@ export function UsageGuideButton() {
       <Dialog open={open} onOpenChange={setOpen}>
         {/* パネル（内側カード）を見せ、上下矢印はその外に置くため枠を透明化する */}
         <DialogContent
-          className="max-w-[240px] gap-0 border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
+          className="max-w-[280px] gap-0 border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
           aria-describedby={undefined}
         >
           <DialogTitle className="sr-only">使い方</DialogTitle>
