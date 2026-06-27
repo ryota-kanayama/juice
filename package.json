@@ -59,7 +59,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.5.0",
     "dependency-cruiser": "^17.4.0",
-    "electron": "^42.4.0",
+    "electron": "^42.5.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "eslint": "^8.56.0",
