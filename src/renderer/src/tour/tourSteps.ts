@@ -55,12 +55,28 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="tab-attendance"]',
     title: '勤怠',
-    body: '勤怠を集計してチームに共有できます。',
+    body: '勤怠を集計する画面です。出勤・退勤・休憩を確認できます。',
     placement: 'top',
+    scene: { tab: 'attendance' },
+  },
+  {
+    target: '[data-tour="att-copy"]',
+    title: 'コピー',
+    body: '集計した勤怠テキストをクリップボードにコピーできます。',
+    placement: 'top',
+    scene: { tab: 'attendance' },
+  },
+  {
+    target: '[data-tour="att-send"]',
+    title: '送る',
+    body: '勤怠を Slack に送信して共有できます。',
+    placement: 'top',
+    scene: { tab: 'attendance' },
   },
   {
     target: null,
     title: '準備完了',
     body: '詳しい操作は「?」から。それでは始めましょう！',
+    scene: { tab: 'timer' },
   },
 ]
