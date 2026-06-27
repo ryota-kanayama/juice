@@ -84,9 +84,19 @@ describe('SetupView step3（連携設定）', () => {
     expect(api.setWhiteboardSettings).toHaveBeenCalledWith(true)
   })
 
-  it('「次へ」でテーマ（完了）ステップに進める', async () => {
+  it('「次へ」でテーマステップに進める', async () => {
     await goToStep3()
     await userEvent.click(screen.getByRole('button', { name: '次へ' }))
-    expect(await screen.findByRole('button', { name: '完了' })).toBeInTheDocument()
+    expect(await screen.findByText('お好みのテーマを選んでください')).toBeInTheDocument()
+  })
+
+  it('テーマの「次へ」で操作の基本（完了）ステップに進める', async () => {
+    await goToStep3()
+    await userEvent.click(screen.getByRole('button', { name: '次へ' }))
+    await screen.findByText('お好みのテーマを選んでください')
+    await userEvent.click(screen.getByRole('button', { name: '次へ' }))
+    expect(await screen.findByText('操作の基本')).toBeInTheDocument()
+    expect(screen.getByText('記録を編集')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '完了' })).toBeInTheDocument()
   })
 })
