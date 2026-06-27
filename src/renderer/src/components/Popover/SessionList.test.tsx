@@ -470,4 +470,12 @@ describe('SessionList — 操作ヒント', () => {
     const row = screen.getByText('企画書作業').closest('[data-session-item]')
     expect(row).toHaveAttribute('title', 'ダブルクリックで編集・右クリックで操作')
   })
+
+  it('空状態で開始操作のヒントを表示する', () => {
+    renderWithProvider(<SessionList sessions={[]} />)
+    expect(screen.getByText('まだジュースを注いでいません')).toBeInTheDocument()
+    expect(
+      screen.getByText('作業名を入力して「注ぐ」で開始できます')
+    ).toBeInTheDocument()
+  })
 })

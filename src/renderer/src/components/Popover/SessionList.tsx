@@ -172,7 +172,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
 
       {sessions.length === 0 ? (
-        <p className="m-0 flex-1 py-6 text-center text-[13px] text-[var(--text-muted)]">まだジュースを注いでいません</p>
+        <div className="m-0 flex-1 py-6 text-center text-[var(--text-muted)]">
+          <p className="m-0 text-[13px]">まだジュースを注いでいません</p>
+          <p className="m-0 mt-1 text-[11px]">作業名を入力して「注ぐ」で開始できます</p>
+        </div>
       ) : (
         <ul
           ref={listRef}
