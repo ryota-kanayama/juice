@@ -190,6 +190,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
             <li
               key={session.id}
               data-session-item
+              title="ダブルクリックで編集・右クリックで操作"
               draggable
               className={`group flex cursor-grab items-start gap-2 rounded-[8px] border bg-card px-2.5 py-2 transition-all duration-200 hover:bg-accent active:cursor-grabbing ${expandedId === session.id ? 'bg-accent' : ''} ${dragOverId === session.id ? 'border-[var(--accent)] shadow-[0_0_0_2px_var(--accent-light)]' : 'border-border'}`}
               onClick={(e) => {

@@ -461,3 +461,13 @@ describe('SessionList — ページをまたぐ並び替え', () => {
     }
   })
 })
+
+describe('SessionList — 操作ヒント', () => {
+  beforeEach(() => { mockDayStore = {}; setDailyDay.mockClear() })
+
+  it('セッション行に操作ヒントの title が付く', () => {
+    renderWithProvider(<SessionList sessions={sessions} />)
+    const row = screen.getByText('企画書作業').closest('[data-session-item]')
+    expect(row).toHaveAttribute('title', 'ダブルクリックで編集・右クリックで操作')
+  })
+})
