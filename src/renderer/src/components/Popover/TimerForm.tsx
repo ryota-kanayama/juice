@@ -46,7 +46,7 @@ export function TimerForm({ onStart, nameSuggestions = [] }: Props) {
               className="min-w-0 px-2.5 text-[13px]"
               autoFocus
             />
-            <Button type="submit" disabled={!name.trim()}>
+            <Button type="submit" data-tour="demo-pour" disabled={!name.trim()}>
               注ぐ
             </Button>
           </div>
