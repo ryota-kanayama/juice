@@ -46,14 +46,14 @@ export function TourOverlay({ tour }: { tour: TourState }) {
       <Card
         ref={rect ? refs.setFloating : undefined}
         style={rect ? floatingStyles : undefined}
-        className={`absolute z-[2001] w-[240px] p-3 ${
-          rect ? '' : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+        className={`absolute z-[2001] p-3 ${
+          rect ? 'w-[240px]' : 'w-[280px] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
         }`}
       >
         <p className="m-0 text-[13px] font-semibold text-foreground">{tour.step.title}</p>
         <p className="m-0 mt-1 text-[12px] leading-snug text-muted-foreground">{tour.step.body}</p>
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-[11px] text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground">
             {tour.index + 1} / {tour.total}
           </span>
           <div className="flex gap-1.5">
