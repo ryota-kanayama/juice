@@ -190,10 +190,11 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
           }}
         >
           {pagedSessions.map(session => (
+            <TooltipProvider key={session.id} delayDuration={450}>
+              <Tooltip>
+                <TooltipTrigger asChild>
             <li
-              key={session.id}
               data-session-item
-              title="ダブルクリックで編集・右クリックで操作"
               draggable
               className={`group flex cursor-grab items-start gap-2 rounded-[8px] border bg-card px-2.5 py-2 transition-all duration-200 hover:bg-accent active:cursor-grabbing ${expandedId === session.id ? 'bg-accent' : ''} ${dragOverId === session.id ? 'border-[var(--accent)] shadow-[0_0_0_2px_var(--accent-light)]' : 'border-border'}`}
               onClick={(e) => {
@@ -236,6 +237,10 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
                 </TooltipProvider>
               )}
             </li>
+                </TooltipTrigger>
+                <TooltipContent>ダブルクリックで編集・右クリックで操作</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ))}
         </ul>
       )}
@@ -293,18 +298,25 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               >
                 <EditPencil width={14} height={14} /> 編集
               </button>
-              <button
-                className="flex w-full cursor-pointer items-center gap-1.5 rounded-[6px] border-0 bg-transparent px-3 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
-                title="セッションを削除"
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => {
-                  const id = contextMenu.sessionId
-                  setContextMenu(null)
-                  setPendingDeleteId(id)
-                }}
-              >
-                <Trash width={14} height={14} /> 流す
-              </button>
+              <TooltipProvider delayDuration={450}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex w-full cursor-pointer items-center gap-1.5 rounded-[6px] border-0 bg-transparent px-3 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
+                      aria-label="セッションを削除"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => {
+                        const id = contextMenu.sessionId
+                        setContextMenu(null)
+                        setPendingDeleteId(id)
+                      }}
+                    >
+                      <Trash width={14} height={14} /> 流す
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>セッションを削除</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </>
           )}
         </div>

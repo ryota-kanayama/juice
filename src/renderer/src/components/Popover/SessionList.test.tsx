@@ -465,10 +465,12 @@ describe('SessionList — ページをまたぐ並び替え', () => {
 describe('SessionList — 操作ヒント', () => {
   beforeEach(() => { mockDayStore = {}; setDailyDay.mockClear() })
 
-  it('セッション行に操作ヒントの title が付く', () => {
+  it('セッション行が操作ヒントの Tooltip トリガーになっている', () => {
     renderWithProvider(<SessionList sessions={sessions} />)
     const row = screen.getByText('企画書作業').closest('[data-session-item]')
-    expect(row).toHaveAttribute('title', 'ダブルクリックで編集・右クリックで操作')
+    // native title ではなく Radix Tooltip（追加で注ぐ と同じコンポーネント）を使う
+    expect(row).not.toHaveAttribute('title')
+    expect(row).toHaveAttribute('data-state')
   })
 
   it('空状態で開始操作のヒントを表示する', () => {
@@ -479,11 +481,12 @@ describe('SessionList — 操作ヒント', () => {
     ).toBeInTheDocument()
   })
 
-  it('右クリックメニューの「流す」に削除の補助 title が付く', () => {
+  it('右クリックメニューの削除ボタンに「セッションを削除」の補助が付く', () => {
     renderWithProvider(<SessionList sessions={sessions} />)
     const row = screen.getByText('企画書作業').closest('[data-session-item]')!
     fireEvent.contextMenu(row)
-    const deleteBtn = screen.getByText('流す').closest('button')
-    expect(deleteBtn).toHaveAttribute('title', 'セッションを削除')
+    // Tooltip 内容と一致するアクセシブル名（aria-label）で検証する
+    const deleteBtn = screen.getByRole('button', { name: 'セッションを削除' })
+    expect(deleteBtn).toHaveTextContent('流す')
   })
 })
