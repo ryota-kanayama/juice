@@ -14,6 +14,6 @@ describe('UsageGuideButton', () => {
     render(<UsageGuideButton />)
     await user.click(screen.getByRole('button', { name: '使い方' }))
     expect(await screen.findByText('使い方')).toBeInTheDocument()
-    expect(screen.getByText('記録を編集')).toBeInTheDocument()
+    expect(screen.getByText('作業を始める')).toBeInTheDocument()
   })
 })

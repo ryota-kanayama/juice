@@ -96,7 +96,7 @@ describe('SetupView step3（連携設定）', () => {
     await screen.findByText('お好みのテーマを選んでください')
     await userEvent.click(screen.getByRole('button', { name: '次へ' }))
     expect(await screen.findByText('操作の基本')).toBeInTheDocument()
-    expect(screen.getByText('記録を編集')).toBeInTheDocument()
+    expect(screen.getByText('作業を始める')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '完了' })).toBeInTheDocument()
   })
 })
