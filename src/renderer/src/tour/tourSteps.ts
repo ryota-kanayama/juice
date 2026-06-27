@@ -3,6 +3,7 @@ export interface TourStep {
   title: string
   body: string
   placement?: 'top' | 'bottom' | 'left' | 'right'
+  scene?: { tab?: 'timer' | 'calendar' | 'attendance'; demo?: boolean }
 }
 
 export const TOUR_STEPS: TourStep[] = [
@@ -16,6 +17,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: '業務を開始',
     body: 'まずはここから 1 日を始めます。',
     placement: 'top',
+    scene: { tab: 'timer' },
   },
   {
     target: '[data-tour="help"]',
@@ -24,10 +26,25 @@ export const TOUR_STEPS: TourStep[] = [
     placement: 'bottom',
   },
   {
-    target: '[data-tour="tab-timer"]',
-    title: 'タイマー',
-    body: '作業時間を記録するメイン画面です。',
+    target: '[data-tour="demo-pour"]',
+    title: '作業を始める',
+    body: '作業名を入力して「注ぐ」を押すと計測を開始します。',
+    placement: 'bottom',
+    scene: { tab: 'timer', demo: true },
+  },
+  {
+    target: '[data-session-item]',
+    title: '記録を操作する',
+    body: 'ダブルクリックで編集、右クリックで追加・削除、ドラッグで並び替えできます。',
+    placement: 'bottom',
+    scene: { tab: 'timer', demo: true },
+  },
+  {
+    target: '[data-tour="demo-worktime"]',
+    title: '休憩・終了',
+    body: '休憩や業務終了を記録でき、今日の合計時間もここに出ます。',
     placement: 'top',
+    scene: { tab: 'timer', demo: true },
   },
   {
     target: '[data-tour="tab-calendar"]',
