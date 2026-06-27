@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { UsageGuide } from './UsageGuide'
 
-export function UsageGuideButton() {
+export function UsageGuideButton({ onStartTour }: { onStartTour?: () => void }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -12,6 +12,7 @@ export function UsageGuideButton() {
         variant="ghost"
         size="icon"
         aria-label="使い方"
+        data-tour="help"
         className="[-webkit-app-region:no-drag]"
         onClick={() => setOpen(true)}
       >
@@ -25,6 +26,21 @@ export function UsageGuideButton() {
         >
           <DialogTitle className="sr-only">使い方</DialogTitle>
           <UsageGuide />
+          {onStartTour && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[12px]"
+                onClick={() => {
+                  setOpen(false)
+                  onStartTour()
+                }}
+              >
+                ツアーを見る
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
