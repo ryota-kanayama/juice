@@ -461,3 +461,23 @@ describe('SessionList — ページをまたぐ並び替え', () => {
     }
   })
 })
+
+describe('SessionList — 操作ヒント', () => {
+  beforeEach(() => { mockDayStore = {}; setDailyDay.mockClear() })
+
+  it('セッション行が操作ヒントの Tooltip トリガーになっている', () => {
+    renderWithProvider(<SessionList sessions={sessions} />)
+    const row = screen.getByText('企画書作業').closest('[data-session-item]')
+    // native title ではなく Radix Tooltip（追加で注ぐ と同じコンポーネント）を使う
+    expect(row).not.toHaveAttribute('title')
+    expect(row).toHaveAttribute('data-state')
+  })
+
+  it('空状態で開始操作のヒントを表示する', () => {
+    renderWithProvider(<SessionList sessions={[]} />)
+    expect(screen.getByText('まだジュースを注いでいません')).toBeInTheDocument()
+    expect(
+      screen.getByText('作業名を入力して「注ぐ」で開始できます')
+    ).toBeInTheDocument()
+  })
+})
