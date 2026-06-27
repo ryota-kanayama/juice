@@ -129,6 +129,7 @@ export function AttendanceReport({ sessions, today }: Props) {
       <div className="flex shrink-0 gap-2">
         <Button
           className={`flex-1 ${copied ? 'bg-[linear-gradient(135deg,#26de81,#20c870)] text-white' : ''}`}
+          data-tour="att-copy"
           onClick={copy}
         >
           {copied ? <><Check width={14} height={14} /> コピーしました</> : <><Copy width={14} height={14} /> コピー</>}
@@ -147,6 +148,7 @@ export function AttendanceReport({ sessions, today }: Props) {
                         : 'bg-[linear-gradient(135deg,#3b82f6,#2563eb)] shadow-[0_4px_12px_rgba(59,130,246,0.3)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)]'
                 }`}
                 onClick={send}
+                data-tour="att-send"
                 disabled={sending || !canSend || overageMinutes !== null}
               >
                 {overageMinutes !== null

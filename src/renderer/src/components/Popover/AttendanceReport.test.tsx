@@ -60,4 +60,11 @@ describe('AttendanceReport — 表示行', () => {
     fireEvent.dblClick(breakValue)
     expect(await screen.findByText('休憩時間')).toBeInTheDocument()
   })
+
+  it('コピー・送るボタンに data-tour が付く', async () => {
+    const { container } = render(<AttendanceReport sessions={[makeSession()]} today="2026-06-12" />, { wrapper })
+    await screen.findByText('09:00')
+    expect(container.querySelector('[data-tour="att-copy"]')).not.toBeNull()
+    expect(container.querySelector('[data-tour="att-send"]')).not.toBeNull()
+  })
 })
