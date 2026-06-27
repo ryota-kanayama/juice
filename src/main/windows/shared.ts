@@ -6,6 +6,9 @@ export const sharedWebPreferences = {
   preload: join(__dirname, '../preload/index.js'),
   contextIsolation: true,
   nodeIntegration: false,
+  // レンダラーを OS から隔離する。preload は electron(contextBridge/ipcRenderer)
+  // のみ使用するためサンドボックス下でも動作する。
+  sandbox: true,
   // タイマーアプリにスペルチェックは不要。辞書の読み込み分のメモリを節約する。
   spellcheck: false,
 } as const

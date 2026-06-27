@@ -48,6 +48,21 @@ app.on('open-url', (event, url) => {
   handleAuthCallback(url, authStore).catch(err => logger.error('auth callback failed:', err))
 })
 
+// レンダラー発のナビゲーション・新規ウィンドウ生成を制限する多層防御。
+// 自バンドル(file://)と dev サーバ(localhost:5174)以外への遷移を弾き、
+// 外部 origin によるウィンドウ乗っ取りを防ぐ。外部リンクは shell:openUrl
+// （http/https 限定の openExternal）経由のみ許可する。
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('will-navigate', (event, url) => {
+    const allowed = url.startsWith('http://localhost:5174') || url.startsWith('file://')
+    if (!allowed) {
+      event.preventDefault()
+      logger.warn('blocked navigation to:', url)
+    }
+  })
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }))
+})
+
 app.whenReady().then(async () => {
   // 開発時もDockにアプリアイコンを表示する（パッケージ版はバンドルの icns が使われる）
   const dockIcon = nativeImage.createFromPath(join(__dirname, '../../resources/icon.png'))
