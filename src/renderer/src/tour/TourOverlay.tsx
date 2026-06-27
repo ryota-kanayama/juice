@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import type { TourStep } from './tourSteps'
 import type { TourState } from './useTour'
 
-const BUBBLE_W = 240
+const BUBBLE_W = 260
 const GAP = 10
 const EDGE = 8
 
@@ -82,12 +82,12 @@ export function TourOverlay({ tour }: { tour: TourState }) {
 
       <Card
         style={rect ? computeBubbleStyle(rect, placement) : undefined}
-        className={`absolute z-[2001] p-3 ${
-          rect ? '' : 'w-[280px] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+        className={`absolute z-[2001] p-4 ${
+          rect ? '' : 'w-[300px] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
         }`}
       >
-        <p className="m-0 text-[13px] font-semibold text-foreground">{tour.step.title}</p>
-        <p className="m-0 mt-1 text-[12px] leading-snug text-muted-foreground">{tour.step.body}</p>
+        <p className="m-0 text-[14px] font-semibold text-foreground">{tour.step.title}</p>
+        <p className="m-0 mt-1 text-[13px] leading-snug text-muted-foreground">{tour.step.body}</p>
         <div className="mt-3 flex items-center justify-between">
           <span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground">
             {tour.index + 1} / {tour.total}
