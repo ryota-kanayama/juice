@@ -10,6 +10,7 @@ import { SettingsView } from './components/Settings/SettingsView'
 import { SetupView } from './components/Setup/SetupView'
 import { CalendarPage } from './components/Calendar/CalendarPage'
 import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
+import { UsageGuideButton } from './components/UsageGuide/UsageGuideButton'
 import { useWorkday } from './hooks/useWorkday'
 import { useSuggestions } from './hooks/useSuggestions'
 import { useBreak } from './hooks/useBreak'
@@ -77,7 +78,9 @@ function PopoverView() {
           <Xmark width={16} height={16} />
         </Button>
         <span className={styles.logo}>juice</span>
-        <div className={styles.menuWrapper} ref={menuRef}>
+        <div className="flex items-center gap-0.5">
+          <UsageGuideButton />
+          <div className={styles.menuWrapper} ref={menuRef}>
           <Button variant="ghost" size="icon" aria-label="アカウント" className="[-webkit-app-region:no-drag]" onClick={() => setMenuOpen(p => !p)}>
             <AccountAvatar avatarUrl={status.avatarUrl} name={status.name} />
           </Button>
@@ -129,6 +132,7 @@ function PopoverView() {
               </button>
             </div>
           )}
+          </div>
         </div>
       </header>
 
