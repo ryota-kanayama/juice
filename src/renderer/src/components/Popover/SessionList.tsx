@@ -295,6 +295,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               </button>
               <button
                 className="flex w-full cursor-pointer items-center gap-1.5 rounded-[6px] border-0 bg-transparent px-3 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
+                title="セッションを削除"
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => {
                   const id = contextMenu.sessionId

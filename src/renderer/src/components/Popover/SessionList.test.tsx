@@ -478,4 +478,12 @@ describe('SessionList — 操作ヒント', () => {
       screen.getByText('作業名を入力して「注ぐ」で開始できます')
     ).toBeInTheDocument()
   })
+
+  it('右クリックメニューの「流す」に削除の補助 title が付く', () => {
+    renderWithProvider(<SessionList sessions={sessions} />)
+    const row = screen.getByText('企画書作業').closest('[data-session-item]')!
+    fireEvent.contextMenu(row)
+    const deleteBtn = screen.getByText('流す').closest('button')
+    expect(deleteBtn).toHaveAttribute('title', 'セッションを削除')
+  })
 })
