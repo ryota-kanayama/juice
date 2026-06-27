@@ -54,3 +54,15 @@ describe('TimerPage — 業務開始オーバーレイ', () => {
     )
   })
 })
+
+describe('TimerPage — ツアーデモ', () => {
+  it('tourDemo 時はダミーセッションを表示し業務開始ボタンを出さない', () => {
+    render(
+      <DailyDataProvider>
+        <TimerPage sessions={stubSessions()} tourDemo />
+      </DailyDataProvider>
+    )
+    expect(screen.getByText('資料作成')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '業務開始' })).not.toBeInTheDocument()
+  })
+})

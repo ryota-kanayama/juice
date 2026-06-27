@@ -13,6 +13,7 @@ import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
 import { UsageGuideButton } from './components/UsageGuide/UsageGuideButton'
 import { useTour } from './tour/useTour'
 import { TourOverlay } from './tour/TourOverlay'
+import { TourDemoTimer } from './tour/TourDemoTimer'
 import { useWorkday } from './hooks/useWorkday'
 import { useSuggestions } from './hooks/useSuggestions'
 import { useBreak } from './hooks/useBreak'
@@ -60,6 +61,12 @@ function PopoverView() {
   const menuRef = useRef<HTMLDivElement>(null)
   const { status, signIn, signOut } = useAuthStatus()
   const tour = useTour()
+
+  // ツアーのシーンを適用（指定タブへ切替）。デモ表示は tourDemo で制御する。
+  useEffect(() => {
+    const tab = tour.step?.scene?.tab
+    if (tab) setCurrentPage(tab)
+  }, [tour.index, tour.step])
 
   const sessions = useSessions()
 
@@ -142,7 +149,7 @@ function PopoverView() {
       {/* ページコンテンツ */}
       <main className={styles.content}>
         <div className={styles.page} style={{ display: currentPage === 'timer' ? 'flex' : 'none' }}>
-          <TimerPage sessions={sessions} />
+          <TimerPage sessions={sessions} tourDemo={tour.isActive && tour.step?.scene?.demo === true} />
         </div>
         {currentPage === 'calendar' && <CalendarPage todaySessions={sessions.todaySessions} today={sessions.today} />}
         {currentPage === 'attendance' && (
@@ -186,7 +193,7 @@ function PopoverView() {
   )
 }
 
-export function TimerPage({ sessions }: { sessions: SessionsState }) {
+export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsState; tourDemo?: boolean }) {
   const ts = useTimerSession(sessions)
   const workday = useWorkday(ts.today)
   const breakState = useBreak(ts, workday)
@@ -208,7 +215,12 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
         </div>
       )}
 
-      {ts.isRunning ? (
+      {tourDemo ? (
+        /* ツアーデモ: 副作用なしの待機ビュー */
+        <div className={styles.idleContent}>
+          <TourDemoTimer />
+        </div>
+      ) : ts.isRunning ? (
         /* 稼働時: ActiveTimerのみ */
         <div className={styles.runningLayout}>
           <ActiveTimer
