@@ -480,13 +480,4 @@ describe('SessionList — 操作ヒント', () => {
       screen.getByText('作業名を入力して「注ぐ」で開始できます')
     ).toBeInTheDocument()
   })
-
-  it('右クリックメニューの削除ボタンに「セッションを削除」の補助が付く', () => {
-    renderWithProvider(<SessionList sessions={sessions} />)
-    const row = screen.getByText('企画書作業').closest('[data-session-item]')!
-    fireEvent.contextMenu(row)
-    // Tooltip 内容と一致するアクセシブル名（aria-label）で検証する
-    const deleteBtn = screen.getByRole('button', { name: 'セッションを削除' })
-    expect(deleteBtn).toHaveTextContent('流す')
-  })
 })

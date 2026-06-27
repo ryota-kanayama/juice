@@ -298,25 +298,17 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
               >
                 <EditPencil width={14} height={14} /> 編集
               </button>
-              <TooltipProvider delayDuration={450}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      className="flex w-full cursor-pointer items-center gap-1.5 rounded-[6px] border-0 bg-transparent px-3 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
-                      aria-label="セッションを削除"
-                      onMouseDown={e => e.preventDefault()}
-                      onClick={() => {
-                        const id = contextMenu.sessionId
-                        setContextMenu(null)
-                        setPendingDeleteId(id)
-                      }}
-                    >
-                      <Trash width={14} height={14} /> 流す
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>セッションを削除</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <button
+                className="flex w-full cursor-pointer items-center gap-1.5 rounded-[6px] border-0 bg-transparent px-3 py-2 text-left text-[13px] text-[#e74c3c] transition-colors duration-200 hover:bg-accent"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => {
+                  const id = contextMenu.sessionId
+                  setContextMenu(null)
+                  setPendingDeleteId(id)
+                }}
+              >
+                <Trash width={14} height={14} /> 流す
+              </button>
             </>
           )}
         </div>
