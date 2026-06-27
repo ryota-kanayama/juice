@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavArrowLeft, NavArrowRight } from 'iconoir-react'
+import { NavArrowUp, NavArrowDown } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 
 interface GuideItem {
@@ -24,41 +24,46 @@ export function UsageGuide() {
   const isLast = index === GUIDE_ITEMS.length - 1
 
   return (
-    <div className="flex flex-col items-center gap-2.5">
-      <div className="flex w-full items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="前の項目へ"
-          disabled={isFirst}
-          onClick={() => setIndex(i => Math.max(0, i - 1))}
-        >
-          <NavArrowLeft width={18} height={18} />
-        </Button>
-        <div className="flex min-h-[64px] flex-1 flex-col items-center justify-center gap-1 px-1 text-center">
+    <div className="flex w-full flex-col items-center gap-1.5">
+      {/* 上矢印（パネルの外） */}
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="前の項目へ"
+        disabled={isFirst}
+        onClick={() => setIndex(i => Math.max(0, i - 1))}
+      >
+        <NavArrowUp width={18} height={18} />
+      </Button>
+
+      {/* パネル本体 */}
+      <div className="w-full rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
+        <div className="flex min-h-[60px] flex-col items-center justify-center gap-1 text-center">
           <span className="text-[14px] font-semibold text-foreground">{item.title}</span>
           <span className="text-[12px] leading-snug text-muted-foreground">{item.description}</span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="次の項目へ"
-          disabled={isLast}
-          onClick={() => setIndex(i => Math.min(GUIDE_ITEMS.length - 1, i + 1))}
-        >
-          <NavArrowRight width={18} height={18} />
-        </Button>
+        <div className="mt-2.5 flex justify-center gap-1.5">
+          {GUIDE_ITEMS.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 w-1.5 rounded-full transition-all ${
+                i === index ? 'bg-[var(--accent)]' : 'bg-[var(--glass-border)]'
+              }`}
+            />
+          ))}
+        </div>
       </div>
-      <div className="flex gap-1.5">
-        {GUIDE_ITEMS.map((_, i) => (
-          <span
-            key={i}
-            className={`h-1.5 w-1.5 rounded-full transition-all ${
-              i === index ? 'bg-[var(--accent)]' : 'bg-[var(--glass-border)]'
-            }`}
-          />
-        ))}
-      </div>
+
+      {/* 下矢印（パネルの外） */}
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="次の項目へ"
+        disabled={isLast}
+        onClick={() => setIndex(i => Math.min(GUIDE_ITEMS.length - 1, i + 1))}
+      >
+        <NavArrowDown width={18} height={18} />
+      </Button>
     </div>
   )
 }

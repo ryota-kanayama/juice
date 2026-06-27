@@ -127,11 +127,7 @@ export function SetupView() {
       {step === 5 && (
         <div className="flex flex-1 flex-col animate-fade-in" key="step5">
           <h2 className="mb-3 text-[15px] font-semibold">操作の基本</h2>
-          <Card>
-            <CardContent className="p-4">
-              <UsageGuide />
-            </CardContent>
-          </Card>
+          <UsageGuide />
         </div>
       )}
 
