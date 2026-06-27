@@ -31,4 +31,9 @@ describe('WorkStartOverlay', () => {
     expect(onStart).toHaveBeenCalledWith('09:30', true)
     expect(onTeleworkStart).toHaveBeenCalledTimes(1)
   })
+
+  it('業務開始ボタンに data-tour が付く', () => {
+    render(<WorkStartOverlay date="2026-06-27" onStart={vi.fn()} onTeleworkStart={vi.fn()} />)
+    expect(screen.getByRole('button', { name: '業務開始' })).toHaveAttribute('data-tour', 'work-start')
+  })
 })
