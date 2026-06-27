@@ -21,7 +21,7 @@ export function UsageGuideButton({ onStartTour }: { onStartTour?: () => void }) 
       <Dialog open={open} onOpenChange={setOpen}>
         {/* 不透明フルスクリーンの1画面として切り替える（背景を透けさせない） */}
         <DialogContent
-          className="inset-0 flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 [&>button]:hidden"
+          className="inset-0 z-[200] flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 [&>button]:hidden"
           aria-describedby={undefined}
         >
           {/* ヘッダー: 戻る矢印（カレンダー詳細と同じ位置・操作感） */}
