@@ -7,9 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { UsageGuide } from '../UsageGuide/UsageGuide'
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 4
 
 export function SetupView() {
   const {
@@ -123,14 +122,6 @@ export function SetupView() {
         </div>
       )}
 
-      {/* Step 5: 操作の基本 */}
-      {step === 5 && (
-        <div className="flex flex-1 flex-col animate-fade-in" key="step5">
-          <h2 className="mb-3 text-[15px] font-semibold">操作の基本</h2>
-          <UsageGuide />
-        </div>
-      )}
-
       {/* フッター: インジケーター + ボタン */}
       <div className="mt-auto flex shrink-0 flex-col gap-3">
         <div className="flex justify-center gap-1.5">
@@ -164,9 +155,6 @@ export function SetupView() {
             <Button className="flex-1" onClick={() => setStep(4)}>次へ</Button>
           )}
           {step === 4 && (
-            <Button className="flex-1" onClick={() => setStep(5)}>次へ</Button>
-          )}
-          {step === 5 && (
             <Button className="flex-1" onClick={complete}>完了</Button>
           )}
         </div>
