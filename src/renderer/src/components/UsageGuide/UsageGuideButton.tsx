@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { HelpCircle } from 'iconoir-react'
+import { HelpCircle, NavArrowLeft } from 'iconoir-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { UsageGuide } from './UsageGuide'
@@ -19,19 +19,30 @@ export function UsageGuideButton({ onStartTour }: { onStartTour?: () => void }) 
         <HelpCircle width={16} height={16} />
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        {/* パネル（内側カード）を見せ、上下矢印はその外に置くため枠を透明化する */}
+        {/* 不透明フルスクリーンの1画面として切り替える（背景を透けさせない） */}
         <DialogContent
-          className="max-w-[280px] gap-0 border-0 bg-transparent p-0 shadow-none [&>button]:hidden"
+          className="inset-0 flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 [&>button]:hidden"
           aria-describedby={undefined}
         >
-          <DialogTitle className="sr-only">使い方</DialogTitle>
-          <UsageGuide />
+          {/* ヘッダー: 戻る矢印（カレンダー詳細と同じ位置・操作感） */}
+          <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-2">
+            <Button variant="ghost" size="icon" aria-label="戻る" onClick={() => setOpen(false)}>
+              <NavArrowLeft width={18} height={18} />
+            </Button>
+            <DialogTitle className="text-[14px] font-semibold">使い方</DialogTitle>
+          </div>
+
+          {/* カルーセル（1項目ずつ） */}
+          <div className="flex flex-1 flex-col items-center justify-center px-6">
+            <UsageGuide />
+          </div>
+
+          {/* 下部: ツアー再生 */}
           {onStartTour && (
-            <div className="flex justify-center">
+            <div className="shrink-0 border-t border-border p-3">
               <Button
                 variant="outline"
-                size="sm"
-                className="h-7 text-[12px]"
+                className="w-full"
                 onClick={() => {
                   setOpen(false)
                   onStartTour()
