@@ -1,29 +1,53 @@
-import { useEffect, useState } from 'react'
-import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react-dom'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import type { TourStep } from './tourSteps'
 import type { TourState } from './useTour'
 
+const BUBBLE_W = 240
+const GAP = 10
+const EDGE = 8
+
+// 対象矩形から吹き出しの位置を同期的に決める（floating-ui を使わず 0,0 への一瞬の
+// 表示＝左上飛びを原理的に防ぐ）。固定サイズの小窓・既知ターゲット向けの簡易配置。
+function computeBubbleStyle(rect: DOMRect, placement: NonNullable<TourStep['placement']>): CSSProperties {
+  const viewportW = window.innerWidth
+  const cx = rect.left + rect.width / 2
+  // 水平方向は対象の中央に寄せつつ、画面端からはみ出さないようクランプする
+  const left = Math.max(EDGE, Math.min(cx - BUBBLE_W / 2, viewportW - BUBBLE_W - EDGE))
+
+  if (placement === 'top') {
+    return { left, top: rect.top - GAP, transform: 'translateY(-100%)', width: BUBBLE_W }
+  }
+  if (placement === 'left') {
+    return { left: rect.left - GAP, top: rect.top + rect.height / 2, transform: 'translate(-100%, -50%)', width: BUBBLE_W }
+  }
+  if (placement === 'right') {
+    return { left: rect.right + GAP, top: rect.top + rect.height / 2, transform: 'translateY(-50%)', width: BUBBLE_W }
+  }
+  // bottom（既定）
+  return { left, top: rect.bottom + GAP, width: BUBBLE_W }
+}
+
 export function TourOverlay({ tour }: { tour: TourState }) {
-  const { refs, floatingStyles } = useFloating({
-    placement: tour.step?.placement ?? 'bottom',
-    middleware: [offset(10), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  })
   const [rect, setRect] = useState<DOMRect | null>(null)
 
   useEffect(() => {
-    if (!tour.isActive) return
+    if (!tour.isActive) {
+      setRect(null)
+      return
+    }
     const sel = tour.step?.target
     const el = sel ? document.querySelector<HTMLElement>(sel) : null
-    refs.setReference(el)
     const update = (): void => setRect(el ? el.getBoundingClientRect() : null)
     update()
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
-  }, [tour.isActive, tour.index, tour.step, refs])
+  }, [tour.isActive, tour.index, tour.step])
 
   if (!tour.isActive || !tour.step) return null
+
+  const placement = tour.step.placement ?? 'bottom'
 
   return (
     // 全面を覆ってアプリ操作をブロックする（透明でもクリックを受ける）
@@ -44,10 +68,9 @@ export function TourOverlay({ tour }: { tour: TourState }) {
       )}
 
       <Card
-        ref={rect ? refs.setFloating : undefined}
-        style={rect ? floatingStyles : undefined}
+        style={rect ? computeBubbleStyle(rect, placement) : undefined}
         className={`absolute z-[2001] p-3 ${
-          rect ? 'w-[240px]' : 'w-[280px] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+          rect ? '' : 'w-[280px] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
         }`}
       >
         <p className="m-0 text-[13px] font-semibold text-foreground">{tour.step.title}</p>
