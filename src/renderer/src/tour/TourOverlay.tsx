@@ -38,11 +38,24 @@ export function TourOverlay({ tour }: { tour: TourState }) {
       return
     }
     const sel = tour.step?.target
-    const el = sel ? document.querySelector<HTMLElement>(sel) : null
-    const update = (): void => setRect(el ? el.getBoundingClientRect() : null)
+    let raf = 0
+    let tries = 0
+    // タブ切替直後など対象がまだ DOM に無い場合は数フレーム待って再取得する
+    const update = (): void => {
+      const el = sel ? document.querySelector<HTMLElement>(sel) : null
+      if (sel && !el && tries < 10) {
+        tries++
+        raf = requestAnimationFrame(update)
+        return
+      }
+      setRect(el ? el.getBoundingClientRect() : null)
+    }
     update()
     window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', update)
+    }
   }, [tour.isActive, tour.index, tour.step])
 
   if (!tour.isActive || !tour.step) return null
