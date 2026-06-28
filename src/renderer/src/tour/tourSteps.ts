@@ -69,7 +69,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="att-send"]',
     title: '送る',
-    body: '勤怠を Slack に送信して共有できます。',
+    body: 'Slack に送信して勤怠を切ることができます。',
     placement: 'top',
     scene: { tab: 'attendance' },
   },
