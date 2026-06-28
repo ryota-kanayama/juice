@@ -49,3 +49,15 @@ npm test
 # DMG をビルド（無署名）
 CSC_IDENTITY_AUTO_DISCOVERY=false npm run package
 ```
+
+## リリース（アップデート配信）
+
+アプリは GitHub Releases の最新版を起動時・6時間ごとに確認し、新バージョンがあれば
+アプリ内で通知する。配信時は次の手順を踏む（**version を上げ忘れると検知されない**）。
+
+1. `package.json` の `version` を上げる（例 `1.0.0` → `1.1.0`）
+2. `CSC_IDENTITY_AUTO_DISCOVERY=false npm run package` で arm64 / x64 の DMG をビルド
+3. GitHub Release を `vX.Y.Z` タグで作成し、`Juice-X.Y.Z-arm64.dmg` と
+   `Juice-X.Y.Z.dmg`（および blockmap・latest-mac.yml）を添付する
+4. クライアントは6時間以内（または再起動・手動チェック）に更新を検知し、
+   ワンクリックで DMG を取得・オープンできる
