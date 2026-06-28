@@ -144,6 +144,23 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
     return json(200, { sub: claims.sub, name: claims.name, team: claims.team, exp: claims.exp })
   }
 
+  if (path === '/auth/refresh' && event.requestContext.http.method === 'POST') {
+    const claims = await bearerClaims(event, secrets.SESSION_SECRET)
+    if (!claims) return json(401, { error: 'unauthorized' })
+    const token = issueSessionJwt(
+      {
+        sub: claims.sub,
+        name: claims.name,
+        team: claims.team,
+        email: claims.email,
+        handle: claims.handle,
+        picture: claims.picture,
+      },
+      secrets.SESSION_SECRET
+    )
+    return json(200, { token })
+  }
+
   if (path === '/api/attendance.send' && event.requestContext.http.method === 'POST') {
     const claims = await bearerClaims(event, secrets.SESSION_SECRET)
     if (!claims) return json(401, { error: 'unauthorized' })
