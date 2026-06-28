@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { Session, DailyMonth, DayRecord } from '../../shared/types'
+import type { Session, DailyMonth, DayRecord, UpdateInfo } from '../../shared/types'
 import type {
   AttendanceSendResult, AuthStatus, BreakBehaviorSettings, PomodoroSettings, ToggleSettings, WhiteboardSettings,
 } from '../../shared/ipc'
@@ -45,6 +45,7 @@ interface ElectronAPI {
   timerStarted: () => Promise<void>
   timerStopped: () => Promise<void>
   timerAdjustStartTime: (newStartMs: number) => Promise<void>
+  isTimerRunning: () => Promise<boolean>
 
   // attendance
   sendAttendance: (text: string) => Promise<AttendanceSendResult>
@@ -60,10 +61,20 @@ interface ElectronAPI {
   signOutSlack: () => Promise<void>
   onAuthChanged: (callback: (status: AuthStatus) => void) => () => void
 
+  // update
+  checkForUpdate: () => Promise<UpdateInfo>
+  downloadUpdate: () => Promise<void>
+  restartForUpdate: () => Promise<void>
+  dismissUpdate: (version: string) => Promise<void>
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
+  onUpdateProgress: (callback: (p: { percent: number; done: boolean; error?: string }) => void) => () => void
+  onUpdateInstalled: (callback: (p: { version: string }) => void) => () => void
+
   // misc
   completeSetup: () => Promise<void>
   getHolidays: () => Promise<Record<string, string>>
   openUrl: (url: string) => Promise<void>
+  getAppVersion: () => Promise<string>
 }
 
 declare global {

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   IpcChannel, IpcArg, IpcReturn, IpcEventName, IpcEventPayload, AuthStatus,
 } from '../shared/ipc'
-import type { DayRecord } from '../shared/types'
+import type { DayRecord, UpdateInfo } from '../shared/types'
 
 // 型付き invoke ラッパー: IpcContract に登録のないチャンネル / 不一致な引数はコンパイルエラー
 function invoke<C extends IpcChannel>(channel: C, arg: IpcArg<C>): Promise<IpcReturn<C>> {
@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   timerStarted: () => invoke('timer:started', undefined),
   timerStopped: () => invoke('timer:stopped', undefined),
   timerAdjustStartTime: (newStartMs: number) => invoke('timer:adjustStartTime', newStartMs),
+  isTimerRunning: () => invoke('timer:isRunning', undefined),
 
   // attendance
   sendAttendance: (text: string) => invoke('attendance:send', text),
@@ -73,8 +74,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   signOutSlack: () => invoke('auth:signOut', undefined),
   onAuthChanged: (callback: (status: AuthStatus) => void) => on('auth-changed', callback),
 
+  // update
+  checkForUpdate: () => invoke('update:check', undefined),
+  downloadUpdate: () => invoke('update:download', undefined),
+  restartForUpdate: () => invoke('update:restart', undefined),
+  dismissUpdate: (version: string) => invoke('update:dismiss', version),
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => on('update-available', callback),
+  onUpdateProgress: (callback: (p: { percent: number; done: boolean; error?: string }) => void) =>
+    on('update-download-progress', callback),
+  onUpdateInstalled: (callback: (p: { version: string }) => void) => on('update-installed', callback),
+
   // misc
   completeSetup: () => invoke('setup:complete', undefined),
   getHolidays: () => invoke('holidays:get', undefined),
   openUrl: (url: string) => invoke('shell:openUrl', url),
+  getAppVersion: () => invoke('app:getVersion', undefined),
 })

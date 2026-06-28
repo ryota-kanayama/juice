@@ -152,6 +152,12 @@ describe('SettingsStore', () => {
     const result = await store.getBreakBehaviorSettings()
     expect(result.behavior).toBe('pause')
   })
+
+  it('dismissedUpdateVersion を保存・取得できる（既定は空文字）', async () => {
+    expect(await store.getDismissedUpdateVersion()).toBe('')
+    await store.setDismissedUpdateVersion('1.2.0')
+    expect(await store.getDismissedUpdateVersion()).toBe('1.2.0')
+  })
 })
 
 describe('mainProjectCode', () => {

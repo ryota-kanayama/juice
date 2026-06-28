@@ -1,4 +1,4 @@
-import type { Session, DailyMonth, DayRecord } from './types'
+import type { Session, DailyMonth, DayRecord, UpdateInfo } from './types'
 
 // IPC コントラクト: メインプロセスとレンダラーで共有する契約。
 // チャンネル名のリテラル衝突、ハンドラ追加忘れ、引数/戻り値のドリフトを型で防ぐ。
@@ -80,6 +80,7 @@ export interface IpcContract {
   'timer:started': [void, void]
   'timer:stopped': [void, void]
   'timer:adjustStartTime': [newStartMs: number, void]
+  'timer:isRunning': [void, boolean]
 
   // attendance
   'attendance:send': [text: string, AttendanceSendResult]
@@ -96,10 +97,17 @@ export interface IpcContract {
   'auth:getStatus': [void, AuthStatus]
   'auth:signOut': [void, void]
 
+  // update
+  'update:check': [void, UpdateInfo]
+  'update:download': [void, void]
+  'update:restart': [void, void]
+  'update:dismiss': [version: string, void]
+
   // misc
   'setup:complete': [void, void]
   'holidays:get': [void, Record<string, string>]
   'shell:openUrl': [url: string, void]
+  'app:getVersion': [void, string]
 }
 
 export type IpcChannel = keyof IpcContract
@@ -113,6 +121,9 @@ export type IpcReturn<C extends IpcChannel> = IpcContract[C][1]
 export interface IpcEventContract {
   'theme-changed': string
   'auth-changed': AuthStatus
+  'update-available': UpdateInfo
+  'update-download-progress': { percent: number; done: boolean; error?: string }
+  'update-installed': { version: string }
 }
 
 export type IpcEventName = keyof IpcEventContract

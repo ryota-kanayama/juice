@@ -3,6 +3,7 @@ import type { SessionStore } from '../sessionStore'
 import type { SettingsStore } from '../settingsStore'
 import type { AuthStore } from '../auth/authStore'
 import type { DailyStore } from '../dailyStore'
+import type { UpdateService } from '../update/updateService'
 import { startSignIn } from '../auth/signIn'
 import { logger } from '../logger'
 import { handle } from './handle'
@@ -15,6 +16,7 @@ import { startIdleCheck } from '../notifications/idle'
 import { recordActivity } from '../notifications/activity'
 import { onTimerStarted, onTimerStopped, onTimerAdjustStartTime, reschedule } from '../notifications/elapsed'
 import * as pomodoro from '../notifications/pomodoro'
+import { setTimerRunning, isTimerRunning } from '../timerActivity'
 import { sendAttendance } from '../integrations/attendance'
 import { sendWhiteboardTeleworkStart } from '../integrations/whiteboard'
 import { getHolidays } from '../integrations/holidays'
@@ -26,6 +28,7 @@ export function registerIpcHandlers(
   settingsStore: SettingsStore,
   authStore: AuthStore,
   dailyStore: DailyStore,
+  updateService: UpdateService,
 ): void {
   // sessions
   handle('sessions:get', (_, yearMonth) => sessionStore.getSessions(yearMonth))
@@ -93,13 +96,16 @@ export function registerIpcHandlers(
 
   // timer signals
   handle('timer:started', () => {
+    setTimerRunning(true)
     onTimerStarted(settingsStore)
     pomodoro.onTimerStarted(settingsStore)
   })
   handle('timer:stopped', () => {
+    setTimerRunning(false)
     onTimerStopped()
     pomodoro.onTimerStopped()
   })
+  handle('timer:isRunning', () => isTimerRunning())
   handle('timer:adjustStartTime', (_, newStartMs) => {
     onTimerAdjustStartTime(newStartMs, settingsStore)
     pomodoro.onTimerAdjustStartTime(newStartMs, settingsStore)
@@ -130,7 +136,14 @@ export function registerIpcHandlers(
     broadcastAuthToAll(status)
   })
 
+  // update
+  handle('update:check', () => updateService.checkForUpdate())
+  handle('update:download', () => updateService.download())
+  handle('update:restart', () => { updateService.restart() })
+  handle('update:dismiss', (_, version) => updateService.dismiss(version))
+
   // misc
+  handle('app:getVersion', () => app.getVersion())
   handle('holidays:get', () => getHolidays())
   handle('window:hide', () => hidePopover())
   handle('window:resize', (_, { width, height }) => resizePopover(width, height))
