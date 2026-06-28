@@ -25,11 +25,18 @@ export function AttendanceReport({ sessions, today }: Props) {
     breakMinutes, setBreakMinutes,
     workStart, setWorkStart,
     workEnd, setWorkEnd,
-    text, overageMinutes, canSend, copied, sending, sendResult, copy, send,
+    text, overageMinutes, hasZeroTask, canSend, copied, sending, sendResult, copy, send,
   } = useAttendanceReport(sessions, today)
 
   const [editField, setEditField] = useState<EditField | null>(null)
   const [dialogValue, setDialogValue] = useState('')
+  const [confirmingSend, setConfirmingSend] = useState(false)
+
+  // 超過調整がある場合は確認を挟む。それ以外は即送信。
+  function handleSendClick(): void {
+    if (overageMinutes !== null) setConfirmingSend(true)
+    else void send()
+  }
 
   function openDialog(field: EditField): void {
     setEditField(field)
@@ -147,12 +154,12 @@ export function AttendanceReport({ sessions, today }: Props) {
                         ? 'bg-[linear-gradient(135deg,#ef4444,#dc2626)]'
                         : 'bg-[linear-gradient(135deg,#3b82f6,#2563eb)] shadow-[0_4px_12px_rgba(59,130,246,0.3)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)]'
                 }`}
-                onClick={send}
+                onClick={handleSendClick}
                 data-tour="att-send"
-                disabled={sending || !canSend || overageMinutes !== null}
+                disabled={sending || !canSend}
               >
                 {overageMinutes !== null
-                  ? <><WarningTriangle width={14} height={14} /> {overageMinutes}分超過</>
+                  ? <><WarningTriangle width={14} height={14} /> 調整して送る</>
                   : sending
                     ? '送信中...'
                     : sendResult === 'success'
@@ -165,11 +172,29 @@ export function AttendanceReport({ sessions, today }: Props) {
               </button>
             </TooltipTrigger>
             {overageMinutes !== null && (
-              <TooltipContent>作業時間が実稼働時間を超過しています</TooltipContent>
+              <TooltipContent className="text-center">
+                タイマー合計が実労働時間を超過したため、<br />
+                超過分を自動調整しました<br />
+                （一部タスクが0分になります）
+              </TooltipContent>
             )}
           </Tooltip>
         </TooltipProvider>
       </div>
+
+      <Dialog open={confirmingSend} onOpenChange={open => { if (!open) setConfirmingSend(false) }}>
+        <DialogContent className="max-w-[280px]" aria-describedby={undefined}>
+          <DialogTitle>送信確認</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            <span>超過分を調整して送信します。よろしいですか？</span>
+            {hasZeroTask && <><br />0分になるタスクがあります。</>}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmingSend(false)}>キャンセル</Button>
+            <Button onClick={() => { setConfirmingSend(false); void send() }}>送信</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

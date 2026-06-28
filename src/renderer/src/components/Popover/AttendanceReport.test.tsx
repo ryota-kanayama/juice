@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { DailyDataProvider } from '../../daily/DailyDataContext'
 import { AttendanceReport } from './AttendanceReport'
 import type { Session } from '../../types/session'
+import { attendanceRepository } from '../../repositories/attendanceRepository'
 
 vi.mock('../../repositories/attendanceRepository', () => ({
   attendanceRepository: { send: vi.fn().mockResolvedValue({ ok: true, status: 200, body: '{}' }) },
@@ -66,5 +67,67 @@ describe('AttendanceReport — 表示行', () => {
     await screen.findByText('09:00')
     expect(container.querySelector('[data-tour="att-copy"]')).not.toBeNull()
     expect(container.querySelector('[data-tour="att-send"]')).not.toBeNull()
+  })
+})
+
+describe('AttendanceReport — 超過調整時の送信確認', () => {
+  beforeEach(() => {
+    vi.mocked(attendanceRepository.send).mockClear()
+  })
+
+  // 実労働 480分（09:00〜18:00 − 休憩60分）。タイマー合計 510分 → 超過30分で
+  // 末尾タスクが 0 分になる。
+  function zeroTaskSessions(): Session[] {
+    return [
+      { id: '1', taskId: '1', name: '設計', projectCode: 'P', workCategory: 'C',
+        times: [], date: '2026-06-12', color: '#FF9500', totalTime: 480 },
+      { id: '2', taskId: '2', name: 'レビュー', projectCode: 'P', workCategory: 'C',
+        times: [], date: '2026-06-12', color: '#FF9500', totalTime: 30 },
+    ]
+  }
+
+  // タイマー合計 500分 → 超過20分。1タスクが 480 に減るだけで 0 分タスクは無い。
+  function noZeroOverageSessions(): Session[] {
+    return [
+      { id: '1', taskId: '1', name: '設計', projectCode: 'P', workCategory: 'C',
+        times: [], date: '2026-06-12', color: '#FF9500', totalTime: 500 },
+    ]
+  }
+
+  it('超過時の送るボタンは「調整して送る」になる', async () => {
+    render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
+    expect(await screen.findByText('調整して送る')).toBeInTheDocument()
+  })
+
+  it('超過調整がある送信は確認ダイアログを出し、確定で送信する', async () => {
+    const { container } = render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
+    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
+    await screen.findByText('調整して送る')
+    fireEvent.click(sendBtn)
+    // この時点ではまだ送信されない
+    expect(attendanceRepository.send).not.toHaveBeenCalled()
+    // 確認ダイアログが出る
+    expect(await screen.findByText('超過分を調整して送信します。よろしいですか？')).toBeInTheDocument()
+    // 確定で送信
+    fireEvent.click(screen.getByRole('button', { name: '送信' }))
+    expect(attendanceRepository.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('0分タスクが無い超過調整でも確認ダイアログを出す', async () => {
+    const { container } = render(<AttendanceReport sessions={noZeroOverageSessions()} today="2026-06-12" />, { wrapper })
+    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
+    await screen.findByText('調整して送る')
+    fireEvent.click(sendBtn)
+    expect(attendanceRepository.send).not.toHaveBeenCalled()
+    expect(await screen.findByText('超過分を調整して送信します。よろしいですか？')).toBeInTheDocument()
+  })
+
+  it('確認ダイアログをキャンセルすると送信しない', async () => {
+    const { container } = render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
+    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
+    await screen.findByText('調整して送る')
+    fireEvent.click(sendBtn)
+    fireEvent.click(await screen.findByRole('button', { name: 'キャンセル' }))
+    expect(attendanceRepository.send).not.toHaveBeenCalled()
   })
 })
