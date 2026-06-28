@@ -13,6 +13,7 @@ interface Settings {
   whiteboardEnabled: boolean
   breakBehavior: 'stop' | 'pause'
   mainProjectCode: string
+  dismissedUpdateVersion: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -26,6 +27,7 @@ const DEFAULT_SETTINGS: Settings = {
   whiteboardEnabled: false,
   breakBehavior: 'stop',
   mainProjectCode: '',
+  dismissedUpdateVersion: '',
 }
 
 export class SettingsStore {
@@ -101,6 +103,8 @@ export class SettingsStore {
         whiteboardEnabled: parsed.whiteboardEnabled ?? DEFAULT_SETTINGS.whiteboardEnabled,
         breakBehavior: (parsed.breakBehavior === 'pause' ? 'pause' : 'stop'),
         mainProjectCode: parsed.mainProjectCode ?? DEFAULT_SETTINGS.mainProjectCode,
+        dismissedUpdateVersion:
+          parsed.dismissedUpdateVersion ?? DEFAULT_SETTINGS.dismissedUpdateVersion,
       }
     }
     try {
@@ -201,5 +205,14 @@ export class SettingsStore {
 
   async setMainProjectCode(code: string): Promise<void> {
     await this.update(s => ({ ...s, mainProjectCode: code }))
+  }
+
+  async getDismissedUpdateVersion(): Promise<string> {
+    const s = await this.readAll()
+    return s.dismissedUpdateVersion
+  }
+
+  async setDismissedUpdateVersion(version: string): Promise<void> {
+    await this.update(s => ({ ...s, dismissedUpdateVersion: version }))
   }
 }
