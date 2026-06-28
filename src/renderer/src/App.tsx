@@ -22,6 +22,8 @@ import { User, Timer, Calendar, Xmark, OpenNewWindow, SendDiagonal } from 'icono
 import { Button } from '@/components/ui/button'
 import { useAuthStatus } from './hooks/useAuthStatus'
 import { DailyDataProvider } from './daily/DailyDataContext'
+import { useUpdate } from './hooks/useUpdate'
+import { UpdateBanner } from './components/Popover/UpdateBanner'
 
 type Page = 'timer' | 'calendar' | 'attendance'
 
@@ -69,6 +71,7 @@ function PopoverView() {
   }, [tour.index, tour.step])
 
   const sessions = useSessions()
+  const update = useUpdate()
 
   useEffect(() => {
     if (!menuOpen) return
@@ -145,6 +148,8 @@ function PopoverView() {
           </div>
         </div>
       </header>
+
+      <UpdateBanner update={update} />
 
       {/* ページコンテンツ */}
       <main className={styles.content}>

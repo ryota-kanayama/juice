@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { THEMES, DARK_THEMES } from '../../themes'
 import { useSettings } from '../../hooks/useSettings'
+import { useUpdate } from '../../hooks/useUpdate'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-type Section = 'theme' | 'notification' | 'account' | 'analysis' | 'startup'
+type Section = 'theme' | 'notification' | 'account' | 'analysis' | 'startup' | 'update'
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: 'theme', label: 'テーマ' },
@@ -23,6 +24,7 @@ const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: 'account', label: '連携' },
   { id: 'analysis', label: '分析' },
   { id: 'startup', label: '起動' },
+  { id: 'update', label: 'アップデート' },
 ]
 
 const heading = 'mb-2 mt-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground'
@@ -44,6 +46,7 @@ export function SettingsView() {
     setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard, setBreakBehavior, setMainProjectCode,
     setLaunchAtLogin,
   } = useSettings()
+  const update = useUpdate()
 
   return (
     <Tabs
@@ -272,6 +275,61 @@ export function SettingsView() {
                   </p>
                 </div>
                 <Switch checked={launchAtLogin} onCheckedChange={setLaunchAtLogin} />
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* ─── アップデート ─── */}
+        {activeSection === 'update' && (
+          <>
+            <h2 className={heading}>アップデート</h2>
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] text-foreground">現在のバージョン</span>
+                  <span className="text-[13px] text-muted-foreground">
+                    {update.info?.currentVersion ?? '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] text-foreground">状態</span>
+                  <span className="text-[13px] text-muted-foreground">
+                    {update.phase === 'available'
+                      ? `更新があります（v${update.info?.latestVersion}）`
+                      : update.phase === 'downloading'
+                        ? `ダウンロード中… ${update.percent}%`
+                        : update.phase === 'opened' || update.phase === 'installed'
+                          ? '再起動で更新を適用'
+                          : update.phase === 'error'
+                            ? (update.error ?? '確認に失敗しました')
+                            : '最新です'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="rounded-md border border-input px-3 py-1.5 text-[13px]"
+                    onClick={() => { update.check().catch(console.error) }}
+                  >
+                    更新を確認
+                  </button>
+                  {update.phase === 'available' && (
+                    <button
+                      className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-[13px] text-white"
+                      onClick={update.download}
+                    >
+                      ダウンロード
+                    </button>
+                  )}
+                  {(update.phase === 'opened' || update.phase === 'installed') && (
+                    <button
+                      className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-[13px] text-white"
+                      onClick={() => { if (window.confirm('Juice を再起動しますか？')) update.restart() }}
+                    >
+                      再起動
+                    </button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </>
