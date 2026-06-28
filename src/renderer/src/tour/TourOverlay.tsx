@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useLayoutEffect, useState, type CSSProperties } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { TourStep } from './tourSteps'
@@ -38,20 +38,21 @@ function sameRect(a: DOMRect | null, b: DOMRect | null): boolean {
 export function TourOverlay({ tour }: { tour: TourState }) {
   const [rect, setRect] = useState<DOMRect | null>(null)
 
-  useEffect(() => {
-    if (!tour.isActive) {
+  useLayoutEffect(() => {
+    const sel = tour.isActive ? tour.step?.target : null
+    // ターゲットが無いステップ（ようこそ／準備完了）だけ中央表示にする
+    if (!sel) {
       setRect(null)
       return
     }
-    const sel = tour.step?.target
     let raf = 0
-    // 毎フレーム測り直す。タブ切替直後・display:none（0サイズ）・レイアウト変化でも
-    // 追従し、対象が無ければ中央表示にフォールバックする（吹き出しが消えない）。
+    // 描画前に同期測定し、以降も毎フレーム追従する。対象が一瞬見つからない/サイズ0の
+    // 間は直前の位置を保持し、中央へジャンプ（＝消えたように見える）させない。
     const measure = (): void => {
-      const el = sel ? document.querySelector<HTMLElement>(sel) : null
+      const el = document.querySelector<HTMLElement>(sel)
       const r = el ? el.getBoundingClientRect() : null
-      const next = r && r.width > 0 && r.height > 0 ? r : null
-      setRect(prev => (sameRect(prev, next) ? prev : next))
+      const valid = r && r.width > 0 && r.height > 0 ? r : null
+      if (valid) setRect(prev => (sameRect(prev, valid) ? prev : valid))
       raf = requestAnimationFrame(measure)
     }
     measure()
