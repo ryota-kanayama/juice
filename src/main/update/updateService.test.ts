@@ -1,0 +1,119 @@
+// src/main/update/updateService.test.ts
+import { describe, it, expect, vi } from 'vitest'
+import { createUpdateService, type UpdateServiceDeps } from './updateService'
+import type { GithubRelease } from './githubRelease'
+
+function baseDeps(over: Partial<UpdateServiceDeps> = {}): UpdateServiceDeps {
+  const release: GithubRelease = {
+    tagName: 'v1.1.0',
+    htmlUrl: 'https://github.com/ryota-kanayama/juice/releases/tag/v1.1.0',
+    body: 'notes',
+    assets: [
+      { name: 'Juice-1.1.0-arm64.dmg', url: 'https://x/arm64.dmg' },
+      { name: 'Juice-1.1.0.dmg', url: 'https://x/x64.dmg' },
+    ],
+  }
+  return {
+    currentVersion: '1.0.0',
+    arch: 'arm64',
+    isPackaged: true,
+    execPath: '/Applications/Juice.app/Contents/MacOS/Juice',
+    tmpDir: '/tmp',
+    getDismissedVersion: vi.fn(async () => ''),
+    setDismissedVersion: vi.fn(async () => {}),
+    fetchRelease: vi.fn(async () => release),
+    readInstalledVersion: vi.fn(async () => '1.0.0'),
+    downloadFile: vi.fn(async () => {}),
+    send: vi.fn(),
+    openPath: vi.fn(async () => ''),
+    openExternal: vi.fn(async () => {}),
+    relaunch: vi.fn(),
+    logError: vi.fn(),
+    ...over,
+  }
+}
+
+describe('checkForUpdate', () => {
+  it('arch 一致 DMG を選び hasUpdate を判定する', async () => {
+    const svc = createUpdateService(baseDeps())
+    const info = await svc.checkForUpdate()
+    expect(info).toMatchObject({
+      currentVersion: '1.0.0',
+      latestVersion: '1.1.0',
+      hasUpdate: true,
+      downloadUrl: 'https://x/arm64.dmg',
+      assetName: 'Juice-1.1.0-arm64.dmg',
+    })
+  })
+})
+
+describe('checkAndNotify', () => {
+  it('更新あり・未 dismiss なら update-available を送る', async () => {
+    const deps = baseDeps()
+    await createUpdateService(deps).checkAndNotify()
+    expect(deps.send).toHaveBeenCalledWith('update-available', expect.objectContaining({ hasUpdate: true }))
+  })
+  it('dismiss 済みバージョンなら送らない', async () => {
+    const deps = baseDeps({ getDismissedVersion: vi.fn(async () => '1.1.0') })
+    await createUpdateService(deps).checkAndNotify()
+    expect(deps.send).not.toHaveBeenCalled()
+  })
+  it('取得失敗は無音（送らず logError）', async () => {
+    const deps = baseDeps({ fetchRelease: vi.fn(async () => { throw new Error('net') }) })
+    await createUpdateService(deps).checkAndNotify()
+    expect(deps.send).not.toHaveBeenCalled()
+    expect(deps.logError).toHaveBeenCalled()
+  })
+})
+
+describe('download', () => {
+  it('DMG を DL→openPath し、進捗 done を送る', async () => {
+    const deps = baseDeps()
+    await createUpdateService(deps).download()
+    expect(deps.downloadFile).toHaveBeenCalledWith('https://x/arm64.dmg', '/tmp/Juice-1.1.0-arm64.dmg', expect.any(Function))
+    expect(deps.openPath).toHaveBeenCalledWith('/tmp/Juice-1.1.0-arm64.dmg')
+    expect(deps.send).toHaveBeenCalledWith('update-download-progress', { percent: 100, done: true })
+  })
+  it('downloadUrl が無ければ releaseUrl を外部で開く', async () => {
+    const deps = baseDeps({
+      fetchRelease: vi.fn(async () => ({
+        tagName: 'v1.1.0', htmlUrl: 'https://rel', body: '', assets: [],
+      })),
+    })
+    await createUpdateService(deps).download()
+    expect(deps.openExternal).toHaveBeenCalledWith('https://rel')
+    expect(deps.downloadFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('pollInstalledOnce', () => {
+  it('インストール版が起動版と違えば update-installed を送り true', async () => {
+    const deps = baseDeps({ readInstalledVersion: vi.fn(async () => '1.1.0') })
+    const done = await createUpdateService(deps).pollInstalledOnce()
+    expect(done).toBe(true)
+    expect(deps.send).toHaveBeenCalledWith('update-installed', { version: '1.1.0' })
+  })
+  it('同じなら送らず false', async () => {
+    const deps = baseDeps({ readInstalledVersion: vi.fn(async () => '1.0.0') })
+    expect(await createUpdateService(deps).pollInstalledOnce()).toBe(false)
+    expect(deps.send).not.toHaveBeenCalled()
+  })
+  it('未パッケージなら何もせず false', async () => {
+    const deps = baseDeps({ isPackaged: false, readInstalledVersion: vi.fn(async () => '1.1.0') })
+    expect(await createUpdateService(deps).pollInstalledOnce()).toBe(false)
+    expect(deps.send).not.toHaveBeenCalled()
+  })
+})
+
+describe('dismiss / restart', () => {
+  it('dismiss は setDismissedVersion を呼ぶ', async () => {
+    const deps = baseDeps()
+    await createUpdateService(deps).dismiss('1.1.0')
+    expect(deps.setDismissedVersion).toHaveBeenCalledWith('1.1.0')
+  })
+  it('restart は relaunch を呼ぶ', () => {
+    const deps = baseDeps()
+    createUpdateService(deps).restart()
+    expect(deps.relaunch).toHaveBeenCalled()
+  })
+})
