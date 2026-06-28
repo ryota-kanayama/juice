@@ -10,7 +10,7 @@ describe('sessionJwt', () => {
     const token = issueSessionJwt({ sub: 'U123', name: '金山', team: 'T999' }, SECRET, NOW)
     const claims = verifySessionJwt(token, SECRET, NOW)
     expect(claims).toMatchObject({ sub: 'U123', name: '金山', team: 'T999', iat: NOW })
-    expect(claims!.exp).toBe(NOW + 90 * 24 * 60 * 60)
+    expect(claims!.exp).toBe(NOW + 7 * 24 * 60 * 60)
   })
 
   it('JWT 形式（header.payload.signature）である', () => {
@@ -38,7 +38,7 @@ describe('sessionJwt', () => {
 
   it('期限切れトークンは null', () => {
     const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
-    const after = NOW + 90 * 24 * 60 * 60 + 1
+    const after = NOW + 7 * 24 * 60 * 60 + 1
     expect(verifySessionJwt(token, SECRET, after)).toBeNull()
   })
 

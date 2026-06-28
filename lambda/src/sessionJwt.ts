@@ -14,7 +14,7 @@ export interface SessionClaims {
   exp: number
 }
 
-const EXPIRES_IN_SEC = 90 * 24 * 60 * 60 // 90日
+const EXPIRES_IN_SEC = 7 * 24 * 60 * 60 // 7日
 
 const nowSec = (): number => Math.floor(Date.now() / 1000)
 
