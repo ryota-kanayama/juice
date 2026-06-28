@@ -20,4 +20,8 @@ describe('parseShortVersionFromPlist', () => {
   it('キーが無ければ null', () => {
     expect(parseShortVersionFromPlist('<dict></dict>')).toBeNull()
   })
+  it('属性付き <string> タグでも値を取り出す', () => {
+    const xml = `<key>CFBundleShortVersionString</key><string foo="bar">1.2.0</string>`
+    expect(parseShortVersionFromPlist(xml)).toBe('1.2.0')
+  })
 })

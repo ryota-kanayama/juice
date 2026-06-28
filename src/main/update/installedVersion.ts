@@ -11,7 +11,7 @@ export function bundleInfoPlistPath(execPath: string): string {
 /** plist XML から CFBundleShortVersionString の値を取り出す。無ければ null */
 export function parseShortVersionFromPlist(xml: string): string | null {
   const m = xml.match(
-    /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/,
+    /<key>CFBundleShortVersionString<\/key>\s*<string[^>]*>([^<]+)<\/string>/,
   )
   return m ? m[1].trim() : null
 }
