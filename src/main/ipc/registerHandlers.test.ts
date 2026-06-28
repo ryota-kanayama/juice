@@ -9,6 +9,8 @@ const m = vi.hoisted(() => ({
   handlers: new Map<string, (...a: unknown[]) => unknown>(),
   shellOpenExternal: vi.fn(),
   dockHide: vi.fn(),
+  getLoginItemSettings: vi.fn(() => ({ openAtLogin: false })),
+  setLoginItemSettings: vi.fn(),
   recordActivity: vi.fn(),
   onTimerStarted: vi.fn(),
   onTimerStopped: vi.fn(),
@@ -39,7 +41,11 @@ vi.mock('./handle', () => ({
   },
 }))
 vi.mock('electron', () => ({
-  app: { dock: { hide: m.dockHide } },
+  app: {
+    dock: { hide: m.dockHide },
+    getLoginItemSettings: m.getLoginItemSettings,
+    setLoginItemSettings: m.setLoginItemSettings,
+  },
   shell: { openExternal: m.shellOpenExternal },
 }))
 vi.mock('../notifications/activity', () => ({ recordActivity: m.recordActivity }))
@@ -179,5 +185,15 @@ describe('registerIpcHandlers', () => {
     await invoke('auth:signOut')
     expect(authStore.clearToken).toHaveBeenCalled()
     expect(m.broadcastAuthToAll).toHaveBeenCalled()
+  })
+
+  it('settings:getLaunchAtLogin は OS のログイン項目状態を返す', async () => {
+    m.getLoginItemSettings.mockReturnValue({ openAtLogin: true })
+    expect(await invoke('settings:getLaunchAtLogin')).toBe(true)
+  })
+
+  it('settings:setLaunchAtLogin は OS のログイン項目を設定する', async () => {
+    await invoke('settings:setLaunchAtLogin', true)
+    expect(m.setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true })
   })
 })

@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // settings: integrations
   getWhiteboardSettings: () => invoke('settings:getWhiteboardSettings', undefined),
   setWhiteboardSettings: (enabled: boolean) => invoke('settings:setWhiteboardSettings', { enabled }),
+  getLaunchAtLogin: () => invoke('settings:getLaunchAtLogin', undefined),
+  setLaunchAtLogin: (enabled: boolean) => invoke('settings:setLaunchAtLogin', enabled),
   getBreakBehaviorSettings: () => invoke('settings:getBreakBehaviorSettings', undefined),
   setBreakBehaviorSettings: (behavior: 'stop' | 'pause') => invoke('settings:setBreakBehaviorSettings', { behavior }),
   getMainProjectCode: () => invoke('settings:getMainProjectCode', undefined),
