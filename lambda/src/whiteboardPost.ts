@@ -4,7 +4,34 @@ import { FETCH_TIMEOUT_MS } from './http'
 const MAGNET_TELEWORK = 2
 const MAGNET_LEAVE = 3
 
+// ホワイトボード側 statusMagnetMap における magnet_id=3(退勤) のラベル。
+// /api/users は magnet_id ではなくこのラベルを返すため文字列で比較する。
+const LEAVE_LABEL = '退勤'
+
 export type WhiteboardKind = 'telework' | 'leave'
+
+/**
+ * /api/users から現在のマグネット名を取得する。
+ * 取得できない場合（ネットワークエラー・非2xx・ユーザー不在・想定外レスポンス）は null。
+ * null のときは呼び出し側でフェイルセーフとして通常の退勤送信を行う。
+ */
+async function fetchCurrentMagnetName(
+  email: string,
+  opts: { apiUrl: string; apiKey: string }
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${opts.apiUrl}/api/users?apiKey=${opts.apiKey}&id=${encodeURIComponent(email)}`,
+      { method: 'GET', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }
+    )
+    if (!res.ok) return null
+    const data = (await res.json()) as { results?: Array<{ magnet?: { name?: string } }> }
+    const first = data.results?.[0]
+    return first?.magnet?.name ?? null
+  } catch {
+    return null
+  }
+}
 
 /**
  * ホワイトボードの状態を更新する（attendance → magnet の2段呼び出し）。
@@ -22,6 +49,13 @@ export async function postWhiteboard(
   email: string,
   opts: { apiUrl: string; apiKey: string }
 ): Promise<{ ok: true } | { error: string }> {
+  // 退勤時にすでにマグネットが「退勤」なら、打刻も magnet も送らず no-op で成功扱いにする。
+  // （出社時にカードをかざさず退勤のまま残ったケースで、無駄な退勤打刻を増やさない / issue #70）
+  // 現在値が取得できないとき（null）は誤表示を避けるため通常どおり退勤を送る（フェイルセーフ）。
+  if (kind === 'leave') {
+    const current = await fetchCurrentMagnetName(email, opts)
+    if (current === LEAVE_LABEL) return { ok: true }
+  }
   const magnetId = kind === 'telework' ? MAGNET_TELEWORK : MAGNET_LEAVE
   const comeToOffice = kind === 'telework'
   try {
