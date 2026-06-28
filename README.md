@@ -8,8 +8,8 @@
 
 | Mac の種類 | ダウンロード |
 | --- | --- |
-| Apple Silicon（M1 以降） | [**Juice-1.0.0-arm64.dmg**](https://github.com/ryota-kanayama/juice/releases/download/v1.0.0/Juice-1.0.0-arm64.dmg) |
-| Intel Mac | [**Juice-1.0.0.dmg**](https://github.com/ryota-kanayama/juice/releases/download/v1.0.0/Juice-1.0.0.dmg) |
+| Apple Silicon（M1 以降） | [**Juice-1.1.0-arm64.dmg**](https://github.com/ryota-kanayama/juice/releases/download/v1.1.0/Juice-1.1.0-arm64.dmg) |
+| Intel Mac | [**Juice-1.1.0.dmg**](https://github.com/ryota-kanayama/juice/releases/download/v1.1.0/Juice-1.1.0.dmg) |
 
 > お使いの Mac の種類は、画面左上の  メニュー →「この Mac について」で確認できます。「チップ」が Apple M〜 なら Apple Silicon、「プロセッサ」が Intel なら Intel Mac です。
 
