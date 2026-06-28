@@ -172,7 +172,10 @@ export function AttendanceReport({ sessions, today }: Props) {
               </button>
             </TooltipTrigger>
             {overageMinutes !== null && (
-              <TooltipContent>タイマー合計が実労働時間を超過したため、超過分を自動調整しました（一部タスクが0分になります）</TooltipContent>
+              <TooltipContent className="text-center">
+                タイマー合計が実労働時間を超過したため、<br />
+                超過分を自動調整しました（一部タスクが0分になります）
+              </TooltipContent>
             )}
           </Tooltip>
         </TooltipProvider>
