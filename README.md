@@ -59,5 +59,8 @@ CSC_IDENTITY_AUTO_DISCOVERY=false npm run package
 2. `CSC_IDENTITY_AUTO_DISCOVERY=false npm run package` で arm64 / x64 の DMG をビルド
 3. GitHub Release を `vX.Y.Z` タグで作成し、`Juice-X.Y.Z-arm64.dmg` と
    `Juice-X.Y.Z.dmg`（および blockmap・latest-mac.yml）を添付する
+   - **必ず正式リリースで公開する（pre-release にしない）**。アプリは
+     `releases/latest` を参照するが、このエンドポイントは pre-release / draft を
+     除外するため、pre-release のままだと更新が検知されない
 4. クライアントは6時間以内（または再起動・手動チェック）に更新を検知し、
    ワンクリックで DMG を取得・オープンできる
