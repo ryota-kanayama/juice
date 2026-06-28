@@ -32,9 +32,9 @@ export function AttendanceReport({ sessions, today }: Props) {
   const [dialogValue, setDialogValue] = useState('')
   const [confirmingSend, setConfirmingSend] = useState(false)
 
-  // 0 分タスクを含む場合のみ確認を挟む。それ以外は即送信。
+  // 超過調整がある場合は確認を挟む。それ以外は即送信。
   function handleSendClick(): void {
-    if (hasZeroTask) setConfirmingSend(true)
+    if (overageMinutes !== null) setConfirmingSend(true)
     else void send()
   }
 
@@ -185,7 +185,10 @@ export function AttendanceReport({ sessions, today }: Props) {
       <Dialog open={confirmingSend} onOpenChange={open => { if (!open) setConfirmingSend(false) }}>
         <DialogContent className="max-w-[280px]" aria-describedby={undefined}>
           <DialogTitle>送信確認</DialogTitle>
-          <p className="text-sm text-muted-foreground">0分のタスクが含まれています。本当に送信しますか？</p>
+          <p className="text-sm text-muted-foreground">
+            <span>超過分を調整して送信します。よろしいですか？</span>
+            {hasZeroTask && <><br />0分になるタスクがあります。</>}
+          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmingSend(false)}>キャンセル</Button>
             <Button onClick={() => { setConfirmingSend(false); void send() }}>送信</Button>
