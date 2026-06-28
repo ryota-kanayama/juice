@@ -3,6 +3,7 @@ import type { SessionStore } from '../sessionStore'
 import type { SettingsStore } from '../settingsStore'
 import type { AuthStore } from '../auth/authStore'
 import type { DailyStore } from '../dailyStore'
+import type { UpdateService } from '../update/updateService'
 import { startSignIn } from '../auth/signIn'
 import { logger } from '../logger'
 import { handle } from './handle'
@@ -26,6 +27,7 @@ export function registerIpcHandlers(
   settingsStore: SettingsStore,
   authStore: AuthStore,
   dailyStore: DailyStore,
+  updateService: UpdateService,
 ): void {
   // sessions
   handle('sessions:get', (_, yearMonth) => sessionStore.getSessions(yearMonth))
@@ -129,6 +131,12 @@ export function registerIpcHandlers(
     const status = await authStore.getStatus()
     broadcastAuthToAll(status)
   })
+
+  // update
+  handle('update:check', () => updateService.checkForUpdate())
+  handle('update:download', () => updateService.download())
+  handle('update:restart', () => { updateService.restart() })
+  handle('update:dismiss', (_, version) => updateService.dismiss(version))
 
   // misc
   handle('holidays:get', () => getHolidays())

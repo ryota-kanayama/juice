@@ -1,4 +1,4 @@
-import { app, nativeImage } from 'electron'
+import { app, nativeImage, shell } from 'electron'
 import { join } from 'path'
 import os from 'os'
 import { SessionStore } from './sessionStore'
@@ -12,6 +12,11 @@ import { startIdleCheck } from './notifications/idle'
 import { registerIpcHandlers } from './ipc/registerHandlers'
 import { startSessionRefresh } from './auth/refreshSession'
 import { logger } from './logger'
+import { createUpdateService } from './update/updateService'
+import { fetchLatestRelease } from './update/githubRelease'
+import { readInstalledVersion } from './update/installedVersion'
+import { downloadFile } from './update/downloadFile'
+import { broadcastToAll } from './windows/updateBroadcast'
 
 // dev とパッケージ版でプロファイルを分離する（起動ロック衝突・localStorage 混入の防止）。
 // requestSingleInstanceLock より前に設定する必要がある。
@@ -40,6 +45,24 @@ const sessionStore = new SessionStore(dataDir)
 const dailyStore = new DailyStore(dataDir)
 const settingsStore = new SettingsStore(dataDir)
 const authStore = new AuthStore(dataDir)
+
+const updateService = createUpdateService({
+  currentVersion: app.getVersion(),
+  arch: process.arch,
+  isPackaged: app.isPackaged,
+  execPath: process.execPath,
+  tmpDir: app.getPath('temp'),
+  getDismissedVersion: () => settingsStore.getDismissedUpdateVersion(),
+  setDismissedVersion: (v) => settingsStore.setDismissedUpdateVersion(v),
+  fetchRelease: () => fetchLatestRelease(),
+  readInstalledVersion,
+  downloadFile,
+  send: broadcastToAll,
+  openPath: (p) => shell.openPath(p),
+  openExternal: (u) => shell.openExternal(u),
+  relaunch: () => { app.relaunch(); app.quit() },
+  logError: (...args) => logger.error(...args),
+})
 
 // 開発時は汎用 Electron.app に紐づくため juice:// の E2E はパッケージ版で確認する
 // juice:// カスタムスキーム（Slack サインインのコールバック受信）
@@ -71,7 +94,7 @@ app.whenReady().then(async () => {
     app.dock?.setIcon(dockIcon)
   }
 
-  registerIpcHandlers(sessionStore, settingsStore, authStore, dailyStore)
+  registerIpcHandlers(sessionStore, settingsStore, authStore, dailyStore, updateService)
   startSessionRefresh(authStore)
 
   // 初回セットアップ判定
@@ -86,6 +109,7 @@ app.whenReady().then(async () => {
     app.dock?.hide()
     createTray(settingsStore)
     startIdleCheck(settingsStore)
+    updateService.startPeriodicCheck()
   }
 })
 
