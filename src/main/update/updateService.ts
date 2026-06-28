@@ -37,7 +37,12 @@ export interface UpdateService {
   pollInstalledOnce(): Promise<boolean>
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySend = (event: any, payload: any) => void
+
 export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
+  // Task 8 でイベント名が IpcEventContract に追加されるまで、send を緩い型でラップする
+  const send = deps.send as AnySend
   let installTimer: ReturnType<typeof setInterval> | null = null
 
   async function checkForUpdate(): Promise<UpdateInfo> {
@@ -60,7 +65,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
       const info = await checkForUpdate()
       const dismissed = await deps.getDismissedVersion()
       if (info.hasUpdate && info.latestVersion !== dismissed) {
-        deps.send('update-available' as IpcEventName, info as IpcEventPayload<IpcEventName>)
+        send('update-available', info)
       }
     } catch (e) {
       deps.logError('update check failed:', e)
@@ -76,7 +81,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     if (!deps.isPackaged) return false
     const installed = await deps.readInstalledVersion(deps.execPath)
     if (installed && installed !== deps.currentVersion) {
-      deps.send('update-installed' as IpcEventName, { version: installed } as IpcEventPayload<IpcEventName>)
+      send('update-installed', { version: installed })
       return true
     }
     return false
@@ -100,7 +105,7 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
       info = await checkForUpdate()
     } catch (e) {
       deps.logError('update download: re-check failed:', e)
-      deps.send('update-download-progress' as IpcEventName, { percent: 0, done: true, error: '更新情報の取得に失敗しました' } as IpcEventPayload<IpcEventName>)
+      send('update-download-progress', { percent: 0, done: true, error: '更新情報の取得に失敗しました' })
       return
     }
     if (!info.downloadUrl || !info.assetName) {
@@ -110,14 +115,14 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     const dest = join(deps.tmpDir, info.assetName)
     try {
       await deps.downloadFile(info.downloadUrl, dest, p =>
-        deps.send('update-download-progress' as IpcEventName, { percent: p, done: false } as IpcEventPayload<IpcEventName>),
+        send('update-download-progress', { percent: p, done: false }),
       )
-      deps.send('update-download-progress' as IpcEventName, { percent: 100, done: true } as IpcEventPayload<IpcEventName>)
+      send('update-download-progress', { percent: 100, done: true })
       await deps.openPath(dest)
       startInstallWatch()
     } catch (e) {
       deps.logError('update download failed:', e)
-      deps.send('update-download-progress' as IpcEventName, { percent: 0, done: true, error: 'ダウンロードに失敗しました' } as IpcEventPayload<IpcEventName>)
+      send('update-download-progress', { percent: 0, done: true, error: 'ダウンロードに失敗しました' })
     }
   }
 
