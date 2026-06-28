@@ -12,7 +12,9 @@ vi.mock('electron', () => ({
     constructor(opts: { title: string; body: string }) {
       notificationCtor(opts)
     }
-    on(): void {}
+    on(): void {
+      // no-op
+    }
     show(): void {
       showMock()
     }
