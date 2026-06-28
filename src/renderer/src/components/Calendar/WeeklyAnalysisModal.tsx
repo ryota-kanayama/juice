@@ -40,14 +40,16 @@ export function WeeklyAnalysisModal({ date, onClose }: Props) {
               <tr>
                 <td className="py-[5px] text-muted-foreground whitespace-nowrap">所定(分)</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center tabular-nums">{d.scheduledMinutes}</td>
+                  <td key={d.date} className={`py-[5px] text-center tabular-nums${d.isOff ? ' text-muted-foreground' : ''}`}>
+                    {d.isOff ? '休' : d.scheduledMinutes}
+                  </td>
                 ))}
                 <td className="py-[5px] text-center text-muted-foreground">—</td>
               </tr>
               <tr>
                 <td className="py-[5px] text-muted-foreground whitespace-nowrap">実稼働(分)</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center tabular-nums">{fmt(d.actualMinutes)}</td>
+                  <td key={d.date} className={`py-[5px] text-center tabular-nums${d.isOff ? ' text-muted-foreground' : ''}`}>{fmt(d.actualMinutes)}</td>
                 ))}
                 <td className="py-[5px] text-center text-muted-foreground">—</td>
               </tr>
@@ -68,7 +70,7 @@ export function WeeklyAnalysisModal({ date, onClose }: Props) {
               <tr className="font-semibold">
                 <td className="py-[5px] whitespace-nowrap">稼働率</td>
                 {analysis.days.map(d => (
-                  <td key={d.date} className="py-[5px] text-center text-[9px] tabular-nums text-[var(--accent)]">
+                  <td key={d.date} className={`py-[5px] text-center text-[9px] tabular-nums ${d.isOff ? 'text-muted-foreground' : 'text-[var(--accent)]'}`}>
                     {fmt(d.utilizationRate, '%')}
                   </td>
                 ))}

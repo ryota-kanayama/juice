@@ -70,9 +70,11 @@ describe('buildDayAnalysis', () => {
     },
   ]
 
+  const TODAY = '2026-06-28'
+
   it('各指標を正しく計算する', () => {
     const record: DayRecord = { workStart: '09:00', workEnd: '18:00', breakMinutes: 60 }
-    const result = buildDayAnalysis('2026-06-23', '火', record, sessions, 'MAIN')
+    const result = buildDayAnalysis('2026-06-23', '火', record, sessions, 'MAIN', TODAY)
     expect(result.scheduledMinutes).toBe(480)
     expect(result.actualMinutes).toBe(480)
     expect(result.nonProjectMinutes).toBe(90)   // projectCode !== 'MAIN'
@@ -82,13 +84,34 @@ describe('buildDayAnalysis', () => {
 
   it('mainProjectCode が空のとき nonProjectMinutes は 0', () => {
     const record: DayRecord = { workStart: '09:00', workEnd: '18:00', breakMinutes: 60 }
-    const result = buildDayAnalysis('2026-06-23', '火', record, sessions, '')
+    const result = buildDayAnalysis('2026-06-23', '火', record, sessions, '', TODAY)
     expect(result.nonProjectMinutes).toBe(0)
   })
 
   it('actualMinutes が null のとき utilizationRate も null', () => {
-    const result = buildDayAnalysis('2026-06-23', '火', null, sessions, 'MAIN')
+    const result = buildDayAnalysis('2026-06-23', '火', null, sessions, 'MAIN', TODAY)
     expect(result.actualMinutes).toBeNull()
     expect(result.utilizationRate).toBeNull()
+  })
+
+  it('今日より前で勤怠未入力なら isOff は true（休扱い）', () => {
+    const result = buildDayAnalysis('2026-06-23', '火', null, sessions, 'MAIN', TODAY)
+    expect(result.isOff).toBe(true)
+  })
+
+  it('今日より前でも勤怠入力があれば isOff は false', () => {
+    const record: DayRecord = { workStart: '09:00', workEnd: '18:00', breakMinutes: 60 }
+    const result = buildDayAnalysis('2026-06-23', '火', record, sessions, 'MAIN', TODAY)
+    expect(result.isOff).toBe(false)
+  })
+
+  it('今日の未入力日は isOff false（未確定なので 480 のまま）', () => {
+    const result = buildDayAnalysis(TODAY, '日', null, sessions, 'MAIN', TODAY)
+    expect(result.isOff).toBe(false)
+  })
+
+  it('未来の未入力日は isOff false', () => {
+    const result = buildDayAnalysis('2026-07-01', '水', null, sessions, 'MAIN', TODAY)
+    expect(result.isOff).toBe(false)
   })
 })
