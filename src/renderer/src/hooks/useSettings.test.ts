@@ -16,6 +16,8 @@ const mockGetBreakBehavior = vi.fn()
 const mockSetBreakBehavior = vi.fn()
 const mockGetMainProjectCode = vi.fn()
 const mockSetMainProjectCode = vi.fn()
+const mockGetLaunchAtLogin = vi.fn()
+const mockSetLaunchAtLogin = vi.fn()
 
 vi.mock('../repositories/settingsRepository', () => ({
   settingsRepository: {
@@ -34,6 +36,8 @@ vi.mock('../repositories/settingsRepository', () => ({
     setBreakBehavior: (b: string) => mockSetBreakBehavior(b),
     getMainProjectCode: () => mockGetMainProjectCode(),
     setMainProjectCode: (c: string) => mockSetMainProjectCode(c),
+    getLaunchAtLogin: () => mockGetLaunchAtLogin(),
+    setLaunchAtLogin: (e: boolean) => mockSetLaunchAtLogin(e),
   },
 }))
 
@@ -52,6 +56,7 @@ beforeEach(() => {
   mockGetWhiteboard.mockResolvedValue({ enabled: false })
   mockGetBreakBehavior.mockResolvedValue({ behavior: 'stop' })
   mockGetMainProjectCode.mockResolvedValue('')
+  mockGetLaunchAtLogin.mockResolvedValue(false)
 })
 
 describe('useSettings', () => {
@@ -125,5 +130,19 @@ describe('useSettings', () => {
     act(() => result.current.setMainProjectCode('PJ-9'))
     expect(mockSetMainProjectCode).toHaveBeenCalledWith('PJ-9')
     expect(result.current.mainProjectCode).toBe('PJ-9')
+  })
+
+  it('初期ロードで launchAtLogin を反映する', async () => {
+    mockGetLaunchAtLogin.mockResolvedValue(true)
+    const { result } = renderHook(() => useSettings())
+    await waitFor(() => expect(result.current.launchAtLogin).toBe(true))
+  })
+
+  it('setLaunchAtLogin で永続化と state を更新する', async () => {
+    const { result } = renderHook(() => useSettings())
+    await waitFor(() => expect(result.current.activeThemeId).toBe('milk'))
+    act(() => result.current.setLaunchAtLogin(true))
+    expect(mockSetLaunchAtLogin).toHaveBeenCalledWith(true)
+    expect(result.current.launchAtLogin).toBe(true)
   })
 })

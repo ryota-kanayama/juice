@@ -53,6 +53,13 @@ export const settingsRepository = {
     return window.electronAPI.setMainProjectCode(code)
   },
 
+  getLaunchAtLogin(): Promise<boolean> {
+    return window.electronAPI.getLaunchAtLogin()
+  },
+  setLaunchAtLogin(enabled: boolean): Promise<void> {
+    return window.electronAPI.setLaunchAtLogin(enabled)
+  },
+
   completeSetup(): Promise<void> {
     return window.electronAPI.completeSetup()
   },
