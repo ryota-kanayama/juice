@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 
-interface ContextMenuState {
+export interface ContextMenuState {
   sessionId: string
   x: number
   y: number
