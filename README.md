@@ -4,12 +4,12 @@
 
 ## ダウンロード
 
-お使いの Mac に合わせて DMG をダウンロードしてください。
+[**最新版をダウンロード**](https://github.com/ryota-kanayama/juice/releases/latest) して、お使いの Mac に合った DMG を選んでください。
 
-| Mac の種類 | ダウンロード |
+| Mac の種類 | ファイル |
 | --- | --- |
-| Apple Silicon（M1 以降） | [**Juice-1.1.0-arm64.dmg**](https://github.com/ryota-kanayama/juice/releases/download/v1.1.0/Juice-1.1.0-arm64.dmg) |
-| Intel Mac | [**Juice-1.1.0.dmg**](https://github.com/ryota-kanayama/juice/releases/download/v1.1.0/Juice-1.1.0.dmg) |
+| Apple Silicon（M1 以降） | `Juice-<バージョン>-arm64.dmg` |
+| Intel Mac | `Juice-<バージョン>.dmg` |
 
 > お使いの Mac の種類は、画面左上の  メニュー →「この Mac について」で確認できます。「チップ」が Apple M〜 なら Apple Silicon、「プロセッサ」が Intel なら Intel Mac です。
 
