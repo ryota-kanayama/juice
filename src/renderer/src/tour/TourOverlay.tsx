@@ -29,6 +29,12 @@ function computeBubbleStyle(rect: DOMRect, placement: NonNullable<TourStep['plac
   return { left, top: rect.bottom + GAP, width: BUBBLE_W }
 }
 
+function sameRect(a: DOMRect | null, b: DOMRect | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height
+}
+
 export function TourOverlay({ tour }: { tour: TourState }) {
   const [rect, setRect] = useState<DOMRect | null>(null)
 
@@ -39,23 +45,17 @@ export function TourOverlay({ tour }: { tour: TourState }) {
     }
     const sel = tour.step?.target
     let raf = 0
-    let tries = 0
-    // タブ切替直後など対象がまだ DOM に無い場合は数フレーム待って再取得する
-    const update = (): void => {
+    // 毎フレーム測り直す。タブ切替直後・display:none（0サイズ）・レイアウト変化でも
+    // 追従し、対象が無ければ中央表示にフォールバックする（吹き出しが消えない）。
+    const measure = (): void => {
       const el = sel ? document.querySelector<HTMLElement>(sel) : null
-      if (sel && !el && tries < 10) {
-        tries++
-        raf = requestAnimationFrame(update)
-        return
-      }
-      setRect(el ? el.getBoundingClientRect() : null)
+      const r = el ? el.getBoundingClientRect() : null
+      const next = r && r.width > 0 && r.height > 0 ? r : null
+      setRect(prev => (sameRect(prev, next) ? prev : next))
+      raf = requestAnimationFrame(measure)
     }
-    update()
-    window.addEventListener('resize', update)
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', update)
-    }
+    measure()
+    return () => cancelAnimationFrame(raf)
   }, [tour.isActive, tour.index, tour.step])
 
   if (!tour.isActive || !tour.step) return null
