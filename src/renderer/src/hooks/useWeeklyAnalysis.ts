@@ -14,6 +14,8 @@ export interface DayAnalysis {
   nonProjectMinutes: number
   unexpectedMinutes: number
   utilizationRate: number | null
+  /** 今日より前で勤怠未入力の日（集計対象外＝「休」扱い） */
+  isOff: boolean
 }
 
 export interface WeeklyAnalysis {
@@ -64,6 +66,7 @@ export function buildDayAnalysis(
   record: DayRecord | null,
   sessions: Session[],
   mainProjectCode: string,
+  today: string,
 ): DayAnalysis {
   const actualMinutes = calcActualMinutes(record)
   const nonProjectMinutes = mainProjectCode
@@ -75,7 +78,8 @@ export function buildDayAnalysis(
   const utilizationRate = actualMinutes !== null
     ? Math.round(actualMinutes / 480 * 100)
     : null
-  return { date, dayLabel, scheduledMinutes: 480, actualMinutes, nonProjectMinutes, unexpectedMinutes, utilizationRate }
+  const isOff = actualMinutes === null && date < today
+  return { date, dayLabel, scheduledMinutes: 480, actualMinutes, nonProjectMinutes, unexpectedMinutes, utilizationRate, isOff }
 }
 
 /** 選択日を含む週の稼働分析データを返すフック */
@@ -100,12 +104,15 @@ export function useWeeklyAnalysis(date: string | null): { analysis: WeeklyAnalys
       const allSessions = (results.slice(0, months.length) as Session[][]).flat()
       const mainProjectCode = results[months.length] as string
 
+      const now = new Date()
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
       const days = weekdays.map(d => {
         const dow = new Date(`${d}T00:00:00`).getDay()
         const dayLabel = DAY_LABELS[dow]
         const record = daily.getDay(d)
         const daySessions = allSessions.filter(s => s.date === d)
-        return buildDayAnalysis(d, dayLabel, record, daySessions, mainProjectCode)
+        return buildDayAnalysis(d, dayLabel, record, daySessions, mainProjectCode, today)
       })
 
       const validRates = days.map(d => d.utilizationRate).filter((r): r is number => r !== null)
