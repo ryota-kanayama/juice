@@ -10,10 +10,6 @@ export function UpdateBanner({ update }: Props) {
   const { phase, info, percent, restart, download, dismiss } = update
   if (phase === 'idle' || phase === 'error' || !info) return null
 
-  const confirmRestart = (): void => {
-    if (window.confirm('Juice を再起動しますか？')) restart()
-  }
-
   const bar = 'flex items-center justify-between gap-2 px-3 py-2 text-[12px] [-webkit-app-region:no-drag]'
 
   if (phase === 'available') {
@@ -47,7 +43,7 @@ export function UpdateBanner({ update }: Props) {
       <span>{message}</span>
       <button
         className={phase === 'installed' ? 'font-bold underline' : 'font-semibold underline'}
-        onClick={confirmRestart}
+        onClick={restart}
       >
         再起動
       </button>

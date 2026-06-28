@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   timerStarted: () => invoke('timer:started', undefined),
   timerStopped: () => invoke('timer:stopped', undefined),
   timerAdjustStartTime: (newStartMs: number) => invoke('timer:adjustStartTime', newStartMs),
+  isTimerRunning: () => invoke('timer:isRunning', undefined),
 
   // attendance
   sendAttendance: (text: string) => invoke('attendance:send', text),
@@ -87,4 +88,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   completeSetup: () => invoke('setup:complete', undefined),
   getHolidays: () => invoke('holidays:get', undefined),
   openUrl: (url: string) => invoke('shell:openUrl', url),
+  getAppVersion: () => invoke('app:getVersion', undefined),
 })

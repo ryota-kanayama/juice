@@ -45,6 +45,7 @@ interface ElectronAPI {
   timerStarted: () => Promise<void>
   timerStopped: () => Promise<void>
   timerAdjustStartTime: (newStartMs: number) => Promise<void>
+  isTimerRunning: () => Promise<boolean>
 
   // attendance
   sendAttendance: (text: string) => Promise<AttendanceSendResult>
@@ -73,6 +74,7 @@ interface ElectronAPI {
   completeSetup: () => Promise<void>
   getHolidays: () => Promise<Record<string, string>>
   openUrl: (url: string) => Promise<void>
+  getAppVersion: () => Promise<string>
 }
 
 declare global {

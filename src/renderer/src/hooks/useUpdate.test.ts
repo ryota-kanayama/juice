@@ -12,6 +12,7 @@ const mockCheck = vi.fn()
 const mockDownload = vi.fn()
 const mockRestart = vi.fn()
 const mockDismiss = vi.fn()
+const mockGetCurrentVersion = vi.fn()
 
 vi.mock('../repositories/updateRepository', () => ({
   updateRepository: {
@@ -19,9 +20,18 @@ vi.mock('../repositories/updateRepository', () => ({
     download: () => mockDownload(),
     restart: () => mockRestart(),
     dismiss: (v: string) => mockDismiss(v),
+    getCurrentVersion: () => mockGetCurrentVersion(),
     onAvailable: (cb: (i: UpdateInfo) => void) => { handlers.available = cb; return () => {} },
     onProgress: (cb: (p: { percent: number; done: boolean; error?: string }) => void) => { handlers.progress = cb; return () => {} },
     onInstalled: (cb: (p: { version: string }) => void) => { handlers.installed = cb; return () => {} },
+  },
+}))
+
+const mockIsRunning = vi.fn()
+
+vi.mock('../repositories/timerRepository', () => ({
+  timerRepository: {
+    isRunning: () => mockIsRunning(),
   },
 }))
 
@@ -37,6 +47,8 @@ beforeEach(() => {
   mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
   mockDismiss.mockResolvedValue(undefined)
   mockRestart.mockResolvedValue(undefined)
+  mockGetCurrentVersion.mockResolvedValue('1.0.0')
+  mockIsRunning.mockResolvedValue(false)
 })
 
 describe('useUpdate', () => {
@@ -83,5 +95,51 @@ describe('useUpdate', () => {
     const { result } = renderHook(() => useUpdate())
     await act(async () => { await result.current.check() })
     await waitFor(() => expect(result.current.phase).toBe('available'))
+  })
+
+  it('check 成功で hasUpdate=false なら phase=idle', async () => {
+    mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { await result.current.check() })
+    await waitFor(() => expect(result.current.phase).toBe('idle'))
+  })
+
+  it('check 失敗時に phase=error・error メッセージを設定', async () => {
+    mockCheck.mockRejectedValue(new Error('network error'))
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { await result.current.check() })
+    await waitFor(() => {
+      expect(result.current.phase).toBe('error')
+      expect(result.current.error).toBe('確認に失敗しました')
+    })
+  })
+
+  it('restart: confirm=true のとき updateRepository.restart を呼ぶ', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { result.current.restart() })
+    await waitFor(() => expect(mockRestart).toHaveBeenCalled())
+  })
+
+  it('restart: confirm=false のとき updateRepository.restart を呼ばない', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { result.current.restart() })
+    expect(mockRestart).not.toHaveBeenCalled()
+  })
+
+  it('restart: タイマー稼働中のとき confirm 文言に「稼働中」を含む', async () => {
+    mockIsRunning.mockResolvedValue(true)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { result.current.restart() })
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled())
+    expect(confirmSpy.mock.calls[0][0]).toContain('稼働中')
+  })
+
+  it('マウント時に currentVersion を取得する', async () => {
+    mockGetCurrentVersion.mockResolvedValue('2.0.0')
+    const { result } = renderHook(() => useUpdate())
+    await waitFor(() => expect(result.current.currentVersion).toBe('2.0.0'))
   })
 })

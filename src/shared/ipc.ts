@@ -80,6 +80,7 @@ export interface IpcContract {
   'timer:started': [void, void]
   'timer:stopped': [void, void]
   'timer:adjustStartTime': [newStartMs: number, void]
+  'timer:isRunning': [void, boolean]
 
   // attendance
   'attendance:send': [text: string, AttendanceSendResult]
@@ -106,6 +107,7 @@ export interface IpcContract {
   'setup:complete': [void, void]
   'holidays:get': [void, Record<string, string>]
   'shell:openUrl': [url: string, void]
+  'app:getVersion': [void, string]
 }
 
 export type IpcChannel = keyof IpcContract

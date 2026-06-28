@@ -14,4 +14,8 @@ export const timerRepository = {
   adjustStartTime(newStartMs: number): Promise<void> {
     return window.electronAPI.timerAdjustStartTime(newStartMs)
   },
+  /** タイマーが稼働中かどうかをメインプロセスに問い合わせる */
+  isRunning(): Promise<boolean> {
+    return window.electronAPI.isTimerRunning()
+  },
 }

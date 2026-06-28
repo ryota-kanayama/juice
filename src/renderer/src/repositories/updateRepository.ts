@@ -25,4 +25,7 @@ export const updateRepository = {
   onInstalled(cb: (p: { version: string }) => void): () => void {
     return window.electronAPI.onUpdateInstalled(cb)
   },
+  getCurrentVersion(): Promise<string> {
+    return window.electronAPI.getAppVersion()
+  },
 }

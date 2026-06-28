@@ -289,7 +289,7 @@ export function SettingsView() {
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-foreground">現在のバージョン</span>
                   <span className="text-[13px] text-muted-foreground">
-                    {update.info?.currentVersion ?? '—'}
+                    {update.currentVersion || update.info?.currentVersion || '—'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -324,7 +324,7 @@ export function SettingsView() {
                   {(update.phase === 'opened' || update.phase === 'installed') && (
                     <button
                       className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-[13px] text-white"
-                      onClick={() => { if (window.confirm('Juice を再起動しますか？')) update.restart() }}
+                      onClick={update.restart}
                     >
                       再起動
                     </button>
