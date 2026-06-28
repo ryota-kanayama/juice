@@ -11,7 +11,7 @@ interface DailyData {
   setDay: (date: string, patch: DayRecord) => Promise<void>
 }
 
-const DailyDataContext = createContext<DailyData | null>(null)
+export const DailyDataContext = createContext<DailyData | null>(null)
 
 export function useDailyData(): DailyData {
   const ctx = useContext(DailyDataContext)

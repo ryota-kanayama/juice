@@ -50,4 +50,9 @@ describe('TimerForm', () => {
     await userEvent.click(screen.getByRole('button', { name: '注ぐ' }))
     expect(onStart).toHaveBeenCalledWith('資料作成2', undefined, undefined)
   })
+
+  it('「注ぐ」ボタンに data-tour が付く', () => {
+    render(<TimerForm onStart={vi.fn()} />)
+    expect(screen.getByRole('button', { name: '注ぐ' })).toHaveAttribute('data-tour', 'demo-pour')
+  })
 })

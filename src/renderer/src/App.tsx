@@ -11,6 +11,9 @@ import { SetupView } from './components/Setup/SetupView'
 import { CalendarPage } from './components/Calendar/CalendarPage'
 import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
 import { UsageGuideButton } from './components/UsageGuide/UsageGuideButton'
+import { useTour } from './tour/useTour'
+import { TourOverlay } from './tour/TourOverlay'
+import { TourDemoTimer } from './tour/TourDemoTimer'
 import { useWorkday } from './hooks/useWorkday'
 import { useSuggestions } from './hooks/useSuggestions'
 import { useBreak } from './hooks/useBreak'
@@ -57,6 +60,13 @@ function PopoverView() {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const { status, signIn, signOut } = useAuthStatus()
+  const tour = useTour()
+
+  // ツアーのシーンを適用（指定タブへ切替）。デモ表示は tourDemo で制御する。
+  useEffect(() => {
+    const tab = tour.step?.scene?.tab
+    if (tab) setCurrentPage(tab)
+  }, [tour.index, tour.step])
 
   const sessions = useSessions()
 
@@ -79,7 +89,7 @@ function PopoverView() {
         </Button>
         <span className={styles.logo}>juice</span>
         <div className="flex items-center gap-0.5">
-          <UsageGuideButton />
+          <UsageGuideButton onStartTour={tour.start} />
           <div className={styles.menuWrapper} ref={menuRef}>
           <Button variant="ghost" size="icon" aria-label="アカウント" className="[-webkit-app-region:no-drag]" onClick={() => setMenuOpen(p => !p)}>
             <AccountAvatar avatarUrl={status.avatarUrl} name={status.name} />
@@ -139,7 +149,7 @@ function PopoverView() {
       {/* ページコンテンツ */}
       <main className={styles.content}>
         <div className={styles.page} style={{ display: currentPage === 'timer' ? 'flex' : 'none' }}>
-          <TimerPage sessions={sessions} />
+          <TimerPage sessions={sessions} tourDemo={tour.isActive && tour.step?.scene?.demo === true} />
         </div>
         {currentPage === 'calendar' && <CalendarPage todaySessions={sessions.todaySessions} today={sessions.today} />}
         {currentPage === 'attendance' && (
@@ -152,6 +162,7 @@ function PopoverView() {
       {/* ボトムナビゲーション */}
       <nav className="flex shrink-0 items-stretch gap-1 border-t border-border bg-card p-1">
         <button
+          data-tour="tab-timer"
           onClick={() => setCurrentPage('timer')}
           className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'timer' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
@@ -159,6 +170,7 @@ function PopoverView() {
           タイマー
         </button>
         <button
+          data-tour="tab-calendar"
           onClick={() => setCurrentPage('calendar')}
           className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'calendar' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
@@ -166,6 +178,7 @@ function PopoverView() {
           カレンダー
         </button>
         <button
+          data-tour="tab-attendance"
           onClick={() => setCurrentPage('attendance')}
           className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'attendance' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
@@ -173,12 +186,14 @@ function PopoverView() {
           勤怠
         </button>
       </nav>
+
+      <TourOverlay tour={tour} />
     </div>
     </DailyDataProvider>
   )
 }
 
-export function TimerPage({ sessions }: { sessions: SessionsState }) {
+export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsState; tourDemo?: boolean }) {
   const ts = useTimerSession(sessions)
   const workday = useWorkday(ts.today)
   const breakState = useBreak(ts, workday)
@@ -200,7 +215,12 @@ export function TimerPage({ sessions }: { sessions: SessionsState }) {
         </div>
       )}
 
-      {ts.isRunning ? (
+      {tourDemo ? (
+        /* ツアーデモ: 副作用なしの待機ビュー */
+        <div className={styles.idleContent}>
+          <TourDemoTimer />
+        </div>
+      ) : ts.isRunning ? (
         /* 稼働時: ActiveTimerのみ */
         <div className={styles.runningLayout}>
           <ActiveTimer

@@ -480,4 +480,10 @@ describe('SessionList — 操作ヒント', () => {
       screen.getByText('作業名を入力して「注ぐ」で開始できます')
     ).toBeInTheDocument()
   })
+
+  it('勤務時間カードに data-tour が付く', () => {
+    renderWithProvider(<SessionList sessions={sessions} workStart="09:00" />)
+    const total = screen.getByText(/今日注いだ時間/)
+    expect(total.closest('[data-tour="demo-worktime"]')).not.toBeNull()
+  })
 })

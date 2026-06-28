@@ -43,7 +43,7 @@ export function WorkStartOverlay({ date, onStart, onTeleworkStart }: Props) {
         <Switch checked={telework} onCheckedChange={setTelework} aria-label="在宅" />
         在宅
       </label>
-      <Button className="px-8" onClick={handleStart}>業務開始</Button>
+      <Button className="px-8" data-tour="work-start" onClick={handleStart}>業務開始</Button>
     </div>
   )
 }

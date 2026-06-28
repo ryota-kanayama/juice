@@ -247,7 +247,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
 
       <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
-      <Card className="mb-2 mt-2">
+      <Card className="mb-2 mt-2" data-tour="demo-worktime">
         <CardContent className="flex items-center justify-between px-3 py-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5">
             {workStart && !workEnd && (
