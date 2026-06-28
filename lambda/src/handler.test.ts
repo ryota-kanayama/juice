@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handler } from './handler'
-import { issueSessionJwt } from './sessionJwt'
+import { issueSessionJwt, verifySessionJwt } from './sessionJwt'
 import { signState, verifyState } from './stateSign'
 import { isRevoked } from './revocations'
 import * as slackOidc from './slackOidc'
@@ -277,4 +277,39 @@ describe('POST /api/whiteboard.*', () => {
 
 it('未知のパスは 404', async () => {
   expect((await handler(makeEvent('/nope'))).statusCode).toBe(404)
+})
+
+describe('POST /auth/refresh', () => {
+  it('有効トークンを 200 でクレームを引き継いで再発行する', async () => {
+    const token = issueSessionJwt(
+      { sub: 'U123', name: '金山', team: 'T999', email: 'a@jsl.co.jp', handle: 'k', picture: 'p' },
+      'test-secret'
+    )
+    const res = await handler(
+      makeEvent('/auth/refresh', {}, { authorization: `Bearer ${token}` }, { method: 'POST' })
+    )
+    expect(res.statusCode).toBe(200)
+    const { token: newToken } = JSON.parse(res.body!)
+    const claims = verifySessionJwt(newToken, 'test-secret')
+    expect(claims).toMatchObject({
+      sub: 'U123', name: '金山', team: 'T999', email: 'a@jsl.co.jp', handle: 'k', picture: 'p',
+    })
+  })
+
+  it('Bearer 無し・改竄トークンは 401', async () => {
+    expect((await handler(makeEvent('/auth/refresh', {}, {}, { method: 'POST' }))).statusCode).toBe(401)
+    const res = await handler(
+      makeEvent('/auth/refresh', {}, { authorization: 'Bearer xx.yy.zz' }, { method: 'POST' })
+    )
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('失効済みユーザーのトークンは 401', async () => {
+    vi.mocked(isRevoked).mockResolvedValue(true)
+    const token = issueSessionJwt({ sub: 'U123', name: '金山', team: 'T999' }, 'test-secret')
+    const res = await handler(
+      makeEvent('/auth/refresh', {}, { authorization: `Bearer ${token}` }, { method: 'POST' })
+    )
+    expect(res.statusCode).toBe(401)
+  })
 })

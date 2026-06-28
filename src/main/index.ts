@@ -10,6 +10,7 @@ import { createSetupWindow } from './windows/setup'
 import { createTray } from './windows/tray'
 import { startIdleCheck } from './notifications/idle'
 import { registerIpcHandlers } from './ipc/registerHandlers'
+import { startSessionRefresh } from './auth/refreshSession'
 import { logger } from './logger'
 
 // dev とパッケージ版でプロファイルを分離する（起動ロック衝突・localStorage 混入の防止）。
@@ -71,6 +72,7 @@ app.whenReady().then(async () => {
   }
 
   registerIpcHandlers(sessionStore, settingsStore, authStore, dailyStore)
+  startSessionRefresh(authStore)
 
   // 初回セットアップ判定
   const needsSetup = !(await settingsStore.isSetupCompleted())
