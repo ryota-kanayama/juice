@@ -159,7 +159,7 @@ export function AttendanceReport({ sessions, today }: Props) {
                 disabled={sending || !canSend}
               >
                 {overageMinutes !== null
-                  ? <><WarningTriangle width={14} height={14} /> {overageMinutes}分を調整して送る</>
+                  ? <><WarningTriangle width={14} height={14} /> 調整して送る</>
                   : sending
                     ? '送信中...'
                     : sendResult === 'success'

@@ -86,15 +86,15 @@ describe('AttendanceReport — 0分タスクの送信確認', () => {
     ]
   }
 
-  it('超過時の送るボタンに調整分が表示される', async () => {
+  it('超過時の送るボタンは「調整して送る」になる', async () => {
     render(<AttendanceReport sessions={overageSessions()} today="2026-06-12" />, { wrapper })
-    expect(await screen.findByText('30分を調整して送る')).toBeInTheDocument()
+    expect(await screen.findByText('調整して送る')).toBeInTheDocument()
   })
 
   it('0分タスクを含む送信は確認ダイアログを出し、確定で送信する', async () => {
     const { container } = render(<AttendanceReport sessions={overageSessions()} today="2026-06-12" />, { wrapper })
     const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
-    await screen.findByText('30分を調整して送る')
+    await screen.findByText('調整して送る')
     fireEvent.click(sendBtn)
     // この時点ではまだ送信されない
     expect(attendanceRepository.send).not.toHaveBeenCalled()
@@ -108,7 +108,7 @@ describe('AttendanceReport — 0分タスクの送信確認', () => {
   it('確認ダイアログをキャンセルすると送信しない', async () => {
     const { container } = render(<AttendanceReport sessions={overageSessions()} today="2026-06-12" />, { wrapper })
     const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
-    await screen.findByText('30分を調整して送る')
+    await screen.findByText('調整して送る')
     fireEvent.click(sendBtn)
     fireEvent.click(await screen.findByRole('button', { name: 'キャンセル' }))
     expect(attendanceRepository.send).not.toHaveBeenCalled()
