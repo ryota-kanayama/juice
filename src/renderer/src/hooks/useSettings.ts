@@ -13,6 +13,7 @@ export interface SettingsState {
   whiteboardEnabled: boolean
   breakBehavior: 'stop' | 'pause'
   mainProjectCode: string
+  launchAtLogin: boolean
   setTheme: (themeId: string) => void
   setIdle: (enabled: boolean, minutes: number) => void
   setElapsed: (enabled: boolean, minutes: number) => void
@@ -20,6 +21,7 @@ export interface SettingsState {
   setWhiteboard: (enabled: boolean) => void
   setBreakBehavior: (b: 'stop' | 'pause') => void
   setMainProjectCode: (code: string) => void
+  setLaunchAtLogin: (enabled: boolean) => void
 }
 
 /** 設定画面のオーケストレーション。各設定の読み出し・即時反映・永続化を統括。 */
@@ -33,6 +35,7 @@ export function useSettings(): SettingsState {
   const [whiteboardEnabled, setWhiteboardEnabled] = useState(false)
   const [breakBehavior, setBreakBehaviorState] = useState<'stop' | 'pause'>('stop')
   const [mainProjectCode, setMainProjectCodeState] = useState('')
+  const [launchAtLogin, setLaunchAtLoginState] = useState(false)
 
   useEffect(() => {
     const offThemeChanged = settingsRepository.onThemeChanged(setActiveThemeId)
@@ -53,12 +56,13 @@ export function useSettings(): SettingsState {
     })
     settingsRepository.getBreakBehavior().then(({ behavior }) => setBreakBehaviorState(behavior))
     settingsRepository.getMainProjectCode().then(setMainProjectCodeState)
+    settingsRepository.getLaunchAtLogin().then(setLaunchAtLoginState)
     return offThemeChanged
   }, [])
 
   return {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    whiteboardEnabled, breakBehavior, mainProjectCode,
+    whiteboardEnabled, breakBehavior, mainProjectCode, launchAtLogin,
 
     setTheme: (themeId): void => {
       // 即時反映（IPC待ちなし）
@@ -91,6 +95,10 @@ export function useSettings(): SettingsState {
     setMainProjectCode: (code): void => {
       setMainProjectCodeState(code)
       settingsRepository.setMainProjectCode(code)
+    },
+    setLaunchAtLogin: (enabled): void => {
+      setLaunchAtLoginState(enabled)
+      settingsRepository.setLaunchAtLogin(enabled)
     },
   }
 }

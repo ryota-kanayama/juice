@@ -85,6 +85,12 @@ export function registerIpcHandlers(
   handle('settings:getMainProjectCode', () => settingsStore.getMainProjectCode())
   handle('settings:setMainProjectCode', (_, code) => settingsStore.setMainProjectCode(code))
 
+  // startup（ログイン時に起動。OS のログイン項目が真実）
+  handle('settings:getLaunchAtLogin', () => app.getLoginItemSettings().openAtLogin)
+  handle('settings:setLaunchAtLogin', (_, enabled) =>
+    app.setLoginItemSettings({ openAtLogin: enabled })
+  )
+
   // timer signals
   handle('timer:started', () => {
     onTimerStarted(settingsStore)

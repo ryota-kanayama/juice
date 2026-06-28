@@ -69,6 +69,8 @@ export interface IpcContract {
   'settings:setWhiteboardSettings': [{ enabled: boolean }, void]
   'settings:getBreakBehaviorSettings': [void, BreakBehaviorSettings]
   'settings:setBreakBehaviorSettings': [{ behavior: 'stop' | 'pause' }, void]
+  'settings:getLaunchAtLogin': [void, boolean]
+  'settings:setLaunchAtLogin': [boolean, void]
 
   // settings: analysis
   'settings:getMainProjectCode': [void, string]

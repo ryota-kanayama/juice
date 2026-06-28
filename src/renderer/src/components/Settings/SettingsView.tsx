@@ -15,13 +15,14 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-type Section = 'theme' | 'notification' | 'account' | 'analysis'
+type Section = 'theme' | 'notification' | 'account' | 'analysis' | 'startup'
 
 const NAV_ITEMS: { id: Section; label: string }[] = [
   { id: 'theme', label: 'テーマ' },
   { id: 'notification', label: '通知' },
   { id: 'account', label: '連携' },
   { id: 'analysis', label: '分析' },
+  { id: 'startup', label: '起動' },
 ]
 
 const heading = 'mb-2 mt-0 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground'
@@ -39,8 +40,9 @@ export function SettingsView() {
   const [activeSection, setActiveSection] = useState<Section>('theme')
   const {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
-    whiteboardEnabled, breakBehavior, mainProjectCode,
+    whiteboardEnabled, breakBehavior, mainProjectCode, launchAtLogin,
     setTheme, setIdle, setElapsed, setPomodoro, setWhiteboard, setBreakBehavior, setMainProjectCode,
+    setLaunchAtLogin,
   } = useSettings()
 
   return (
@@ -252,6 +254,24 @@ export function SettingsView() {
                     className="h-8 w-32 rounded-md border border-input bg-background px-2 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* ─── 起動 ─── */}
+        {activeSection === 'startup' && (
+          <>
+            <h2 className={heading}>起動</h2>
+            <Card>
+              <CardContent className="flex items-center justify-between gap-4 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium">ログイン時に起動</p>
+                  <p className="text-xs text-muted-foreground">
+                    macOS のログイン時に Juice を自動で起動します
+                  </p>
+                </div>
+                <Switch checked={launchAtLogin} onCheckedChange={setLaunchAtLogin} />
               </CardContent>
             </Card>
           </>
