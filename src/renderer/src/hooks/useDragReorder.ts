@@ -95,6 +95,9 @@ export function useDragReorder({ orderedIds, onReorder, page, totalPages, change
     const toIdx = currentOrder.indexOf(toId)
     if (fromIdx === -1 || toIdx === -1) return
 
+    // 削除後に元の toIdx へ挿入することで、方向依存の自然な配置になる:
+    // 下方向ドラッグ（fromIdx < toIdx）は削除でインデックスが1つ詰まり対象の後ろへ、
+    // 上方向ドラッグ（fromIdx > toIdx）は対象の前へ挿入される。
     currentOrder.splice(fromIdx, 1)
     currentOrder.splice(toIdx, 0, fromId)
 
