@@ -37,3 +37,14 @@ export interface DailyMonth {
   version: number
   days: Record<string, DayRecord>
 }
+
+/** アプリ内アップデートの状態（main→renderer 共有） */
+export interface UpdateInfo {
+  currentVersion: string      // 例 "1.0.0"（app.getVersion()）
+  latestVersion: string       // 例 "1.1.0"（タグ vX.Y.Z を正規化）
+  hasUpdate: boolean          // latest が current より新しい
+  releaseUrl: string          // リリースページ（フォールバックで開く）
+  downloadUrl: string | null  // arch 一致 DMG の URL。無ければ null
+  assetName: string | null    // 例 "Juice-1.1.0-arm64.dmg"。無ければ null
+  notes: string               // リリースノート本文（未使用なら空）
+}
