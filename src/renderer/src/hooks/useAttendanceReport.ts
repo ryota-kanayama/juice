@@ -15,6 +15,8 @@ export interface AttendanceReportState {
   text: string
   /** タイマー合計が実労働時間を超えた分数。超過なければ null */
   overageMinutes: number | null
+  /** 超過調整の結果、0 分のタスクが含まれるか */
+  hasZeroTask: boolean
   canSend: boolean
   copied: boolean
   sending: boolean
@@ -54,7 +56,7 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
   const [sendResult, setSendResult] = useState<'success' | 'auth' | 'error' | null>(null)
 
   const orderedSessions = orderSessions(sessions, day?.sessionOrder ?? null)
-  const { text, overageMinutes } = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
+  const { text, overageMinutes, hasZeroTask } = buildAttendanceText(orderedSessions, workStart, workEnd, breakMinutes)
 
   const canSend = isValidWorkTime(workStart) && isValidWorkTime(workEnd) && sessions.length > 0
 
@@ -86,5 +88,5 @@ export function useAttendanceReport(sessions: Session[], today: string): Attenda
     }
   }
 
-  return { breakMinutes, setBreakMinutes, workStart, setWorkStart, workEnd, setWorkEnd, text, overageMinutes, canSend, copied, sending, sendResult, copy, send }
+  return { breakMinutes, setBreakMinutes, workStart, setWorkStart, workEnd, setWorkEnd, text, overageMinutes, hasZeroTask, canSend, copied, sending, sendResult, copy, send }
 }

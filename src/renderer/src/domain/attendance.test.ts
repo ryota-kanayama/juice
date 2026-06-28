@@ -52,25 +52,38 @@ describe('buildAttendanceText', () => {
     expect(overageMinutes).toBeNull()
   })
 
-  it('タイマー合計が実労働時間を超える場合は自動調整せず overageMinutes を返す', () => {
+  it('タイマー合計が実労働時間を超える場合は末尾タスクから超過分を減算する', () => {
     // 勤務: 09:00〜12:00 = 180分, 休憩0分 → 実労働180分
-    // タイマー合計: 200分, 超過: 20分
+    // タイマー合計: 200分, 超過: 20分 → 200-20=180
     const sessions = [makeSession({ totalTime: 200 })]
-    const { text, overageMinutes } = buildAttendanceText(sessions, '09:00', '12:00', 0)
-    expect(text).toBe('勤怠\n09:00 12:00 0\nZZ テスト作業 設計 200')
+    const { text, overageMinutes, hasZeroTask } = buildAttendanceText(sessions, '09:00', '12:00', 0)
+    expect(text).toBe('勤怠\n09:00 12:00 0\nZZ テスト作業 設計 180')
     expect(overageMinutes).toBe(20)
+    expect(hasZeroTask).toBe(false)
   })
 
-  it('複数タスクで超過している場合もすべてのタスクがそのまま残る', () => {
+  it('複数タスクで超過する場合は末尾から繰り上げ減算し、0分タスクは残す', () => {
     // 勤務: 09:00〜12:00 = 180分, 休憩30分 → 実労働150分
-    // タイマー合計: 180+60=240分, 超過: 90分 → 全タスク維持
+    // タイマー合計: 180+60=240分, 超過: 90分
+    // → 1on1: 60-90 → 0（残30繰上げ）, 社内MTG: 180-30 → 150
     const sessions = [
       makeSession({ id: 'a', taskId: 't1', name: '社内MTG', projectCode: 'ZZ', workCategory: '打合せ', totalTime: 180 }),
       makeSession({ id: 'b', taskId: 't2', name: '1on1', projectCode: 'ZZ', workCategory: '打合せ', totalTime: 60 }),
     ]
-    const { text, overageMinutes } = buildAttendanceText(sessions, '09:00', '12:00', 30)
-    expect(text).toBe('勤怠\n09:00 12:00 30\nZZ 社内MTG 打合せ 180\nZZ 1on1 打合せ 60')
+    const { text, overageMinutes, hasZeroTask } = buildAttendanceText(sessions, '09:00', '12:00', 30)
+    expect(text).toBe('勤怠\n09:00 12:00 30\nZZ 社内MTG 打合せ 150\nZZ 1on1 打合せ 0')
     expect(overageMinutes).toBe(90)
+    expect(hasZeroTask).toBe(true)
+  })
+
+  it('超過分が全タスク合計を超える異常時は全タスクを0にクランプする', () => {
+    // 勤務: 09:00〜09:00 = 0分, 休憩60分 → 実労働-60分
+    // タイマー合計: 30分, 超過: 90分 → タスク0、残60は破棄
+    const sessions = [makeSession({ totalTime: 30 })]
+    const { text, overageMinutes, hasZeroTask } = buildAttendanceText(sessions, '09:00', '09:00', 60)
+    expect(text).toBe('勤怠\n09:00 09:00 60\nZZ テスト作業 設計 0')
+    expect(overageMinutes).toBe(90)
+    expect(hasZeroTask).toBe(true)
   })
 
   it('totalTimeが0のセッションはスキップする', () => {

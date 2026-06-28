@@ -27,9 +27,11 @@ export interface AttendanceTextResult {
   text: string
   /**
    * タイマー合計が実労働時間を超えた分数。超過がなければ null。
-   * 超過時は自動調整せずこの値を警告として UI に表示する。
+   * 超過時はこの分を末尾タスクから減算済み。値は UI の情報表示に使う。
    */
   overageMinutes: number | null
+  /** 超過調整の結果、0 分のタスクが出力に含まれるか */
+  hasZeroTask: boolean
 }
 
 /** 勤怠報告テキストを生成する */
@@ -63,7 +65,8 @@ export function buildAttendanceText(
 
   // 勤務時間から休憩を引いた実労働時間とタイマー合計を比較する。
   // - プラス差分（計測漏れ）: 最後のタスクに加算して合計を実労働時間に合わせる
-  // - マイナス差分（タイマー超過）: 自動調整せず overageMinutes として返す
+  // - マイナス差分（タイマー超過）: 超過分を末尾タスクから順に減算（繰り上げ）し、
+  //   合計を実労働時間に合わせる。0 分になったタスクは消さず残す。
   if (groups.length > 0 && workStart && workEnd) {
     const startMin = parseHHMM(workStart)
     const endMin = parseHHMM(workEnd)
@@ -75,9 +78,19 @@ export function buildAttendanceText(
         groups[groups.length - 1].totalMinutes += diff
       } else if (diff < 0) {
         overageMinutes = -diff
+        // 末尾から順に減算し、引ききれない分は手前のタスクへ繰り上げる。
+        // 各タスクは 0 でクランプ（合計が全タスク分を超える異常時は全タスク 0）。
+        let remaining = overageMinutes
+        for (let i = groups.length - 1; i >= 0 && remaining > 0; i--) {
+          const reduce = Math.min(groups[i].totalMinutes, remaining)
+          groups[i].totalMinutes -= reduce
+          remaining -= reduce
+        }
       }
     }
   }
+
+  const hasZeroTask = groups.some(g => g.totalMinutes === 0)
 
   const timeLine = `${workStart ?? ''} ${workEnd ?? ''} ${breakMinutes}`
   const taskLines = groups.map(g => `${g.projectCode} ${g.name} ${g.workCategory} ${g.totalMinutes}`)
@@ -85,5 +98,6 @@ export function buildAttendanceText(
   return {
     text: ['勤怠', timeLine, ...taskLines].join('\n'),
     overageMinutes,
+    hasZeroTask,
   }
 }
