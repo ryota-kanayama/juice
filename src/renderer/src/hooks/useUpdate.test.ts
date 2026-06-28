@@ -35,6 +35,8 @@ const info: UpdateInfo = {
 beforeEach(() => {
   vi.clearAllMocks()
   mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
+  mockDismiss.mockResolvedValue(undefined)
+  mockRestart.mockResolvedValue(undefined)
 })
 
 describe('useUpdate', () => {

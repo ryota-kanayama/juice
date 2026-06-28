@@ -61,7 +61,7 @@ export function useUpdate(): UpdateState {
   }
 
   const dismiss = (): void => {
-    if (info) void Promise.resolve(updateRepository.dismiss(info.latestVersion)).catch(console.error)
+    if (info) updateRepository.dismiss(info.latestVersion).catch(console.error)
     setPhase('idle')
   }
 
