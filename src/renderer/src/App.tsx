@@ -24,6 +24,7 @@ import { useAuthStatus } from './hooks/useAuthStatus'
 import { DailyDataProvider } from './daily/DailyDataContext'
 import { useUpdate } from './hooks/useUpdate'
 import { UpdateBanner } from './components/Popover/UpdateBanner'
+import { WorkLocationSwitch } from './components/Popover/WorkLocationSwitch'
 
 type Page = 'timer' | 'calendar' | 'attendance'
 
@@ -218,6 +219,10 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
           <span>保存に失敗しました。タイマーは継続中です。もう一度停止してください</span>
           <button onClick={ts.dismissStopError}><Xmark width={14} height={14} /></button>
         </div>
+      )}
+
+      {!tourDemo && workday.workStart && (
+        <WorkLocationSwitch location={workday.currentLocation} onSwitch={workday.switchLocation} />
       )}
 
       {tourDemo ? (
