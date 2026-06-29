@@ -102,6 +102,8 @@ export interface IpcContract {
   'update:download': [void, void]
   'update:restart': [void, void]
   'update:dismiss': [version: string, void]
+  'update:install': [void, void]
+  'update:ready-to-quit': [void, void]
 
   // misc
   'setup:complete': [void, void]

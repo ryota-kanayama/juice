@@ -5,6 +5,7 @@ import type { AuthStore } from '../auth/authStore'
 import type { DailyStore } from '../dailyStore'
 import type { UpdateService } from '../update/updateService'
 import { startSignIn } from '../auth/signIn'
+import { notifyRendererReady } from '../update/prepareQuit'
 import { logger } from '../logger'
 import { handle } from './handle'
 import { hidePopover, resizePopover } from '../windows/popover'
@@ -141,6 +142,8 @@ export function registerIpcHandlers(
   handle('update:download', () => updateService.download())
   handle('update:restart', () => { updateService.restart() })
   handle('update:dismiss', (_, version) => updateService.dismiss(version))
+  handle('update:install', () => updateService.install())
+  handle('update:ready-to-quit', () => { notifyRendererReady() })
 
   // misc
   handle('app:getVersion', () => app.getVersion())
