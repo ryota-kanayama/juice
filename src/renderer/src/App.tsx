@@ -39,7 +39,11 @@ function isSettingsRoute(): boolean {
 export default function App() {
   if (isSetupRoute()) return <SetupView />
   if (isSettingsRoute()) return <SettingsView />
-  return <PopoverView />
+  return (
+    <DailyDataProvider>
+      <PopoverView />
+    </DailyDataProvider>
+  )
 }
 
 /** トリガー用のアバター。画像があれば表示し、無い・読み込み失敗時は人型アイコンにフォールバック */
@@ -85,7 +89,6 @@ function PopoverView() {
   }, [menuOpen])
 
   return (
-    <DailyDataProvider>
     <div className={styles.app}>
       {/* ヘッダー */}
       <header className={styles.header}>
@@ -206,7 +209,6 @@ function PopoverView() {
 
       <TourOverlay tour={tour} />
     </div>
-    </DailyDataProvider>
   )
 }
 
