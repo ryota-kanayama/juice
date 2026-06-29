@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button'
 import { useAuthStatus } from './hooks/useAuthStatus'
 import { DailyDataProvider } from './daily/DailyDataContext'
 import { useUpdate } from './hooks/useUpdate'
+import { useClearFocusOnShow } from './hooks/useClearFocusOnShow'
 import { UpdateBanner } from './components/Popover/UpdateBanner'
 import { WorkLocationSwitch } from './components/Popover/WorkLocationSwitch'
 import { updateRepository } from './repositories/updateRepository'
@@ -72,6 +73,9 @@ function PopoverView() {
   const menuRef = useRef<HTMLDivElement>(null)
   const { status, signIn, signOut } = useAuthStatus()
   const tour = useTour()
+
+  // 再表示のたびに復元されるフォーカス（閉じるボタン等）をクリアする
+  useClearFocusOnShow()
 
   // ツアーのシーンを適用（指定タブへ切替）。デモ表示は tourDemo で制御する。
   useEffect(() => {
