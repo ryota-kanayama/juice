@@ -29,6 +29,10 @@ function baseDeps(over: Partial<UpdateServiceDeps> = {}): UpdateServiceDeps {
     openExternal: vi.fn(async () => {}),
     relaunch: vi.fn(),
     logError: vi.fn(),
+    appPath: '/Applications/Juice.app',
+    runInstaller: vi.fn(),
+    quit: vi.fn(),
+    waitForRenderer: vi.fn(async () => {}),
     ...over,
   }
 }
@@ -115,5 +119,46 @@ describe('dismiss / restart', () => {
     const deps = baseDeps()
     createUpdateService(deps).restart()
     expect(deps.relaunch).toHaveBeenCalled()
+  })
+})
+
+describe('install', () => {
+  it('DL→保存待ち→runInstaller→quit の順に進む（パッケージ版）', async () => {
+    const deps = baseDeps()
+    await createUpdateService(deps).install()
+    expect(deps.downloadFile).toHaveBeenCalledWith(
+      'https://x/arm64.dmg', '/tmp/Juice-1.1.0-arm64.dmg', expect.any(Function),
+    )
+    expect(deps.send).toHaveBeenCalledWith('update-download-progress', { percent: 100, done: true })
+    expect(deps.waitForRenderer).toHaveBeenCalled()
+    expect(deps.runInstaller).toHaveBeenCalledWith({
+      dmgPath: '/tmp/Juice-1.1.0-arm64.dmg', appPath: '/Applications/Juice.app',
+    })
+    expect(deps.quit).toHaveBeenCalled()
+  })
+
+  it('未パッケージなら自己差し替えせず openPath にフォールバック', async () => {
+    const deps = baseDeps({ isPackaged: false })
+    await createUpdateService(deps).install()
+    expect(deps.openPath).toHaveBeenCalledWith('/tmp/Juice-1.1.0-arm64.dmg')
+    expect(deps.runInstaller).not.toHaveBeenCalled()
+    expect(deps.quit).not.toHaveBeenCalled()
+  })
+
+  it('arch 一致 DMG が無ければ releaseUrl を外部で開き、差し替えしない', async () => {
+    const deps = baseDeps({
+      fetchRelease: vi.fn(async () => ({ tagName: 'v1.1.0', htmlUrl: 'https://rel', body: '', assets: [] })),
+    })
+    await createUpdateService(deps).install()
+    expect(deps.openExternal).toHaveBeenCalledWith('https://rel')
+    expect(deps.runInstaller).not.toHaveBeenCalled()
+    expect(deps.quit).not.toHaveBeenCalled()
+  })
+
+  it('DL 失敗時はエラー進捗を送り quit しない', async () => {
+    const deps = baseDeps({ downloadFile: vi.fn(async () => { throw new Error('net') }) })
+    await createUpdateService(deps).install()
+    expect(deps.send).toHaveBeenCalledWith('update-download-progress', { percent: 0, done: true, error: 'ダウンロードに失敗しました' })
+    expect(deps.quit).not.toHaveBeenCalled()
   })
 })

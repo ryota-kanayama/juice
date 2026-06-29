@@ -25,6 +25,10 @@ export interface UpdateServiceDeps {
   openExternal: (url: string) => Promise<void>
   relaunch: () => void
   logError: (...args: unknown[]) => void
+  appPath: string | null
+  runInstaller: (opts: { dmgPath: string; appPath: string }) => void
+  quit: () => void
+  waitForRenderer: () => Promise<void>
 }
 
 export interface UpdateService {
@@ -32,6 +36,7 @@ export interface UpdateService {
   checkAndNotify(): Promise<void>
   startPeriodicCheck(): void
   download(): Promise<void>
+  install(): Promise<void>
   dismiss(version: string): Promise<void>
   restart(): void
   pollInstalledOnce(): Promise<boolean>
@@ -121,6 +126,40 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     }
   }
 
+  async function install(): Promise<void> {
+    let info: UpdateInfo
+    try {
+      info = await checkForUpdate()
+    } catch (e) {
+      deps.logError('update install: re-check failed:', e)
+      deps.send('update-download-progress', { percent: 0, done: true, error: '更新情報の取得に失敗しました' })
+      return
+    }
+    if (!info.downloadUrl || !info.assetName) {
+      await deps.openExternal(info.releaseUrl)
+      return
+    }
+    const dest = join(deps.tmpDir, info.assetName)
+    try {
+      await deps.downloadFile(info.downloadUrl, dest, p =>
+        deps.send('update-download-progress', { percent: p, done: false }),
+      )
+      deps.send('update-download-progress', { percent: 100, done: true })
+    } catch (e) {
+      deps.logError('update install: download failed:', e)
+      deps.send('update-download-progress', { percent: 0, done: true, error: 'ダウンロードに失敗しました' })
+      return
+    }
+    // 開発時 / .app パス不明 は自己差し替え不可 → DMG を開く従来挙動
+    if (!deps.isPackaged || !deps.appPath) {
+      await deps.openPath(dest)
+      return
+    }
+    await deps.waitForRenderer()
+    deps.runInstaller({ dmgPath: dest, appPath: deps.appPath })
+    deps.quit()
+  }
+
   async function dismiss(version: string): Promise<void> {
     await deps.setDismissedVersion(version)
   }
@@ -129,5 +168,5 @@ export function createUpdateService(deps: UpdateServiceDeps): UpdateService {
     deps.relaunch()
   }
 
-  return { checkForUpdate, checkAndNotify, startPeriodicCheck, download, dismiss, restart, pollInstalledOnce }
+  return { checkForUpdate, checkAndNotify, startPeriodicCheck, download, install, dismiss, restart, pollInstalledOnce }
 }
