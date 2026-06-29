@@ -24,6 +24,7 @@ import { useAuthStatus } from './hooks/useAuthStatus'
 import { DailyDataProvider } from './daily/DailyDataContext'
 import { useUpdate } from './hooks/useUpdate'
 import { UpdateBanner } from './components/Popover/UpdateBanner'
+import { WorkLocationSwitch } from './components/Popover/WorkLocationSwitch'
 
 type Page = 'timer' | 'calendar' | 'attendance'
 
@@ -38,7 +39,11 @@ function isSettingsRoute(): boolean {
 export default function App() {
   if (isSetupRoute()) return <SetupView />
   if (isSettingsRoute()) return <SettingsView />
-  return <PopoverView />
+  return (
+    <DailyDataProvider>
+      <PopoverView />
+    </DailyDataProvider>
+  )
 }
 
 /** トリガー用のアバター。画像があれば表示し、無い・読み込み失敗時は人型アイコンにフォールバック */
@@ -71,6 +76,7 @@ function PopoverView() {
   }, [tour.index, tour.step])
 
   const sessions = useSessions()
+  const workday = useWorkday(sessions.today)
   const update = useUpdate()
 
   useEffect(() => {
@@ -83,7 +89,6 @@ function PopoverView() {
   }, [menuOpen])
 
   return (
-    <DailyDataProvider>
     <div className={styles.app}>
       {/* ヘッダー */}
       <header className={styles.header}>
@@ -133,6 +138,16 @@ function PopoverView() {
                   </>
                 )}
               </div>
+              {workday.workStart && (
+                <>
+                  <div className={styles.menuDivider} />
+                  <WorkLocationSwitch
+                    location={workday.currentLocation}
+                    onSwitch={workday.switchLocation}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-[13px] text-muted-foreground"
+                  />
+                </>
+              )}
               <div className={styles.menuDivider} />
               <button
                 className={styles.menuItem}
@@ -194,7 +209,6 @@ function PopoverView() {
 
       <TourOverlay tour={tour} />
     </div>
-    </DailyDataProvider>
   )
 }
 
@@ -255,7 +269,7 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
       ) : (
         /* 待機時: スクロール可能なコンテナ */
         <div className={styles.idleContent}>
-          <TimerForm onStart={ts.start} nameSuggestions={suggestions.names} />
+          <TimerForm onStart={(name, pc, wc) => ts.start(name, pc, wc, workday.currentLocation)} nameSuggestions={suggestions.names} />
           <SessionList
             sessions={ts.todaySessions}
             today={ts.today}
@@ -264,7 +278,7 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
             onStartMore={ts.startMore}
             onDelete={ts.remove}
             onAdjustStartTime={ms => ts.adjustStartTime(new Date(ms))}
-            onAdd={ts.add}
+            onAdd={(params) => ts.add(params, workday.currentLocation)}
             workStart={workday.workStart}
             workEnd={workday.workEnd}
             onWorkEnd={workday.endWork}

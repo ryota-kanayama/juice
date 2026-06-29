@@ -1,4 +1,4 @@
-import type { Session } from '../types/session'
+import type { Session, WorkLocation } from '../types/session'
 import { formatLocalDate, formatLocalDateTime } from '../../../shared/sessionUtils'
 import { randomColor } from './colors'
 
@@ -52,6 +52,7 @@ export function createManualSession(params: {
   projectCode: string
   workCategory: string
   totalMinutes: number
+  workLocation?: WorkLocation
 }): Session {
   const id = crypto.randomUUID()
   return {
@@ -64,6 +65,7 @@ export function createManualSession(params: {
     date: formatLocalDate(Date.now()),
     color: randomColor(),
     totalTime: Math.max(1, params.totalMinutes),
+    ...(params.workLocation === 'telework' ? { workLocation: 'telework' as const } : {}),
   }
 }
 

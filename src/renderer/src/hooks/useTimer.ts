@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import type { Session } from '../types/session'
+import type { Session, WorkLocation } from '../types/session'
 import { formatLocalDateTime, formatLocalDate } from '../../../shared/sessionUtils'
 import { JUICE_COLOR_KEYS, randomColor } from '../domain/colors'
 import { timerRepository } from '../repositories/timerRepository'
@@ -28,7 +28,7 @@ export interface TimerState {
   fillSeconds: number
   activeColor: string
   activeSessionId: string | null
-  start: (name: string, color?: string) => void
+  start: (name: string, color?: string, workLocation?: WorkLocation) => void
   startMore: (existingSession: Session) => void
   stop: (opts?: { projectCode?: string; workCategory?: string }) => Promise<Session | null>
   cancel: () => void
@@ -54,15 +54,17 @@ export function useTimer(): TimerState {
   const activeColorRef = useRef<string>(JUICE_COLOR_KEYS[0])
   const isRunningRef = useRef<boolean>(false)
   const extendingSessionRef = useRef<Session | null>(null)
+  const workLocationRef = useRef<WorkLocation | undefined>(undefined)
   const isPausedRef = useRef<boolean>(false)
   const pausedSecondsRef = useRef<number>(0)
 
-  const start = useCallback((name: string, color?: string) => {
+  const start = useCallback((name: string, color?: string, workLocation?: WorkLocation) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
     isPausedRef.current = false
     pausedSecondsRef.current = 0
     setIsPaused(false)
     extendingSessionRef.current = null
+    workLocationRef.current = workLocation
     const c = color ?? randomColor()
     startTimeRef.current = new Date()
     nameRef.current = name
@@ -153,6 +155,7 @@ export function useTimer(): TimerState {
         times: [newInterval],
         date: formatLocalDate(startTimeRef.current.getTime()),
         color: activeColorRef.current,
+        ...(workLocationRef.current === 'telework' ? { workLocation: 'telework' as const } : {}),
       }
     }
 
@@ -177,6 +180,7 @@ export function useTimer(): TimerState {
     nameRef.current = ''
     taskIdRef.current = ''
     extendingSessionRef.current = null
+    workLocationRef.current = undefined
     isRunningRef.current = false
     timerRepository.stopped()
     setIsRunning(false)
@@ -199,6 +203,7 @@ export function useTimer(): TimerState {
     nameRef.current = ''
     taskIdRef.current = ''
     extendingSessionRef.current = null
+    workLocationRef.current = undefined
     isRunningRef.current = false
     timerRepository.stopped()
     setIsRunning(false)

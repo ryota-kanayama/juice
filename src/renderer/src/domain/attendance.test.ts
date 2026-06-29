@@ -103,6 +103,29 @@ describe('buildAttendanceText', () => {
   })
 })
 
+describe('buildAttendanceText: フレックス勤務場所(tw)', () => {
+  it('テレワークのセッションは行末に tw を付ける', () => {
+    const sessions = [makeSession({ totalTime: 180, workLocation: 'telework' })]
+    const { text } = buildAttendanceText(sessions, '10:00', '13:00', 0)
+    expect(text).toBe('勤怠\n10:00 13:00 0\nZZ テスト作業 設計 180 tw')
+  })
+
+  it('出社(workLocation 未指定)のセッションは tw を付けない', () => {
+    const sessions = [makeSession({ totalTime: 180 })]
+    const { text } = buildAttendanceText(sessions, '10:00', '13:00', 0)
+    expect(text).toBe('勤怠\n10:00 13:00 0\nZZ テスト作業 設計 180')
+  })
+
+  it('同一タスクを出社・テレワーク両方でやると2行に分かれる', () => {
+    const sessions = [
+      makeSession({ id: 'a', taskId: 't', totalTime: 120, workLocation: 'office' }),
+      makeSession({ id: 'b', taskId: 't', totalTime: 60, workLocation: 'telework' }),
+    ]
+    const { text } = buildAttendanceText(sessions, '10:00', '13:00', 0)
+    expect(text).toBe('勤怠\n10:00 13:00 0\nZZ テスト作業 設計 120\nZZ テスト作業 設計 60 tw')
+  })
+})
+
 describe('calcBreakMinutes', () => {
   it('12:00〜13:00 は 60', () => {
     expect(calcBreakMinutes('12:00', '13:00')).toBe(60)

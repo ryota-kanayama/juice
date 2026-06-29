@@ -48,11 +48,13 @@ const makeMockWorkday = (overrides: Partial<WorkdayState> = {}): WorkdayState =>
   breakStart: null,
   breakEnd: null,
   telework: false,
+  currentLocation: 'office',
   startWork: vi.fn(),
   endWork: vi.fn(),
   startBreak: vi.fn(),
   endBreak: vi.fn(),
   setBreakMinutes: vi.fn(),
+  switchLocation: vi.fn(),
   ...overrides,
 })
 

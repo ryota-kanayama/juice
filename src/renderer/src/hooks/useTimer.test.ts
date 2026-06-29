@@ -321,6 +321,27 @@ describe('useTimer', () => {
     })
   })
 
+  it('start に渡した workLocation=telework が stop で保存される', async () => {
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.start('タスク', undefined, 'telework') })
+    await act(async () => { await Promise.resolve() })
+    act(() => { vi.advanceTimersByTime(60000) })
+    let saved: Session | null = null
+    await act(async () => { saved = await result.current.stop({ projectCode: 'ZZ', workCategory: '開発' }) })
+    expect((saved as Session | null)?.workLocation).toBe('telework')
+    expect(mockSaveSession).toHaveBeenCalledWith(expect.objectContaining({ workLocation: 'telework' }))
+  })
+
+  it('workLocation=office（既定）では workLocation を保存しない', async () => {
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.start('タスク', undefined, 'office') })
+    await act(async () => { await Promise.resolve() })
+    act(() => { vi.advanceTimersByTime(60000) })
+    let saved: Session | null = null
+    await act(async () => { saved = await result.current.stop({ projectCode: 'ZZ', workCategory: '開発' }) })
+    expect((saved as Session | null)?.workLocation).toBeUndefined()
+  })
+
   describe('pause / resume', () => {
     it('pause を呼ぶと isPaused が true になり elapsed が止まる', () => {
       vi.useFakeTimers()

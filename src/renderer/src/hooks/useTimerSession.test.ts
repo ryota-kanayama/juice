@@ -82,7 +82,7 @@ describe('useTimerSession', () => {
     act(() => { result.current.start('テスト', 'PROJ', '開発') })
     expect(result.current.activeTimerName).toBe('テスト')
     expect(result.current.activeTimerProjectCode).toBe('PROJ')
-    expect(mockTimerStart).toHaveBeenCalledWith('テスト')
+    expect(mockTimerStart).toHaveBeenCalledWith('テスト', undefined, undefined)
   })
 
   it('startMore は activeTimerName を更新して applyStartMore と timerStartMore を呼ぶ', () => {

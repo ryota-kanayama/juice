@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Session } from '../types/session'
+import type { Session, WorkLocation } from '../types/session'
 import { appendRunningInterval, createManualSession, hasRunningInterval } from '../domain/session'
 import { sessionRepository } from '../repositories/sessionRepository'
 import { attendanceRepository } from '../repositories/attendanceRepository'
@@ -15,7 +15,7 @@ export interface SessionsState {
   /** セッションを更新する（稼働中の場合はディスク書き込みをスキップ） */
   update: (session: Session) => Promise<void>
   /** 手動追加（区間なしの確定済みセッション） */
-  add: (params: { name: string; projectCode: string; workCategory: string; totalTime: string }) => Promise<void>
+  add: (params: { name: string; projectCode: string; workCategory: string; totalTime: string }, workLocation?: WorkLocation) => Promise<void>
   /** セッションを削除する */
   remove: (sessionId: string) => Promise<void>
   /** テレワーク開始をホワイトボード / Slack に通知する */
@@ -53,12 +53,13 @@ export function useSessions(): SessionsState {
     setTodaySessions(prev => prev.map(s => s.id === updated.id ? updated : s))
   }, [])
 
-  const add = useCallback(async (params: { name: string; projectCode: string; workCategory: string; totalTime: string }): Promise<void> => {
+  const add = useCallback(async (params: { name: string; projectCode: string; workCategory: string; totalTime: string }, workLocation?: WorkLocation): Promise<void> => {
     const session = createManualSession({
       name: params.name,
       projectCode: params.projectCode,
       workCategory: params.workCategory,
       totalMinutes: parseInt(params.totalTime, 10),
+      workLocation,
     })
     await sessionRepository.update(session)
     setTodaySessions(prev => [...prev, session])
