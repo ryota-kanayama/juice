@@ -68,4 +68,12 @@ describe('UpdateBanner', () => {
     render(<UpdateBanner update={state({ phase: 'installing', info })} />)
     expect(screen.getByText('更新を適用しています…')).toBeInTheDocument()
   })
+
+  it('available で更新ボタンが install を呼ぶ', () => {
+    const install = vi.fn()
+    const update = state({ phase: 'available', info, install })
+    render(<UpdateBanner update={update} />)
+    fireEvent.click(screen.getByText('更新'))
+    expect(install).toHaveBeenCalled()
+  })
 })
