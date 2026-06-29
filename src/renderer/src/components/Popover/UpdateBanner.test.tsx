@@ -63,4 +63,9 @@ describe('UpdateBanner', () => {
     fireEvent.click(screen.getByRole('button', { name: '再起動' }))
     expect(restart).toHaveBeenCalled()
   })
+
+  it('installing 中は適用中の文言を表示する', () => {
+    render(<UpdateBanner update={state({ phase: 'installing', info })} />)
+    expect(screen.getByText('更新を適用しています…')).toBeInTheDocument()
+  })
 })
