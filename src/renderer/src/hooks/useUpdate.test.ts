@@ -111,6 +111,48 @@ describe('useUpdate', () => {
     const { result } = renderHook(() => useUpdate())
     await waitFor(() => expect(result.current.currentVersion).toBe('2.0.0'))
   })
+
+  it('check 中は checking=true になり、完了後 false に戻る', async () => {
+    mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
+    const { result } = renderHook(() => useUpdate())
+    act(() => { void result.current.check() })
+    await waitFor(() => expect(result.current.checking).toBe(true))
+    await waitFor(() => expect(result.current.checking).toBe(false))
+  })
+
+  it('更新なしの確認後は checkedUpToDate=true', async () => {
+    mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { await result.current.check() })
+    await waitFor(() => expect(result.current.checkedUpToDate).toBe(true))
+    expect(result.current.phase).toBe('idle')
+  })
+
+  it('更新ありの確認後は checkedUpToDate=false', async () => {
+    mockCheck.mockResolvedValue(info)
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { await result.current.check() })
+    await waitFor(() => expect(result.current.phase).toBe('available'))
+    expect(result.current.checkedUpToDate).toBe(false)
+  })
+
+  it('確認失敗で checkedUpToDate=false・checking=false', async () => {
+    mockCheck.mockRejectedValue(new Error('network error'))
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { await result.current.check() })
+    await waitFor(() => expect(result.current.phase).toBe('error'))
+    expect(result.current.checkedUpToDate).toBe(false)
+    expect(result.current.checking).toBe(false)
+  })
+
+  it('install 開始で checkedUpToDate=false に戻す', async () => {
+    mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
+    const { result } = renderHook(() => useUpdate())
+    await act(async () => { await result.current.check() })
+    await waitFor(() => expect(result.current.checkedUpToDate).toBe(true))
+    act(() => { result.current.install() })
+    await waitFor(() => expect(result.current.checkedUpToDate).toBe(false))
+  })
 })
 
 describe('useUpdate.install', () => {
