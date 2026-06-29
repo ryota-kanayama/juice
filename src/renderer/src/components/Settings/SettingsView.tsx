@@ -295,33 +295,36 @@ export function SettingsView() {
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] text-foreground">状態</span>
                   <span className="inline-flex items-center gap-1 text-[13px] text-muted-foreground">
-                    {update.phase === 'available'
-                      ? `更新があります（v${update.info?.latestVersion}）`
-                      : update.phase === 'downloading'
-                        ? `ダウンロード中… ${update.percent}%`
-                        : update.phase === 'installing'
-                          ? '更新を適用しています…'
-                          : update.phase === 'error'
-                            ? (update.error ?? '確認に失敗しました')
-                            : update.checkedUpToDate
-                              ? (
-                                <span className="inline-flex items-center gap-1 animate-in fade-in zoom-in duration-300">
-                                  最新です
-                                  <svg
-                                    className="h-3.5 w-3.5 text-[var(--accent)]"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    aria-hidden="true"
-                                  >
-                                    <path d="M20 6 9 17l-5-5" />
-                                  </svg>
-                                </span>
-                              )
-                              : '最新です'}
+                    {/* 確認中はアニメが終わるまで状態文言を出さない */}
+                    {update.checking
+                      ? null
+                      : update.phase === 'available'
+                        ? `更新があります（v${update.info?.latestVersion}）`
+                        : update.phase === 'downloading'
+                          ? `ダウンロード中… ${update.percent}%`
+                          : update.phase === 'installing'
+                            ? '更新を適用しています…'
+                            : update.phase === 'error'
+                              ? (update.error ?? '確認に失敗しました')
+                              : update.checkedUpToDate
+                                ? (
+                                  <span className="inline-flex items-center gap-1 animate-in fade-in zoom-in duration-300">
+                                    最新です
+                                    <svg
+                                      className="h-3.5 w-3.5 text-[var(--accent)]"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      aria-hidden="true"
+                                    >
+                                      <path d="M20 6 9 17l-5-5" />
+                                    </svg>
+                                  </span>
+                                )
+                                : '最新です'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -332,7 +335,7 @@ export function SettingsView() {
                   >
                     {update.checking ? (<><RefreshSpinner />確認中…</>) : '更新を確認'}
                   </button>
-                  {update.phase === 'available' && (
+                  {update.phase === 'available' && !update.checking && (
                     <button
                       className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-[13px] text-white"
                       onClick={update.install}
