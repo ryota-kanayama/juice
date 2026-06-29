@@ -11,6 +11,7 @@ import { SetupView } from './components/Setup/SetupView'
 import { CalendarPage } from './components/Calendar/CalendarPage'
 import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
 import { UsageGuideButton } from './components/UsageGuide/UsageGuideButton'
+import { UsageGuidePanel } from './components/UsageGuide/UsageGuidePanel'
 import { useTour } from './tour/useTour'
 import { TourOverlay } from './tour/TourOverlay'
 import { TourDemoTimer } from './tour/TourDemoTimer'
@@ -65,6 +66,8 @@ function AccountAvatar({ avatarUrl, name }: { avatarUrl?: string; name?: string 
 
 function PopoverView() {
   const [currentPage, setCurrentPage] = useState<Page>('timer')
+  // 使い方パネルの表示状態
+  const [helpOpen, setHelpOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const { status, signIn, signOut } = useAuthStatus()
@@ -98,7 +101,7 @@ function PopoverView() {
         </Button>
         <span className={styles.logo}>juice</span>
         <div className="flex items-center gap-0.5">
-          <UsageGuideButton onStartTour={tour.start} />
+          <UsageGuideButton onOpen={() => setHelpOpen(true)} />
           <div className={styles.menuWrapper} ref={menuRef}>
           <Button variant="ghost" size="icon" aria-label="アカウント" className="[-webkit-app-region:no-drag]" onClick={() => setMenuOpen(p => !p)}>
             <AccountAvatar avatarUrl={status.avatarUrl} name={status.name} />
@@ -178,13 +181,17 @@ function PopoverView() {
             <AttendanceReport sessions={sessions.todaySessions} today={sessions.today} />
           </div>
         )}
+        {/* 使い方パネル: main 内に絶対配置で重ねる */}
+        {helpOpen && (
+          <UsageGuidePanel onClose={() => setHelpOpen(false)} onStartTour={tour.start} />
+        )}
       </main>
 
       {/* ボトムナビゲーション */}
       <nav className="flex shrink-0 items-stretch gap-1 border-t border-border bg-card p-1">
         <button
           data-tour="tab-timer"
-          onClick={() => setCurrentPage('timer')}
+          onClick={() => { setHelpOpen(false); setCurrentPage('timer') }}
           className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'timer' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
           <Timer width={18} height={18} />
@@ -192,7 +199,7 @@ function PopoverView() {
         </button>
         <button
           data-tour="tab-calendar"
-          onClick={() => setCurrentPage('calendar')}
+          onClick={() => { setHelpOpen(false); setCurrentPage('calendar') }}
           className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'calendar' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
           <Calendar width={18} height={18} />
@@ -200,7 +207,7 @@ function PopoverView() {
         </button>
         <button
           data-tour="tab-attendance"
-          onClick={() => setCurrentPage('attendance')}
+          onClick={() => { setHelpOpen(false); setCurrentPage('attendance') }}
           className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'attendance' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
         >
           <SendDiagonal width={18} height={18} />
