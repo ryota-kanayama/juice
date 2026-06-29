@@ -15,6 +15,21 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-29
+
+### 🔧 改善
+
+- アップデートが完全自動になりました。「更新」を押すとダウンロードから差し替え・
+  再起動までを自動で行います（これまでは Applications へ手動でドラッグして
+  置き換える必要がありました）。タイマー稼働中は作業を保存してから更新します
+- 「更新を確認」を押したときに確認中のインジケータが出て、最新の場合は
+  「最新です ✓」と表示されるようになりました
+- 「使い方」をヘッダー・下部ナビを残したまま本画面に表示するようにしました
+
+### 🐛 修正
+
+- 設定の「休憩」セクションの上余白が他セクションより狭かったのを揃えました
+
 ## [1.2.0] - 2026-06-29
 
 ### ✨ 新機能
@@ -41,7 +56,8 @@
 - 初回リリース。作業セッションをタイマーで記録し、カレンダー・勤怠の確認、テーマや
   各種通知（アイドル / 経過時間 / ポモドーロ）に対応した macOS メニューバーアプリ
 
-[Unreleased]: https://github.com/ryota-kanayama/juice/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/ryota-kanayama/juice/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/ryota-kanayama/juice/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/ryota-kanayama/juice/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ryota-kanayama/juice/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ryota-kanayama/juice/releases/tag/v1.0.0
