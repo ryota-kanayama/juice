@@ -203,6 +203,7 @@ export function useTimer(): TimerState {
     nameRef.current = ''
     taskIdRef.current = ''
     extendingSessionRef.current = null
+    workLocationRef.current = undefined
     isRunningRef.current = false
     timerRepository.stopped()
     setIsRunning(false)
