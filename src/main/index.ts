@@ -14,7 +14,6 @@ import { startSessionRefresh } from './auth/refreshSession'
 import { logger } from './logger'
 import { createUpdateService } from './update/updateService'
 import { fetchLatestRelease } from './update/githubRelease'
-import { readInstalledVersion } from './update/installedVersion'
 import { downloadFile } from './update/downloadFile'
 import { broadcastToAll } from './windows/updateBroadcast'
 import { runInstaller } from './update/runInstaller'
@@ -58,17 +57,14 @@ const updateService = createUpdateService({
   currentVersion: app.getVersion(),
   arch: process.arch,
   isPackaged: app.isPackaged,
-  execPath: process.execPath,
   tmpDir: app.getPath('temp'),
   getDismissedVersion: () => settingsStore.getDismissedUpdateVersion(),
   setDismissedVersion: (v) => settingsStore.setDismissedUpdateVersion(v),
   fetchRelease: () => fetchLatestRelease(),
-  readInstalledVersion,
   downloadFile,
   send: broadcastToAll,
   openPath: (p) => shell.openPath(p),
   openExternal: (u) => shell.openExternal(u),
-  relaunch: () => { app.relaunch(); app.quit() },
   logError: (...args) => logger.error(...args),
   appPath: deriveAppPath(process.execPath),
   runInstaller: ({ dmgPath, appPath }) =>

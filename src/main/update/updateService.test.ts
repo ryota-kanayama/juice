@@ -17,17 +17,14 @@ function baseDeps(over: Partial<UpdateServiceDeps> = {}): UpdateServiceDeps {
     currentVersion: '1.0.0',
     arch: 'arm64',
     isPackaged: true,
-    execPath: '/Applications/Juice.app/Contents/MacOS/Juice',
     tmpDir: '/tmp',
     getDismissedVersion: vi.fn(async () => ''),
     setDismissedVersion: vi.fn(async () => {}),
     fetchRelease: vi.fn(async () => release),
-    readInstalledVersion: vi.fn(async () => '1.0.0'),
     downloadFile: vi.fn(async () => {}),
     send: vi.fn(),
     openPath: vi.fn(async () => ''),
     openExternal: vi.fn(async () => {}),
-    relaunch: vi.fn(),
     logError: vi.fn(),
     appPath: '/Applications/Juice.app',
     runInstaller: vi.fn(),
@@ -70,55 +67,11 @@ describe('checkAndNotify', () => {
   })
 })
 
-describe('download', () => {
-  it('DMG を DL→openPath し、進捗 done を送る', async () => {
-    const deps = baseDeps()
-    await createUpdateService(deps).download()
-    expect(deps.downloadFile).toHaveBeenCalledWith('https://x/arm64.dmg', '/tmp/Juice-1.1.0-arm64.dmg', expect.any(Function))
-    expect(deps.openPath).toHaveBeenCalledWith('/tmp/Juice-1.1.0-arm64.dmg')
-    expect(deps.send).toHaveBeenCalledWith('update-download-progress', { percent: 100, done: true })
-  })
-  it('downloadUrl が無ければ releaseUrl を外部で開く', async () => {
-    const deps = baseDeps({
-      fetchRelease: vi.fn(async () => ({
-        tagName: 'v1.1.0', htmlUrl: 'https://rel', body: '', assets: [],
-      })),
-    })
-    await createUpdateService(deps).download()
-    expect(deps.openExternal).toHaveBeenCalledWith('https://rel')
-    expect(deps.downloadFile).not.toHaveBeenCalled()
-  })
-})
-
-describe('pollInstalledOnce', () => {
-  it('インストール版が起動版と違えば update-installed を送り true', async () => {
-    const deps = baseDeps({ readInstalledVersion: vi.fn(async () => '1.1.0') })
-    const done = await createUpdateService(deps).pollInstalledOnce()
-    expect(done).toBe(true)
-    expect(deps.send).toHaveBeenCalledWith('update-installed', { version: '1.1.0' })
-  })
-  it('同じなら送らず false', async () => {
-    const deps = baseDeps({ readInstalledVersion: vi.fn(async () => '1.0.0') })
-    expect(await createUpdateService(deps).pollInstalledOnce()).toBe(false)
-    expect(deps.send).not.toHaveBeenCalled()
-  })
-  it('未パッケージなら何もせず false', async () => {
-    const deps = baseDeps({ isPackaged: false, readInstalledVersion: vi.fn(async () => '1.1.0') })
-    expect(await createUpdateService(deps).pollInstalledOnce()).toBe(false)
-    expect(deps.send).not.toHaveBeenCalled()
-  })
-})
-
-describe('dismiss / restart', () => {
+describe('dismiss', () => {
   it('dismiss は setDismissedVersion を呼ぶ', async () => {
     const deps = baseDeps()
     await createUpdateService(deps).dismiss('1.1.0')
     expect(deps.setDismissedVersion).toHaveBeenCalledWith('1.1.0')
-  })
-  it('restart は relaunch を呼ぶ', () => {
-    const deps = baseDeps()
-    createUpdateService(deps).restart()
-    expect(deps.relaunch).toHaveBeenCalled()
   })
 })
 

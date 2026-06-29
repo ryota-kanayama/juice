@@ -99,8 +99,6 @@ export interface IpcContract {
 
   // update
   'update:check': [void, UpdateInfo]
-  'update:download': [void, void]
-  'update:restart': [void, void]
   'update:dismiss': [version: string, void]
   'update:install': [void, void]
   'update:ready-to-quit': [void, void]
@@ -125,7 +123,6 @@ export interface IpcEventContract {
   'auth-changed': AuthStatus
   'update-available': UpdateInfo
   'update-download-progress': { percent: number; done: boolean; error?: string }
-  'update-installed': { version: string }
   'update-prepare-quit': void
 }
 

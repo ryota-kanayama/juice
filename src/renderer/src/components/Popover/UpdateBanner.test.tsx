@@ -12,7 +12,7 @@ const info = {
 function state(over: Partial<UpdateState>): UpdateState {
   return {
     phase: 'idle', info: null, percent: 0, error: null, currentVersion: '',
-    check: vi.fn(), install: vi.fn(), restart: vi.fn(), dismiss: vi.fn(),
+    check: vi.fn(), install: vi.fn(), dismiss: vi.fn(),
     ...over,
   }
 }
@@ -48,20 +48,6 @@ describe('UpdateBanner', () => {
   it('downloading では進捗を表示し更新ボタンは無効', () => {
     render(<UpdateBanner update={state({ phase: 'downloading', info, percent: 42 })} />)
     expect(screen.getByText(/42%/)).toBeInTheDocument()
-  })
-
-  it('opened で再起動ボタンを押すと注入された restart が呼ばれる', () => {
-    const restart = vi.fn()
-    render(<UpdateBanner update={state({ phase: 'opened', info, restart })} />)
-    fireEvent.click(screen.getByRole('button', { name: '再起動' }))
-    expect(restart).toHaveBeenCalled()
-  })
-
-  it('installed で再起動ボタンを押すと注入された restart が呼ばれる', () => {
-    const restart = vi.fn()
-    render(<UpdateBanner update={state({ phase: 'installed', info, restart })} />)
-    fireEvent.click(screen.getByRole('button', { name: '再起動' }))
-    expect(restart).toHaveBeenCalled()
   })
 
   it('installing 中は適用中の文言を表示する', () => {
