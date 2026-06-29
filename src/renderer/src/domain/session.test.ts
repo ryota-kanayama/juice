@@ -152,6 +152,18 @@ describe('createManualSession', () => {
   })
 })
 
+describe('createManualSession: 勤務場所', () => {
+  it('workLocation=telework を渡すと保持する', () => {
+    const s = createManualSession({ name: 'a', projectCode: 'ZZ', workCategory: '開発', totalMinutes: 30, workLocation: 'telework' })
+    expect(s.workLocation).toBe('telework')
+  })
+
+  it('workLocation=office は保持しない（undefined）', () => {
+    const s = createManualSession({ name: 'a', projectCode: 'ZZ', workCategory: '開発', totalMinutes: 30, workLocation: 'office' })
+    expect(s.workLocation).toBeUndefined()
+  })
+})
+
 describe('appendRunningInterval', () => {
   it('endTime=null の区間を末尾に追加する', () => {
     const session = makeSession()

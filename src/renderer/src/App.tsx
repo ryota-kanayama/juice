@@ -255,7 +255,7 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
       ) : (
         /* 待機時: スクロール可能なコンテナ */
         <div className={styles.idleContent}>
-          <TimerForm onStart={ts.start} nameSuggestions={suggestions.names} />
+          <TimerForm onStart={(name, pc, wc) => ts.start(name, pc, wc, workday.currentLocation)} nameSuggestions={suggestions.names} />
           <SessionList
             sessions={ts.todaySessions}
             today={ts.today}
@@ -264,7 +264,7 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
             onStartMore={ts.startMore}
             onDelete={ts.remove}
             onAdjustStartTime={ms => ts.adjustStartTime(new Date(ms))}
-            onAdd={ts.add}
+            onAdd={(params) => ts.add(params, workday.currentLocation)}
             workStart={workday.workStart}
             workEnd={workday.workEnd}
             onWorkEnd={workday.endWork}

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useTimer } from './useTimer'
 import type { SessionsState } from './useSessions'
-import type { Session } from '../types/session'
+import type { Session, WorkLocation } from '../types/session'
 
 export interface TimerSessionState {
   isRunning: boolean
@@ -18,7 +18,7 @@ export interface TimerSessionState {
   todaySessions: Session[]
   midnightSession: Session | null
   stopError: boolean
-  start: (name: string, projectCode?: string, workCategory?: string) => void
+  start: (name: string, projectCode?: string, workCategory?: string, workLocation?: WorkLocation) => void
   startMore: (session: Session) => void
   stop: (projectCode: string, workCategory: string) => Promise<void>
   stopForBreak: (projectCode: string, workCategory: string) => Promise<Session | null>
@@ -27,7 +27,7 @@ export interface TimerSessionState {
   pause: () => void
   resume: () => void
   update: (session: Session) => Promise<void>
-  add: (params: { name: string; projectCode: string; workCategory: string; totalTime: string }) => Promise<void>
+  add: (params: { name: string; projectCode: string; workCategory: string; totalTime: string }, workLocation?: WorkLocation) => Promise<void>
   remove: (sessionId: string) => Promise<void>
   startTelework: () => Promise<void>
   dismissMidnightSession: () => void
@@ -42,11 +42,11 @@ export function useTimerSession(sessions: SessionsState): TimerSessionState {
   const [midnightSession, setMidnightSession] = useState<Session | null>(null)
   const [stopError, setStopError] = useState(false)
 
-  const start = useCallback((name: string, projectCode = '', workCategory = ''): void => {
+  const start = useCallback((name: string, projectCode = '', workCategory = '', workLocation?: WorkLocation): void => {
     setActiveTimerName(name)
     setActiveTimerProjectCode(projectCode)
     setActiveTimerWorkCategory(workCategory)
-    timer.start(name)
+    timer.start(name, undefined, workLocation)
   }, [timer])
 
   const startMore = useCallback((session: Session): void => {

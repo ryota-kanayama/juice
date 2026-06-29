@@ -155,6 +155,14 @@ describe('useSessions', () => {
     expect(result.current.todaySessions[0].totalTime).toBe(45)
   })
 
+  it('add に workLocation=telework を渡すとセッションへ反映される', async () => {
+    const { result } = renderHook(() => useSessions())
+    await act(async () => {
+      await result.current.add({ name: 'a', projectCode: 'ZZ', workCategory: '開発', totalTime: '30' }, 'telework')
+    })
+    expect(updateSession).toHaveBeenCalledWith(expect.objectContaining({ workLocation: 'telework' }))
+  })
+
   it('remove は deleteSession を呼んで todaySessions から除去する', async () => {
     const session = makeSession()
     getSessions.mockResolvedValue([session])
