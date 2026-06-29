@@ -3,6 +3,8 @@ export interface TimeInterval {
   endTime: string | null
 }
 
+export type WorkLocation = 'office' | 'telework'
+
 export interface Session {
   id: string
   taskId: string
@@ -13,6 +15,8 @@ export interface Session {
   date: string
   color: string
   totalTime: number
+  /** そのセッションを行った勤務場所。undefined = 出社（tw 無し）扱い。telework のときのみ保存 */
+  workLocation?: WorkLocation
 }
 
 export interface SessionFile {
@@ -28,6 +32,8 @@ export interface DayRecord {
   breakMinutes?: number
   telework?: boolean
   sessionOrder?: string[]
+  /** 新規セッションに付ける「今の勤務場所」。切替ボタンで更新する */
+  currentLocation?: WorkLocation
   /** UTC ISO8601。setDay で main 側が打刻（将来の同期での last-write-wins 用） */
   updatedAt?: string
 }

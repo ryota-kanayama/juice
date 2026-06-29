@@ -1,4 +1,4 @@
-import type { Session } from '../types/session'
+import type { Session, WorkLocation } from '../types/session'
 
 // 勤怠ドメイン: 勤怠報告に関する純粋なルール。React も IPC も知らない。
 
@@ -41,10 +41,11 @@ export function buildAttendanceText(
   workEnd: string | null,
   breakMinutes: number
 ): AttendanceTextResult {
-  const map = new Map<string, { name: string; projectCode: string; workCategory: string; totalMinutes: number }>()
+  const map = new Map<string, { name: string; projectCode: string; workCategory: string; workLocation: WorkLocation; totalMinutes: number }>()
 
   for (const s of sessions) {
-    const key = s.taskId ?? s.id
+    const location: WorkLocation = s.workLocation ?? 'office'
+    const key = `${s.taskId ?? s.id}:${location}`
     const minutes = s.totalTime
     const existing = map.get(key)
     if (existing) {
@@ -54,6 +55,7 @@ export function buildAttendanceText(
         name: s.name.replace(/\s/g, ''),
         projectCode: s.projectCode ?? '',
         workCategory: s.workCategory ?? '',
+        workLocation: location,
         totalMinutes: minutes,
       })
     }
@@ -93,7 +95,10 @@ export function buildAttendanceText(
   const hasZeroTask = groups.some(g => g.totalMinutes === 0)
 
   const timeLine = `${workStart ?? ''} ${workEnd ?? ''} ${breakMinutes}`
-  const taskLines = groups.map(g => `${g.projectCode} ${g.name} ${g.workCategory} ${g.totalMinutes}`)
+  const taskLines = groups.map(g => {
+    const base = `${g.projectCode} ${g.name} ${g.workCategory} ${g.totalMinutes}`
+    return g.workLocation === 'telework' ? `${base} tw` : base
+  })
 
   return {
     text: ['勤怠', timeLine, ...taskLines].join('\n'),
