@@ -11,6 +11,9 @@ vi.stubGlobal('electronAPI', {
   getDailyMonth,
   setDailyDay: vi.fn().mockResolvedValue(undefined),
   getBreakBehaviorSettings: vi.fn().mockResolvedValue({ behavior: 'stop' }),
+  // updateRepository が呼ぶ IPC モック
+  onUpdatePrepareQuit: vi.fn().mockReturnValue(() => {}),
+  readyToQuit: vi.fn().mockResolvedValue(undefined),
 })
 
 function stubSessions(): SessionsState {

@@ -25,6 +25,7 @@ import { DailyDataProvider } from './daily/DailyDataContext'
 import { useUpdate } from './hooks/useUpdate'
 import { UpdateBanner } from './components/Popover/UpdateBanner'
 import { WorkLocationSwitch } from './components/Popover/WorkLocationSwitch'
+import { updateRepository } from './repositories/updateRepository'
 
 type Page = 'timer' | 'calendar' | 'attendance'
 
@@ -214,6 +215,19 @@ function PopoverView() {
 
 export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsState; tourDemo?: boolean }) {
   const ts = useTimerSession(sessions)
+
+  // 更新適用直前：稼働中の区間を保存してから main へ ack を返す
+  useEffect(() => {
+    return updateRepository.onPrepareQuit(() => {
+      void (async () => {
+        if (ts.isRunning) {
+          await ts.stop(ts.activeTimerProjectCode, ts.activeTimerWorkCategory).catch(() => {})
+        }
+        await updateRepository.readyToQuit().catch(() => {})
+      })()
+    })
+  }, [ts])
+
   const workday = useWorkday(ts.today)
   const breakState = useBreak(ts, workday)
   const suggestions = useSuggestions(ts.todaySessions, ts.today)
