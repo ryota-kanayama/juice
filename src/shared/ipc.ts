@@ -124,6 +124,7 @@ export interface IpcEventContract {
   'update-available': UpdateInfo
   'update-download-progress': { percent: number; done: boolean; error?: string }
   'update-installed': { version: string }
+  'update-prepare-quit': void
 }
 
 export type IpcEventName = keyof IpcEventContract
