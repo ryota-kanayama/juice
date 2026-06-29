@@ -72,6 +72,7 @@ function PopoverView() {
   }, [tour.index, tour.step])
 
   const sessions = useSessions()
+  const workday = useWorkday(sessions.today)
   const update = useUpdate()
 
   useEffect(() => {
@@ -134,6 +135,16 @@ function PopoverView() {
                   </>
                 )}
               </div>
+              {workday.workStart && (
+                <>
+                  <div className={styles.menuDivider} />
+                  <WorkLocationSwitch
+                    location={workday.currentLocation}
+                    onSwitch={workday.switchLocation}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-[13px] text-muted-foreground"
+                  />
+                </>
+              )}
               <div className={styles.menuDivider} />
               <button
                 className={styles.menuItem}
@@ -219,10 +230,6 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
           <span>保存に失敗しました。タイマーは継続中です。もう一度停止してください</span>
           <button onClick={ts.dismissStopError}><Xmark width={14} height={14} /></button>
         </div>
-      )}
-
-      {!tourDemo && workday.workStart && (
-        <WorkLocationSwitch location={workday.currentLocation} onSwitch={workday.switchLocation} />
       )}
 
       {tourDemo ? (
