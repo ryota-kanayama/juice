@@ -38,6 +38,7 @@ if ! cp -R "$MOUNT/$APP_NAME" "$APP"; then
   rm -rf "$APP"
   mv "$BACKUP" "$APP"
   hdiutil detach "$MOUNT" -quiet
+  open "$APP"
   exit 1
 fi
 rm -rf "$BACKUP"
