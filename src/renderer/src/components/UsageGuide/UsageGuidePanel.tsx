@@ -13,7 +13,7 @@ export function UsageGuidePanel({
   return (
     <div className="absolute inset-0 z-10 flex flex-col bg-background">
       {/* ヘッダー: 戻る矢印（カレンダー詳細と同じ位置・操作感） */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-2">
+      <div className="flex shrink-0 items-center gap-1 px-2 py-2">
         <Button variant="ghost" size="icon" aria-label="戻る" onClick={onClose}>
           <NavArrowLeft width={18} height={18} />
         </Button>
@@ -27,7 +27,7 @@ export function UsageGuidePanel({
 
       {/* 下部: ツアー再生 */}
       {onStartTour && (
-        <div className="shrink-0 border-t border-border p-3">
+        <div className="shrink-0 p-3">
           <Button
             variant="outline"
             className="w-full"
