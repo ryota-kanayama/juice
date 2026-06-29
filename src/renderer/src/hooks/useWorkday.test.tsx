@@ -22,7 +22,7 @@ describe('useWorkday', () => {
     await act(async () => { result.current.startWork('09:30', true) })
     await waitFor(() => expect(result.current.workStart).toBe('09:30'))
     expect(result.current.telework).toBe(true)
-    expect(setDailyDay).toHaveBeenCalledWith('2026-06-10', { workStart: '09:30', telework: true })
+    expect(setDailyDay).toHaveBeenCalledWith('2026-06-10', { workStart: '09:30', telework: true, currentLocation: 'telework' })
   })
 
   it('endWork は workEnd を保存する', async () => {
