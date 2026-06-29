@@ -3,7 +3,7 @@ import { updateRepository } from '../repositories/updateRepository'
 import { timerRepository } from '../repositories/timerRepository'
 import type { UpdateInfo } from '../../../shared/types'
 
-export type UpdatePhase = 'idle' | 'available' | 'downloading' | 'installing' | 'opened' | 'installed' | 'error'
+export type UpdatePhase = 'idle' | 'available' | 'downloading' | 'installing' | 'error'
 
 export interface UpdateState {
   phase: UpdatePhase
@@ -13,7 +13,6 @@ export interface UpdateState {
   currentVersion: string
   check: () => Promise<void>
   install: () => void
-  restart: () => void
   dismiss: () => void
 }
 
@@ -48,8 +47,7 @@ export function useUpdate(): UpdateState {
       setPercent(p.percent)
       setPhase(p.done ? 'installing' : 'downloading')
     })
-    const offInst = updateRepository.onInstalled(() => setPhase('installed'))
-    return () => { offAvail(); offProg(); offInst() }
+    return () => { offAvail(); offProg() }
   }, [])
 
   const check = async (): Promise<void> => {
@@ -79,22 +77,10 @@ export function useUpdate(): UpdateState {
     })()
   }
 
-  const restart = (): void => {
-    void (async () => {
-      const running = await timerRepository.isRunning().catch(() => false)
-      const message = running
-        ? 'タイマーが稼働中です。進行中の記録は保存されません。再起動しますか？'
-        : 'Juice を再起動しますか？'
-      if (window.confirm(message)) {
-        updateRepository.restart().catch(console.error)
-      }
-    })()
-  }
-
   const dismiss = (): void => {
     if (info) updateRepository.dismiss(info.latestVersion).catch(console.error)
     setPhase('idle')
   }
 
-  return { phase, info, percent, error, currentVersion, check, install, restart, dismiss }
+  return { phase, info, percent, error, currentVersion, check, install, dismiss }
 }

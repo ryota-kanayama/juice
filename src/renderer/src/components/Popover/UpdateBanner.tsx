@@ -7,7 +7,7 @@ interface Props {
 
 /** ポップオーバー上部のアップデート通知バナー。状態に応じて文言・操作が変わる */
 export function UpdateBanner({ update }: Props) {
-  const { phase, info, percent, restart, install, dismiss } = update
+  const { phase, info, percent, install, dismiss } = update
   if (phase === 'idle' || phase === 'error' || !info) return null
 
   const bar = 'flex items-center justify-between gap-2 px-3 py-2 text-[12px] [-webkit-app-region:no-drag]'
@@ -42,20 +42,5 @@ export function UpdateBanner({ update }: Props) {
     )
   }
 
-  // opened / installed: 再起動を促す
-  const message =
-    phase === 'installed'
-      ? '新バージョンがインストールされました'
-      : 'Applications にドラッグして置き換え、完了したら再起動してください'
-  return (
-    <div className={`${bar} bg-[var(--accent-light)] text-[var(--accent)]`}>
-      <span>{message}</span>
-      <button
-        className={phase === 'installed' ? 'font-bold underline' : 'font-semibold underline'}
-        onClick={restart}
-      >
-        再起動
-      </button>
-    </div>
-  )
+  return null
 }

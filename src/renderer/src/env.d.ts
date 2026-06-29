@@ -63,14 +63,11 @@ interface ElectronAPI {
 
   // update
   checkForUpdate: () => Promise<UpdateInfo>
-  downloadUpdate: () => Promise<void>
-  restartForUpdate: () => Promise<void>
   installUpdate: () => Promise<void>
   readyToQuit: () => Promise<void>
   dismissUpdate: (version: string) => Promise<void>
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateProgress: (callback: (p: { percent: number; done: boolean; error?: string }) => void) => () => void
-  onUpdateInstalled: (callback: (p: { version: string }) => void) => () => void
   onUpdatePrepareQuit: (callback: () => void) => () => void
 
   // misc

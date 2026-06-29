@@ -301,11 +301,9 @@ export function SettingsView() {
                         ? `ダウンロード中… ${update.percent}%`
                         : update.phase === 'installing'
                           ? '更新を適用しています…'
-                          : update.phase === 'opened' || update.phase === 'installed'
-                            ? '再起動で更新を適用'
-                            : update.phase === 'error'
-                              ? (update.error ?? '確認に失敗しました')
-                              : '最新です'}
+                          : update.phase === 'error'
+                            ? (update.error ?? '確認に失敗しました')
+                            : '最新です'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -329,14 +327,6 @@ export function SettingsView() {
                       disabled
                     >
                       更新を適用しています…
-                    </button>
-                  )}
-                  {(update.phase === 'opened' || update.phase === 'installed') && (
-                    <button
-                      className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-[13px] text-white"
-                      onClick={update.restart}
-                    >
-                      再起動
                     </button>
                   )}
                 </div>

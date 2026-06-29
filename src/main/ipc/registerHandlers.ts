@@ -139,8 +139,6 @@ export function registerIpcHandlers(
 
   // update
   handle('update:check', () => updateService.checkForUpdate())
-  handle('update:download', () => updateService.download())
-  handle('update:restart', () => { updateService.restart() })
   handle('update:dismiss', (_, version) => updateService.dismiss(version))
   handle('update:install', () => updateService.install())
   handle('update:ready-to-quit', () => { notifyRendererReady() })

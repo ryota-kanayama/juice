@@ -7,9 +7,6 @@ export const updateRepository = {
   check(): Promise<UpdateInfo> {
     return window.electronAPI.checkForUpdate()
   },
-  download(): Promise<void> {
-    return window.electronAPI.downloadUpdate()
-  },
   install(): Promise<void> {
     return window.electronAPI.installUpdate()
   },
@@ -19,9 +16,6 @@ export const updateRepository = {
   onPrepareQuit(cb: () => void): () => void {
     return window.electronAPI.onUpdatePrepareQuit(cb)
   },
-  restart(): Promise<void> {
-    return window.electronAPI.restartForUpdate()
-  },
   dismiss(version: string): Promise<void> {
     return window.electronAPI.dismissUpdate(version)
   },
@@ -30,9 +24,6 @@ export const updateRepository = {
   },
   onProgress(cb: (p: UpdateProgress) => void): () => void {
     return window.electronAPI.onUpdateProgress(cb)
-  },
-  onInstalled(cb: (p: { version: string }) => void): () => void {
-    return window.electronAPI.onUpdateInstalled(cb)
   },
   getCurrentVersion(): Promise<string> {
     return window.electronAPI.getAppVersion()
