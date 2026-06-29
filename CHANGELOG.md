@@ -15,6 +15,18 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-29
+
+### ✨ 新機能
+
+- フレックス勤務対応: 1日の中で勤務場所（出社/テレワーク）を切り替えられるように
+  なりました。アカウントメニューから切替でき、テレワークの工数は勤怠に `tw` 付きで
+  出力され、テレワークへの切替時は在席ボードも追従します
+
+### 🐛 修正
+
+- ヘッダーの「juice」ロゴが中央からわずかに左へずれていたのを修正
+
 ## [1.1.0] - 2026-06-29
 
 ### ✨ 新機能
@@ -29,6 +41,7 @@
 - 初回リリース。作業セッションをタイマーで記録し、カレンダー・勤怠の確認、テーマや
   各種通知（アイドル / 経過時間 / ポモドーロ）に対応した macOS メニューバーアプリ
 
-[Unreleased]: https://github.com/ryota-kanayama/juice/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/ryota-kanayama/juice/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/ryota-kanayama/juice/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ryota-kanayama/juice/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ryota-kanayama/juice/releases/tag/v1.0.0
