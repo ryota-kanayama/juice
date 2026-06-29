@@ -10,6 +10,15 @@ export const updateRepository = {
   download(): Promise<void> {
     return window.electronAPI.downloadUpdate()
   },
+  install(): Promise<void> {
+    return window.electronAPI.installUpdate()
+  },
+  readyToQuit(): Promise<void> {
+    return window.electronAPI.readyToQuit()
+  },
+  onPrepareQuit(cb: () => void): () => void {
+    return window.electronAPI.onUpdatePrepareQuit(cb)
+  },
   restart(): Promise<void> {
     return window.electronAPI.restartForUpdate()
   },
