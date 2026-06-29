@@ -190,8 +190,7 @@ export function SettingsView() {
               </CardContent>
             </Card>
 
-            <Separator />
-            <h3 className={heading}>休憩</h3>
+            <h2 className={heading} style={{ marginTop: '1.5rem' }}>休憩</h2>
             <Card>
               <CardContent className="flex items-center justify-between gap-4 px-4 py-3">
                 <div>
