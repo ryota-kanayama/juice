@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react'
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { useClearFocusOnShow } from './useClearFocusOnShow'
 
 function setVisibility(state: DocumentVisibilityState): void {
@@ -7,7 +7,26 @@ function setVisibility(state: DocumentVisibilityState): void {
   document.dispatchEvent(new Event('visibilitychange'))
 }
 
+// requestAnimationFrame をキュー化し、flushFrames で手動実行する（nested rAF も拾う）
+let rafQueue: FrameRequestCallback[] = []
+function flushFrames(times = 5): void {
+  for (let i = 0; i < times; i++) {
+    const current = rafQueue
+    rafQueue = []
+    current.forEach(cb => cb(0))
+  }
+}
+
 describe('useClearFocusOnShow', () => {
+  beforeEach(() => {
+    rafQueue = []
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      rafQueue.push(cb)
+      return rafQueue.length
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+  })
+
   afterEach(() => {
     vi.unstubAllGlobals()
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
@@ -37,27 +56,30 @@ describe('useClearFocusOnShow', () => {
     expect(document.activeElement).not.toBe(button)
   })
 
-  it('visibilitychange の後に復元されたフォーカスも次フレームでクリアする', () => {
-    const raf: { cb: FrameRequestCallback | null } = { cb: null }
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-      raf.cb = cb
-      return 1
-    })
-    vi.stubGlobal('cancelAnimationFrame', () => {
-      raf.cb = null
-    })
+  it('ウィンドウ再フォーカス（window focus）でフォーカスをクリアする', () => {
+    const button = document.createElement('button')
+    document.body.appendChild(button)
+    button.focus()
+    expect(document.activeElement).toBe(button)
 
+    renderHook(() => useClearFocusOnShow())
+    window.dispatchEvent(new Event('focus'))
+
+    expect(document.activeElement).not.toBe(button)
+  })
+
+  it('イベント後に当たったフォーカスも後続フレームでクリアする', () => {
     const button = document.createElement('button')
     document.body.appendChild(button)
 
     renderHook(() => useClearFocusOnShow())
-    setVisibility('visible')
+    window.dispatchEvent(new Event('focus'))
 
-    // visibilitychange の後に Chromium がフォーカスを復元するケースを再現
+    // イベント後に Chromium が閉じるボタン等へフォーカスを当てるケースを再現
     button.focus()
     expect(document.activeElement).toBe(button)
 
-    raf.cb?.(0)
+    flushFrames()
     expect(document.activeElement).not.toBe(button)
   })
 
@@ -70,6 +92,8 @@ describe('useClearFocusOnShow', () => {
 
     button.focus()
     setVisibility('visible')
+    window.dispatchEvent(new Event('focus'))
+    flushFrames()
 
     expect(document.activeElement).toBe(button)
   })
