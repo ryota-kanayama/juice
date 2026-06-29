@@ -17,6 +17,8 @@ import { fetchLatestRelease } from './update/githubRelease'
 import { readInstalledVersion } from './update/installedVersion'
 import { downloadFile } from './update/downloadFile'
 import { broadcastToAll } from './windows/updateBroadcast'
+import { runInstaller } from './update/runInstaller'
+import { prepareQuitForUpdate } from './update/prepareQuit'
 
 // dev とパッケージ版でプロファイルを分離する（起動ロック衝突・localStorage 混入の防止）。
 // requestSingleInstanceLock より前に設定する必要がある。
@@ -46,6 +48,12 @@ const dailyStore = new DailyStore(dataDir)
 const settingsStore = new SettingsStore(dataDir)
 const authStore = new AuthStore(dataDir)
 
+/** execPath から実際の .app パスを導出する（例 /Applications/Juice.app）。dev 等で不明なら null */
+function deriveAppPath(execPath: string): string | null {
+  const i = execPath.indexOf('.app/')
+  return i === -1 ? null : execPath.slice(0, i + 4)
+}
+
 const updateService = createUpdateService({
   currentVersion: app.getVersion(),
   arch: process.arch,
@@ -62,6 +70,11 @@ const updateService = createUpdateService({
   openExternal: (u) => shell.openExternal(u),
   relaunch: () => { app.relaunch(); app.quit() },
   logError: (...args) => logger.error(...args),
+  appPath: deriveAppPath(process.execPath),
+  runInstaller: ({ dmgPath, appPath }) =>
+    runInstaller({ dmgPath, appPath, tmpDir: app.getPath('temp'), pid: process.pid }),
+  quit: () => app.quit(),
+  waitForRenderer: () => prepareQuitForUpdate(),
 })
 
 // 開発時は汎用 Electron.app に紐づくため juice:// の E2E はパッケージ版で確認する

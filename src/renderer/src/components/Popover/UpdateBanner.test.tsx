@@ -12,7 +12,7 @@ const info = {
 function state(over: Partial<UpdateState>): UpdateState {
   return {
     phase: 'idle', info: null, percent: 0, error: null, currentVersion: '',
-    check: vi.fn(), download: vi.fn(), restart: vi.fn(), dismiss: vi.fn(),
+    check: vi.fn(), install: vi.fn(), restart: vi.fn(), dismiss: vi.fn(),
     ...over,
   }
 }
@@ -31,11 +31,11 @@ describe('UpdateBanner', () => {
     expect(screen.getByRole('button', { name: '更新' })).toBeInTheDocument()
   })
 
-  it('更新ボタンで download を呼ぶ', () => {
-    const download = vi.fn()
-    render(<UpdateBanner update={state({ phase: 'available', info, download })} />)
+  it('更新ボタンで install を呼ぶ', () => {
+    const install = vi.fn()
+    render(<UpdateBanner update={state({ phase: 'available', info, install })} />)
     fireEvent.click(screen.getByRole('button', { name: '更新' }))
-    expect(download).toHaveBeenCalled()
+    expect(install).toHaveBeenCalled()
   })
 
   it('✕ で dismiss を呼ぶ', () => {
@@ -62,5 +62,18 @@ describe('UpdateBanner', () => {
     render(<UpdateBanner update={state({ phase: 'installed', info, restart })} />)
     fireEvent.click(screen.getByRole('button', { name: '再起動' }))
     expect(restart).toHaveBeenCalled()
+  })
+
+  it('installing 中は適用中の文言を表示する', () => {
+    render(<UpdateBanner update={state({ phase: 'installing', info })} />)
+    expect(screen.getByText('更新を適用しています…')).toBeInTheDocument()
+  })
+
+  it('available で更新ボタンが install を呼ぶ', () => {
+    const install = vi.fn()
+    const update = state({ phase: 'available', info, install })
+    render(<UpdateBanner update={update} />)
+    fireEvent.click(screen.getByText('更新'))
+    expect(install).toHaveBeenCalled()
   })
 })

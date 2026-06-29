@@ -3,7 +3,7 @@ import { updateRepository } from '../repositories/updateRepository'
 import { timerRepository } from '../repositories/timerRepository'
 import type { UpdateInfo } from '../../../shared/types'
 
-export type UpdatePhase = 'idle' | 'available' | 'downloading' | 'opened' | 'installed' | 'error'
+export type UpdatePhase = 'idle' | 'available' | 'downloading' | 'installing' | 'opened' | 'installed' | 'error'
 
 export interface UpdateState {
   phase: UpdatePhase
@@ -12,7 +12,7 @@ export interface UpdateState {
   error: string | null
   currentVersion: string
   check: () => Promise<void>
-  download: () => void
+  install: () => void
   restart: () => void
   dismiss: () => void
 }
@@ -46,7 +46,7 @@ export function useUpdate(): UpdateState {
         return
       }
       setPercent(p.percent)
-      setPhase(p.done ? 'opened' : 'downloading')
+      setPhase(p.done ? 'installing' : 'downloading')
     })
     const offInst = updateRepository.onInstalled(() => setPhase('installed'))
     return () => { offAvail(); offProg(); offInst() }
@@ -63,14 +63,20 @@ export function useUpdate(): UpdateState {
     }
   }
 
-  const download = (): void => {
-    setError(null)
-    setPercent(0)
-    setPhase('downloading')
-    updateRepository.download().catch(() => {
-      setError('ダウンロードに失敗しました')
-      setPhase('error')
-    })
+  const install = (): void => {
+    void (async () => {
+      const running = await timerRepository.isRunning().catch(() => false)
+      if (running && !window.confirm('作業を保存して更新します。アプリが再起動します。よろしいですか？')) {
+        return
+      }
+      setError(null)
+      setPercent(0)
+      setPhase('downloading')
+      updateRepository.install().catch(() => {
+        setError('更新に失敗しました')
+        setPhase('error')
+      })
+    })()
   }
 
   const restart = (): void => {
@@ -90,5 +96,5 @@ export function useUpdate(): UpdateState {
     setPhase('idle')
   }
 
-  return { phase, info, percent, error, currentVersion, check, download, restart, dismiss }
+  return { phase, info, percent, error, currentVersion, check, install, restart, dismiss }
 }

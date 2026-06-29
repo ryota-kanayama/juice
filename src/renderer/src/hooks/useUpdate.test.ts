@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import type { UpdateInfo } from '../../../shared/types'
+import { updateRepository } from '../repositories/updateRepository'
+import { timerRepository } from '../repositories/timerRepository'
 
 const handlers: {
   available?: (i: UpdateInfo) => void
@@ -10,6 +12,7 @@ const handlers: {
 
 const mockCheck = vi.fn()
 const mockDownload = vi.fn()
+const mockInstall = vi.fn()
 const mockRestart = vi.fn()
 const mockDismiss = vi.fn()
 const mockGetCurrentVersion = vi.fn()
@@ -18,6 +21,7 @@ vi.mock('../repositories/updateRepository', () => ({
   updateRepository: {
     check: () => mockCheck(),
     download: () => mockDownload(),
+    install: () => mockInstall(),
     restart: () => mockRestart(),
     dismiss: (v: string) => mockDismiss(v),
     getCurrentVersion: () => mockGetCurrentVersion(),
@@ -46,6 +50,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
   mockDismiss.mockResolvedValue(undefined)
+  mockInstall.mockResolvedValue(undefined)
   mockRestart.mockResolvedValue(undefined)
   mockGetCurrentVersion.mockResolvedValue('1.0.0')
   mockIsRunning.mockResolvedValue(false)
@@ -66,7 +71,7 @@ describe('useUpdate', () => {
     expect(result.current.phase).toBe('downloading')
     expect(result.current.percent).toBe(40)
     act(() => handlers.progress!({ percent: 100, done: true }))
-    expect(result.current.phase).toBe('opened')
+    expect(result.current.phase).toBe('installing')
   })
 
   it('進捗 error で phase=error', () => {
@@ -141,5 +146,28 @@ describe('useUpdate', () => {
     mockGetCurrentVersion.mockResolvedValue('2.0.0')
     const { result } = renderHook(() => useUpdate())
     await waitFor(() => expect(result.current.currentVersion).toBe('2.0.0'))
+  })
+})
+
+describe('useUpdate.install', () => {
+  beforeEach(() => vi.restoreAllMocks())
+
+  it('タイマー非稼働ならそのまま install を呼ぶ', async () => {
+    vi.spyOn(timerRepository, 'isRunning').mockResolvedValue(false)
+    const spy = vi.spyOn(updateRepository, 'install').mockResolvedValue()
+    const { result } = renderHook(() => useUpdate())
+    act(() => { result.current.install() })
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    expect(result.current.phase).toBe('downloading')
+  })
+
+  it('稼働中に確認をキャンセルしたら install を呼ばない', async () => {
+    vi.spyOn(timerRepository, 'isRunning').mockResolvedValue(true)
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const spy = vi.spyOn(updateRepository, 'install').mockResolvedValue()
+    const { result } = renderHook(() => useUpdate())
+    act(() => { result.current.install() })
+    await waitFor(() => expect(timerRepository.isRunning).toHaveBeenCalled())
+    expect(spy).not.toHaveBeenCalled()
   })
 })

@@ -33,6 +33,7 @@ const m = vi.hoisted(() => ({
   startSignIn: vi.fn(),
   loggerWarn: vi.fn(),
   loggerError: vi.fn(),
+  notifyRendererReady: vi.fn(),
 }))
 
 vi.mock('./handle', () => ({
@@ -71,6 +72,7 @@ vi.mock('../windows/popover', () => ({ hidePopover: m.hidePopover, resizePopover
 vi.mock('../windows/setup', () => ({ getSetupWindow: m.getSetupWindow }))
 vi.mock('../windows/tray', () => ({ createTray: m.createTray }))
 vi.mock('../auth/signIn', () => ({ startSignIn: m.startSignIn }))
+vi.mock('../update/prepareQuit', () => ({ notifyRendererReady: m.notifyRendererReady }))
 vi.mock('../logger', () => ({ logger: { warn: m.loggerWarn, error: m.loggerError, info: vi.fn() } }))
 
 import { registerIpcHandlers } from './registerHandlers'

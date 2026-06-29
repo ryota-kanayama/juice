@@ -79,10 +79,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate: () => invoke('update:download', undefined),
   restartForUpdate: () => invoke('update:restart', undefined),
   dismissUpdate: (version: string) => invoke('update:dismiss', version),
+  installUpdate: () => invoke('update:install', undefined),
+  readyToQuit: () => invoke('update:ready-to-quit', undefined),
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => on('update-available', callback),
   onUpdateProgress: (callback: (p: { percent: number; done: boolean; error?: string }) => void) =>
     on('update-download-progress', callback),
   onUpdateInstalled: (callback: (p: { version: string }) => void) => on('update-installed', callback),
+  onUpdatePrepareQuit: (callback: () => void) => on('update-prepare-quit', callback),
 
   // misc
   completeSetup: () => invoke('setup:complete', undefined),
