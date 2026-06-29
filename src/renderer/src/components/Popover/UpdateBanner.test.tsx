@@ -12,6 +12,7 @@ const info = {
 function state(over: Partial<UpdateState>): UpdateState {
   return {
     phase: 'idle', info: null, percent: 0, error: null, currentVersion: '',
+    checking: false, checkedUpToDate: false,
     check: vi.fn(), install: vi.fn(), dismiss: vi.fn(),
     ...over,
   }
