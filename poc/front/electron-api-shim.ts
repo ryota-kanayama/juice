@@ -75,28 +75,25 @@ const electronAPI = {
   getMainProjectCode: () => invoke("settings_get_main_project_code"),
   setMainProjectCode: (code: string) =>
     invoke("settings_set_main_project_code", { code }),
-  // 🟡 ログイン時起動（OS 設定）は未移植
-  getLaunchAtLogin: () => stub("getLaunchAtLogin", Promise.resolve(false)),
-  setLaunchAtLogin: (_enabled: boolean) =>
-    stub("setLaunchAtLogin", Promise.resolve()),
+  getLaunchAtLogin: () => invoke("get_launch_at_login"),
+  setLaunchAtLogin: (enabled: boolean) =>
+    invoke("set_launch_at_login", { enabled }),
 
   // ---- Timer signals（✅ MAPPED / 一部 STUB） ----
   timerStarted: () => invoke("notif_timer_started"),
   timerStopped: () => invoke("notif_timer_stopped"),
   timerAdjustStartTime: (newStartMs: number) =>
     invoke("notif_timer_adjust", { newStartMs }),
-  // 🟡 main 側のタイマー稼働判定コマンドは未公開
-  isTimerRunning: () => stub("isTimerRunning", Promise.resolve(false)),
+  isTimerRunning: () => invoke("timer_is_running"),
 
   // ---- Attendance / Whiteboard（✅ MAPPED） ----
   sendAttendance: (text: string) => invoke("attendance_send", { text }),
   teleworkStart: () => invoke("whiteboard_telework_start"),
 
-  // ---- Window（hide=✅ MAPPED / resize=🟡 STUB） ----
+  // ---- Window（✅ MAPPED） ----
   hideWindow: () => invoke("window_hide"),
-  // 🟡 稼働中リサイズ(560×420)は renderer から未呼出。将来 Rust 側でタイマー連動実装。
-  resizeWindow: (_width: number, _height: number) =>
-    stub("resizeWindow", Promise.resolve()),
+  resizeWindow: (width: number, height: number) =>
+    invoke("window_resize", { width, height }),
 
   // ---- Auth（一部 STUB） ----
   // 🟡 OAuth サインインは未移植

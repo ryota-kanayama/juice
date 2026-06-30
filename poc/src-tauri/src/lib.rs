@@ -74,6 +74,7 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::sessions_get,
             commands::sessions_save,
@@ -115,6 +116,10 @@ pub fn run() {
             commands::window_hide,
             commands::open_url,
             commands::get_app_version,
+            commands::window_resize,
+            commands::timer_is_running,
+            commands::get_launch_at_login,
+            commands::set_launch_at_login,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。

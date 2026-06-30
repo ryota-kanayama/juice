@@ -284,9 +284,14 @@ pub fn window_hide(app: tauri::AppHandle) {
 }
 
 /// 外部 URL を既定ブラウザで開く。
+/// 任意スキーム（file:/javascript: 等）の起動を防ぐため http/https のみ許可する。
 #[tauri::command]
 pub fn open_url(app: tauri::AppHandle, url: String) -> CmdResult<()> {
     use tauri_plugin_opener::OpenerExt;
+    let lower = url.trim_start().to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err(format!("許可されないスキームです: {url}"));
+    }
     map(app.opener().open_url(url, None::<&str>))
 }
 
@@ -294,4 +299,40 @@ pub fn open_url(app: tauri::AppHandle, url: String) -> CmdResult<()> {
 #[tauri::command]
 pub fn get_app_version(app: tauri::AppHandle) -> String {
     app.package_info().version.to_string()
+}
+
+/// ポップオーバー（NSPanel）をリサイズする。Electron 版 resizePopover 相当。
+#[tauri::command]
+pub fn window_resize(app: tauri::AppHandle, width: f64, height: f64) -> CmdResult<()> {
+    use tauri::{LogicalSize, Manager};
+    if let Some(win) = app.get_webview_window("main") {
+        map(win.set_size(LogicalSize::new(width, height)))
+    } else {
+        Err("main window not found".into())
+    }
+}
+
+/// タイマー稼働中か（再起動前の確認文言切替などに使う）。
+#[tauri::command]
+pub fn timer_is_running(app: tauri::AppHandle) -> bool {
+    crate::notif_scheduler::is_timer_running(&app)
+}
+
+// ---- ログイン時起動（Electron 版 app.getLoginItemSettings / setLoginItemSettings 相当） ----
+
+#[tauri::command]
+pub fn get_launch_at_login(app: tauri::AppHandle) -> CmdResult<bool> {
+    use tauri_plugin_autostart::ManagerExt;
+    map(app.autolaunch().is_enabled())
+}
+
+#[tauri::command]
+pub fn set_launch_at_login(app: tauri::AppHandle, enabled: bool) -> CmdResult<()> {
+    use tauri_plugin_autostart::ManagerExt;
+    let manager = app.autolaunch();
+    map(if enabled {
+        manager.enable()
+    } else {
+        manager.disable()
+    })
 }

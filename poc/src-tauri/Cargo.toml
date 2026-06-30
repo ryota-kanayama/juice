@@ -24,6 +24,7 @@ tauri-plugin-opener = "2"
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "18ffb9a201fbf6fedfaa382fd4b92315ea30ab1a" }
 tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
 tauri-plugin-notification = "2"
+tauri-plugin-autostart = "2"
 tokio = { version = "1", features = ["time"] }
 objc = "0.2"
 serde = { version = "1", features = ["derive"] }

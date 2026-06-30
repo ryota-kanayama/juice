@@ -101,6 +101,14 @@ pub fn on_timer_stopped(app: &AppHandle) {
     abort(inner.pomodoro_task.take());
 }
 
+/// タイマーが稼働中か（Electron 版 timerActivity.isTimerRunning 相当）。
+/// 通知エンジンが保持する timer_start_ms の有無を真実とする。
+pub fn is_timer_running(app: &AppHandle) -> bool {
+    let engine = app.state::<NotificationEngine>();
+    let running = lock_inner(&engine).timer_start_ms.is_some();
+    running
+}
+
 pub fn on_timer_adjust(app: &AppHandle, new_start_ms: i64) {
     {
         let engine = app.state::<NotificationEngine>();
