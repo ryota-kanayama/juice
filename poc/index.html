@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Juice PoC</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent; /* 透明ウィンドウ検証 */
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      .panel {
+        box-sizing: border-box;
+        height: 100vh;
+        margin: 8px;
+        padding: 16px;
+        border-radius: 14px;
+        background: rgba(28, 28, 30, 0.82);
+        backdrop-filter: blur(24px); /* すりガラス効果（vibrancy 代替）の確認 */
+        color: #f2f2f7;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0;
+        opacity: 0.6;
+        font-weight: 600;
+      }
+      .clock {
+        font-size: 40px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        letter-spacing: 1px;
+      }
+      label {
+        font-size: 12px;
+        opacity: 0.6;
+      }
+      input {
+        -webkit-user-select: text;
+        user-select: text;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        font-size: 14px;
+        outline: none;
+      }
+      input:focus {
+        border-color: #0a84ff;
+      }
+      .hint {
+        font-size: 11px;
+        line-height: 1.5;
+        opacity: 0.5;
+        margin-top: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <h1>Juice PoC（NSPanel 検証）</h1>
+      <div class="clock" id="clock">00:00:00</div>
+
+      <div>
+        <label for="task">タスク名（キーボード入力テスト）</label>
+        <input id="task" placeholder="ここに入力できれば input OK" />
+      </div>
+
+      <div class="hint">
+        検証手順：<br />
+        ① 別アプリ（例：エディタ）を選択した状態でトレイをクリック<br />
+        ② このパネルが出ても元アプリのフォーカスが奪われないか<br />
+        ③ パネル外をクリックして自動で閉じるか<br />
+        ④ 上の入力欄に文字を打てるか
+      </div>
+    </div>
+
+    <script>
+      function tick() {
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        document.getElementById('clock').textContent =
+          `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+      }
+      tick();
+      setInterval(tick, 1000);
+    </script>
+  </body>
+</html>
