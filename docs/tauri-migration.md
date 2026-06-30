@@ -110,13 +110,26 @@ renderer のコールサイトをほぼ無改修で移行できる。
 
 ## 推奨実装順（アップデータは最後）
 
-1. データストア（テストしやすい）
-2. IPC ハンドラ 33個
-3. ウィンドウ・トレイ・**パネル配置（ネイティブ）**
-4. 通知
-5. 外部 API 連携
-6. 認証（Keychain 代替）
-7. 自動アップデート（最複雑）
+1. ✅ **データストア**（TDD 完了：session/daily/settings、計37テスト）
+2. 🔄 IPC ハンドラ — ストア分はコマンド配線済み（27コマンド・invoke往復を実機検証）。残りの非ストア系（timer/attendance/update 等）は未着手
+3. ⏳ ウィンドウ・トレイ・**パネル配置（ネイティブ）**（PoC で実証済み、本実装へ取り込み）
+4. ⏳ 通知
+5. ⏳ 外部 API 連携
+6. ⏳ 認証（Keychain 代替）
+7. ⏳ 自動アップデート（最複雑）
+
+### 実装済みの構成（`poc/src-tauri/src/`）
+
+- `types.rs` … Session/TimeInterval/WorkLocation（camelCase JSON 互換）
+- `session_store.rs` / `daily_store.rs` / `settings_store.rs` … 各ストア（Mutex 直列化・
+  tmp→rename 原子書き込み・.bak フォールバック）。`is_year_month`/`is_date`/`append_ext`/
+  `StoreError` は session_store に集約し共有
+- `commands.rs` … `#[tauri::command]` ×27（StoreError は文字列化して返す）
+- `lib.rs` … `app.manage` で各ストアを管理ステート登録、`resolve_data_dir`（Electron 互換
+  パス、`JUICE_DATA_DIR` で上書き可）
+
+データ層は **Electron 版の JSON ファイル・スキーマと完全互換**（同じファイル名・camelCase・
+2スペース整形）。既存データをそのまま読み書きできる。
 
 ## ローカル環境メモ
 
