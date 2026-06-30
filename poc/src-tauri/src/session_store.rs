@@ -44,7 +44,7 @@ impl From<serde_json::Error> for StoreError {
 }
 
 /// "YYYY-MM" を検証（パストラバーサル防止）。正規表現 ^\d{4}-\d{2}$ 相当。
-fn is_year_month(s: &str) -> bool {
+pub(crate) fn is_year_month(s: &str) -> bool {
     let b = s.as_bytes();
     b.len() == 7
         && b[0..4].iter().all(u8::is_ascii_digit)
@@ -54,7 +54,7 @@ fn is_year_month(s: &str) -> bool {
 }
 
 /// "YYYY-MM-DD" を検証。正規表現 ^\d{4}-\d{2}-\d{2}$ 相当。
-fn is_date(s: &str) -> bool {
+pub(crate) fn is_date(s: &str) -> bool {
     let b = s.as_bytes();
     b.len() == 10
         && b[0..4].iter().all(u8::is_ascii_digit)
@@ -214,7 +214,7 @@ impl SessionStore {
 }
 
 /// `${path}.ext` のようにパス末尾へ拡張子を付け足す（with_extension と違い置換しない）。
-fn append_ext(path: &Path, suffix: &str) -> PathBuf {
+pub(crate) fn append_ext(path: &Path, suffix: &str) -> PathBuf {
     let mut s = path.as_os_str().to_owned();
     s.push(suffix);
     PathBuf::from(s)

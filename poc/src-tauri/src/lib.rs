@@ -7,6 +7,7 @@
 //   5. マルチディスプレイ／別 Space でも現在の画面のトレイ下に出るか
 
 // 移行: データストア（Electron 版 src/main/*.ts の Rust 移植）
+mod daily_store;
 mod session_store;
 mod types;
 
