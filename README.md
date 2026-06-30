@@ -36,33 +36,45 @@
 
 ## 開発
 
+本アプリは **Tauri（Rust）+ React** 製。開発には Rust ツールチェインが必要。
+
 ```bash
-# 開発（ホットリロード）
-npm run dev
+# 開発（ホットリロード, Rust バックエンド + vite）
+npm run tauri dev
 
 # 型チェック
 npm run typecheck
 
-# テスト
+# テスト（フロント）
 npm test
 
-# DMG をビルド（無署名）
-CSC_IDENTITY_AUTO_DISCOVERY=false npm run package
+# Rust の単体テスト
+cd src-tauri && cargo test --lib
+
+# .app / DMG をビルド
+npm run tauri build
 ```
 
 ## リリース（アップデート配信）
 
 アプリは GitHub Releases の最新版を起動時・6時間ごとに確認し、新バージョンがあれば
-アプリ内で通知する。配信時は次の手順を踏む（**version を上げ忘れると検知されない**）。
+アプリ内で通知する（実装は `src-tauri/src/update.rs`）。配信時は次の手順を踏む
+（**version を上げ忘れると検知されない**）。
 
-1. `package.json` の `version` を上げる（例 `1.0.0` → `1.1.0`）
+1. `package.json` と `src-tauri/tauri.conf.json` の `version` を揃えて上げる
 2. [`CHANGELOG.md`](CHANGELOG.md) にこのバージョンの節を追記する
    （形式はファイル冒頭のテンプレートに従う。リリース本文にも同じ内容を使う）
-3. `CSC_IDENTITY_AUTO_DISCOVERY=false npm run package` で arm64 / x64 の DMG をビルド
+3. `npm run tauri build` で arm64 / x64 の DMG をビルド
 4. GitHub Release を `vX.Y.Z` タグで作成し、本文に CHANGELOG の該当節を貼り、
-   `Juice-X.Y.Z-arm64.dmg` と `Juice-X.Y.Z.dmg`（および blockmap・latest-mac.yml）を添付する
+   arm64 / x64 の DMG を添付する
    - **必ず正式リリースで公開する（pre-release にしない）**。アプリは
      `releases/latest` を参照するが、このエンドポイントは pre-release / draft を
      除外するため、pre-release のままだと更新が検知されない
 5. クライアントは6時間以内（または再起動・手動チェック）に更新を検知し、
    ワンクリックで DMG を取得・オープンできる
+
+> **follow-up（要対応）**: アップデータの DMG 選択（`select_dmg_asset`）は
+> `-arm64.dmg` / `.dmg` という Electron 時代の命名を期待している。Tauri の既定
+> DMG 名（例 `Juice_1.3.2_aarch64.dmg`）とは不一致のため、`tauri.conf.json` の
+> bundle 設定でファイル名を合わせるか、`select_dmg_asset` 側を Tauri の命名に
+> 合わせる必要がある（パッケージング確定時に対応）。
