@@ -42,17 +42,14 @@ impl NotificationEngine {
 }
 
 fn show(app: &AppHandle, body: &str) {
-    // 権限状態を観測（macOS dev バイナリは挙動が不安定なことがある）
-    let perm = app.notification().permission_state();
-    match app
+    if let Err(e) = app
         .notification()
         .builder()
         .title(NOTIF_TITLE)
         .body(body)
         .show()
     {
-        Ok(_) => eprintln!("[notif] show OK (perm={perm:?}): {body}"),
-        Err(e) => eprintln!("[notif] show ERR (perm={perm:?}): {e}"),
+        eprintln!("[notif] show error: {e}");
     }
 }
 

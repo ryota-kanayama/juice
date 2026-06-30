@@ -113,7 +113,7 @@ renderer のコールサイトをほぼ無改修で移行できる。
 1. ✅ **データストア**（TDD 完了：session/daily/settings、計37テスト）
 2. 🔄 IPC ハンドラ — ストア分はコマンド配線済み（27コマンド・invoke往復を実機検証）。残りの非ストア系（timer/attendance/update 等）は未着手
 3. ⏳ ウィンドウ・トレイ・**パネル配置（ネイティブ）**（PoC で実証済み、本実装へ取り込み）
-4. ⏳ 通知
+4. ✅ **通知**（純粋ロジック TDD 14テスト + tokio スケジューラ配線。`.app` で実発火確認）
 5. ⏳ 外部 API 連携
 6. ⏳ 認証（Keychain 代替）
 7. ⏳ 自動アップデート（最複雑）
@@ -124,12 +124,23 @@ renderer のコールサイトをほぼ無改修で移行できる。
 - `session_store.rs` / `daily_store.rs` / `settings_store.rs` … 各ストア（Mutex 直列化・
   tmp→rename 原子書き込み・.bak フォールバック）。`is_year_month`/`is_date`/`append_ext`/
   `StoreError` は session_store に集約し共有
-- `commands.rs` … `#[tauri::command]` ×27（StoreError は文字列化して返す）
-- `lib.rs` … `app.manage` で各ストアを管理ステート登録、`resolve_data_dir`（Electron 互換
+- `commands.rs` … `#[tauri::command]`（ストア27 + 通知5）
+- `notifications.rs` … 通知の純粋ロジック（idle判定/経過境界/ポモドーロ位相、TDD）
+- `notif_scheduler.rs` … tokio タスクで周期実行（idle 60s ループ/elapsed/pomodoro）、
+  `tauri-plugin-notification` で OS 通知表示。`NotificationEngine` を管理ステート化
+- `lib.rs` … `app.manage` で各ストア+engine を登録、`resolve_data_dir`（Electron 互換
   パス、`JUICE_DATA_DIR` で上書き可）
 
 データ層は **Electron 版の JSON ファイル・スキーマと完全互換**（同じファイル名・camelCase・
 2スペース整形）。既存データをそのまま読み書きできる。
+
+### ⚠️ 通知の落とし穴：`tauri dev` ではバナーが出ない
+
+macOS は通知バナーの表示に **正式な `.app` バンドル（Info.plist の bundle ID）** を要求する。
+`npm run tauri dev` は素のバイナリ（`target/debug/poc`）を実行するため、`show()` が `Ok` を
+返し権限も `Granted` でも**バナーが表示されない**（コードのバグではない）。
+→ 通知の目視確認は **`npm run tauri build --bundles app` で `.app` を作り `open` で起動**して行う。
+なお同一タイトル＋本文の連続通知は macOS 側で抑制されるため、テストは文面を毎回変える。
 
 ## ローカル環境メモ
 
