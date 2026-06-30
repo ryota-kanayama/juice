@@ -35,6 +35,13 @@
       "csp": null
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["juice"]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

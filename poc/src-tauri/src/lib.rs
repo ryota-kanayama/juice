@@ -14,6 +14,7 @@ mod holidays;
 mod integrations;
 mod notif_scheduler;
 mod notifications;
+mod oauth;
 mod session_store;
 mod settings_store;
 mod types;
@@ -75,6 +76,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_deep_link::init())
         .invoke_handler(tauri::generate_handler![
             commands::sessions_get,
             commands::sessions_save,
@@ -120,6 +122,7 @@ pub fn run() {
             commands::timer_is_running,
             commands::get_launch_at_login,
             commands::set_launch_at_login,
+            commands::sign_in_with_slack,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。
@@ -131,6 +134,18 @@ pub fn run() {
             app.manage(NotificationEngine::new());
             app.manage(holidays::HolidaysClient::new());
             app.manage(auth::AuthStore::new());
+            app.manage(oauth::PendingState::default());
+
+            // juice://auth コールバック（Slack サインイン）を deep-link で受ける。
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let cb_handle = app.app_handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    for url in event.urls() {
+                        oauth::handle_callback(&cb_handle, url.as_str());
+                    }
+                });
+            }
 
             // メニューバー常駐アプリ：Dock にアイコンを出さない（Electron の app.dock.hide 相当）
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);

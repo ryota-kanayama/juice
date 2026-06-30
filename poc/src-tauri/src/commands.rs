@@ -256,8 +256,17 @@ pub fn auth_get_status(store: State<'_, crate::auth::AuthStore>) -> crate::auth:
 }
 
 #[tauri::command]
-pub fn auth_sign_out(store: State<'_, crate::auth::AuthStore>) {
+pub fn auth_sign_out(app: tauri::AppHandle, store: State<'_, crate::auth::AuthStore>) {
+    use tauri::Emitter;
     store.clear_token();
+    let status = store.get_status(chrono::Utc::now().timestamp_millis());
+    let _ = app.emit("auth-changed", &status);
+}
+
+/// ブラウザで Slack サインインを開始する（juice://auth コールバックで完了）。
+#[tauri::command]
+pub fn sign_in_with_slack(app: tauri::AppHandle) -> CmdResult<()> {
+    map(crate::oauth::start_sign_in(&app))
 }
 
 // ---- 勤怠 / ホワイトボード ----

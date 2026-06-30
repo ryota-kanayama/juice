@@ -95,9 +95,8 @@ const electronAPI = {
   resizeWindow: (width: number, height: number) =>
     invoke("window_resize", { width, height }),
 
-  // ---- Auth（一部 STUB） ----
-  // 🟡 OAuth サインインは未移植
-  signInWithSlack: () => stub("signInWithSlack", Promise.resolve()),
+  // ---- Auth（✅ MAPPED） ----
+  signInWithSlack: () => invoke("sign_in_with_slack"),
   getAuthStatus: () => invoke("auth_get_status"),
   signOutSlack: () => invoke("auth_sign_out"),
 
