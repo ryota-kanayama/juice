@@ -4,6 +4,12 @@
 //
 // renderer へのイベント名はシム(electron-api-shim.ts)の購読に合わせる:
 //   update-available / update-progress / update-prepare-quit
+//
+// セキュリティ設計（受容済みトレードオフ）:
+//   コード署名検証は行わない（署名鍵運用を避ける方針・ユーザー決定）。代わりに
+//   (1) 取得元を HTTPS + GitHub ドメインに限定（is_trusted_github_url）し MITM を緩和、
+//   (2) asset 名を basename 化＋プロセス専用ディレクトリへ隔離してパストラバーサル/予測可能
+//       パス攻撃を防止する。配信物の真正性は GitHub Releases + TLS に依存する。
 
 use crate::settings_store::SettingsStore;
 use serde::Serialize;
@@ -164,6 +170,39 @@ fn str_field(v: &serde_json::Value, key: &str) -> String {
         .to_string()
 }
 
+/// ダウンロード/リリースURLが HTTPS かつ GitHub ドメインかを検証する。
+/// 署名検証なし方式（ユーザー決定）の MITM 緩和として、取得元を信頼ドメインに限定する。
+fn is_trusted_github_url(raw: &str) -> bool {
+    match url::Url::parse(raw) {
+        Ok(u) => {
+            u.scheme() == "https"
+                && u.host_str().map_or(false, |h| {
+                    h == "github.com"
+                        || h.ends_with(".github.com")
+                        || h == "githubusercontent.com"
+                        || h.ends_with(".githubusercontent.com")
+                })
+        }
+        Err(_) => false,
+    }
+}
+
+/// asset 名からディレクトリ成分を落とし、安全なファイル名のみ返す（パストラバーサル防止）。
+fn safe_asset_name(name: &str) -> Option<String> {
+    let base = std::path::Path::new(name).file_name()?.to_string_lossy().to_string();
+    if base.is_empty() || base == "." || base == ".." {
+        return None;
+    }
+    Some(base)
+}
+
+/// 本プロセス専用の作業ディレクトリを作る（共有 /tmp の予測可能パス・symlink 攻撃を回避）。
+fn update_work_dir() -> Result<PathBuf, String> {
+    let dir = std::env::temp_dir().join(format!("juice-update-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
 // ---- チェック ----
 
 fn current_version(app: &AppHandle) -> String {
@@ -294,11 +333,11 @@ open "$APP"
 }
 
 /// 差し替えスクリプトを一時ファイルへ書き、アプリと切り離して起動する（detached）。
-fn run_installer(dmg_path: &str, app_path: &str) -> Result<(), String> {
+/// work_dir はプロセス専用ディレクトリ（共有 /tmp の予測可能パスを避ける）。
+fn run_installer(work_dir: &PathBuf, dmg_path: &str, app_path: &str) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
-    let tmp = std::env::temp_dir();
-    let log_path = tmp.join("juice-update.log");
-    let script_path = tmp.join("juice-update.sh");
+    let log_path = work_dir.join("juice-update.log");
+    let script_path = work_dir.join("juice-update.sh");
     let script = build_install_script(
         std::process::id(),
         dmg_path,
@@ -376,13 +415,37 @@ pub async fn install(app: &AppHandle) {
     };
     let (url, name) = match (info.download_url.clone(), info.asset_name.clone()) {
         (Some(u), Some(n)) => (u, n),
-        // arch 一致 DMG が無ければリリースページを開く従来挙動
+        // arch 一致 DMG が無ければリリースページを開く従来挙動（信頼ドメインのみ）
         _ => {
-            open_with_default(app, info.release_url);
+            if is_trusted_github_url(&info.release_url) {
+                open_with_default(app, info.release_url);
+            }
             return;
         }
     };
-    let dest = std::env::temp_dir().join(&name);
+    // 取得元を HTTPS + GitHub ドメインに限定（署名なし方式の MITM 緩和）
+    if !is_trusted_github_url(&url) {
+        eprintln!("[update] install: untrusted download url rejected: {url}");
+        emit_progress(app, 0, true, Some("ダウンロード元が不正です".into()));
+        return;
+    }
+    // asset 名はディレクトリ成分を落とし、専用ディレクトリ内に限定（パストラバーサル防止）
+    let safe_name = match safe_asset_name(&name) {
+        Some(n) => n,
+        None => {
+            emit_progress(app, 0, true, Some("アセット名が不正です".into()));
+            return;
+        }
+    };
+    let work_dir = match update_work_dir() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("[update] work dir failed: {e}");
+            emit_progress(app, 0, true, Some("作業ディレクトリの作成に失敗しました".into()));
+            return;
+        }
+    };
+    let dest = work_dir.join(&safe_name);
     match download_file(app, &url, &dest).await {
         Ok(()) => emit_progress(app, 100, true, None),
         Err(e) => {
@@ -400,7 +463,7 @@ pub async fn install(app: &AppHandle) {
         }
     };
     wait_for_renderer(app).await;
-    if let Err(e) = run_installer(&dest.to_string_lossy(), &app_path.to_string_lossy()) {
+    if let Err(e) = run_installer(&work_dir, &dest.to_string_lossy(), &app_path.to_string_lossy()) {
         eprintln!("[update] run_installer failed: {e}");
         return;
     }
@@ -478,5 +541,30 @@ mod tests {
         let s = build_install_script(1, "/tmp/x'y.dmg", "/A.app", "/l");
         // ' は '\'' へエスケープされる
         assert!(s.contains(r#"DMG='/tmp/x'\''y.dmg'"#));
+    }
+
+    #[test]
+    fn trusted_url_requires_https_github() {
+        assert!(is_trusted_github_url(
+            "https://github.com/ryota-kanayama/juice/releases/download/v1/Juice.dmg"
+        ));
+        assert!(is_trusted_github_url(
+            "https://objects.githubusercontent.com/abc/Juice.dmg"
+        ));
+        // http / 非GitHub / 別スキームは拒否
+        assert!(!is_trusted_github_url("http://github.com/x.dmg"));
+        assert!(!is_trusted_github_url("https://evil.com/x.dmg"));
+        assert!(!is_trusted_github_url("https://github.com.evil.com/x.dmg"));
+        assert!(!is_trusted_github_url("file:///etc/passwd"));
+    }
+
+    #[test]
+    fn safe_asset_name_strips_path_components() {
+        assert_eq!(safe_asset_name("Juice-1.0.dmg").as_deref(), Some("Juice-1.0.dmg"));
+        // パストラバーサルはファイル名成分だけに正規化される
+        assert_eq!(safe_asset_name("../../etc/passwd").as_deref(), Some("passwd"));
+        assert_eq!(safe_asset_name("/abs/evil.dmg").as_deref(), Some("evil.dmg"));
+        assert_eq!(safe_asset_name(".."), None);
+        assert_eq!(safe_asset_name(""), None);
     }
 }
