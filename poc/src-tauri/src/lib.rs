@@ -18,6 +18,7 @@ mod oauth;
 mod session_store;
 mod settings_store;
 mod types;
+mod update;
 
 use daily_store::DailyStore;
 use notif_scheduler::NotificationEngine;
@@ -123,6 +124,9 @@ pub fn run() {
             commands::get_launch_at_login,
             commands::set_launch_at_login,
             commands::sign_in_with_slack,
+            commands::update_check,
+            commands::update_install,
+            commands::update_ready_to_quit,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。
@@ -135,6 +139,7 @@ pub fn run() {
             app.manage(holidays::HolidaysClient::new());
             app.manage(auth::AuthStore::new());
             app.manage(oauth::PendingState::default());
+            app.manage(update::UpdateAck::default());
 
             // juice://auth コールバック（Slack サインイン）を deep-link で受ける。
             {
@@ -153,6 +158,8 @@ pub fn run() {
             let handle = app.app_handle();
             // アイドル監視ループを開始（engine 登録後）
             notif_scheduler::init(handle);
+            // 起動時 + 6時間ごとの更新確認（Electron 版 startPeriodicCheck 相当）
+            update::start_periodic_check(handle);
             init_panel(handle);
             build_tray(handle)?;
             Ok(())

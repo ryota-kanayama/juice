@@ -100,12 +100,12 @@ const electronAPI = {
   getAuthStatus: () => invoke("auth_get_status"),
   signOutSlack: () => invoke("auth_sign_out"),
 
-  // ---- Update（🟡 STUB：自動アップデート未移植） ----
-  checkForUpdate: () =>
-    stub("checkForUpdate", Promise.resolve({ hasUpdate: false } as unknown)),
-  dismissUpdate: (_version: string) => stub("dismissUpdate", Promise.resolve()),
-  installUpdate: () => stub("installUpdate", Promise.resolve()),
-  readyToQuit: () => stub("readyToQuit", Promise.resolve()),
+  // ---- Update（✅ MAPPED） ----
+  checkForUpdate: () => invoke("update_check"),
+  dismissUpdate: (version: string) =>
+    invoke("settings_set_dismissed_update_version", { version }),
+  installUpdate: () => invoke("update_install"),
+  readyToQuit: () => invoke("update_ready_to_quit"),
 
   // ---- Misc ----
   completeSetup: () => invoke("settings_complete_setup"),
@@ -113,7 +113,7 @@ const electronAPI = {
   openUrl: (url: string) => invoke("open_url", { url }),
   getAppVersion: () => invoke("get_app_version"),
 
-  // ---- Events（🔔 listen へ。emit 側未実装は購読のみ） ----
+  // ---- Events（🔔 Tauri listen へ。emit 側は Rust 実装済み） ----
   onThemeChanged: (cb: (themeId: string) => void) =>
     subscribe<string>("theme-changed", cb),
   onAuthChanged: (cb: (status: unknown) => void) =>

@@ -106,8 +106,16 @@ pub fn settings_get_theme(store: State<'_, SettingsStore>) -> String {
 }
 
 #[tauri::command]
-pub fn settings_set_theme(theme_id: String, store: State<'_, SettingsStore>) -> CmdResult<()> {
-    map(store.set_theme(&theme_id))
+pub fn settings_set_theme(
+    app: tauri::AppHandle,
+    theme_id: String,
+    store: State<'_, SettingsStore>,
+) -> CmdResult<()> {
+    use tauri::Emitter;
+    map(store.set_theme(&theme_id))?;
+    // 全ウィンドウへライブ反映（Electron 版 broadcastThemeToAll 相当）
+    let _ = app.emit("theme-changed", &theme_id);
+    Ok(())
 }
 
 #[tauri::command]
@@ -267,6 +275,23 @@ pub fn auth_sign_out(app: tauri::AppHandle, store: State<'_, crate::auth::AuthSt
 #[tauri::command]
 pub fn sign_in_with_slack(app: tauri::AppHandle) -> CmdResult<()> {
     map(crate::oauth::start_sign_in(&app))
+}
+
+// ---- アップデート（Electron 版 update:check / install / ready-to-quit 相当） ----
+
+#[tauri::command]
+pub async fn update_check(app: tauri::AppHandle) -> CmdResult<crate::update::UpdateInfo> {
+    crate::update::check_for_update(&app).await
+}
+
+#[tauri::command]
+pub async fn update_install(app: tauri::AppHandle) {
+    crate::update::install(&app).await;
+}
+
+#[tauri::command]
+pub fn update_ready_to_quit(app: tauri::AppHandle) {
+    crate::update::notify_renderer_ready(&app);
 }
 
 // ---- 勤怠 / ホワイトボード ----
