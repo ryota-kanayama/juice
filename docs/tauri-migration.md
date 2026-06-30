@@ -115,7 +115,8 @@ renderer のコールサイトをほぼ無改修で移行できる。
 3. ⏳ ウィンドウ・トレイ・**パネル配置（ネイティブ）**（PoC で実証済み、本実装へ取り込み）
 4. ✅ **通知**（純粋ロジック TDD 14テスト + tokio スケジューラ配線。`.app` で実発火確認）
 5. 🔄 外部 API 連携 — **holidays 完了**（reqwest・TDD）。attendance/whiteboard は認証待ち
-6. ⏳ 認証（Keychain 代替）
+6. 🔄 認証 — **Keychain 代替（AuthStore）完了**（keyring・TDD・実Keychain round-trip確認）。
+   OAuth signIn + deep-link コールバック + refreshSession は残り
 7. ⏳ 自動アップデート（最複雑）
 
 ### 実装済みの構成（`poc/src-tauri/src/`）
@@ -130,6 +131,9 @@ renderer のコールサイトをほぼ無改修で移行できる。
   `tauri-plugin-notification` で OS 通知表示。`NotificationEngine` を管理ステート化
 - `holidays.rs` … 公開 API から祝日マップを reqwest 取得＋プロセス内キャッシュ（TDD）。
   HTTP クライアントのパターン基盤（attendance/whiteboard で再利用予定）
+- `auth.rs` … セッション JWT。`parse_auth_status`（JWT payload→AuthStatus、TDD）+
+  `AuthStore`（`safeStorage`→`keyring`/apple-native の Keychain 保存）。
+  safeStorage(auth.enc) とは非互換 → 既存ユーザーは移行時に再ログイン要
 - `lib.rs` … `app.manage` で各ストア+engine を登録、`resolve_data_dir`（Electron 互換
   パス、`JUICE_DATA_DIR` で上書き可）
 
