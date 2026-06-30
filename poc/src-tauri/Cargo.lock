@@ -466,8 +466,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-link 0.2.1",
 ]
 
@@ -2557,6 +2559,7 @@ dependencies = [
 name = "poc"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "objc",
  "serde",
  "serde_json",
@@ -2565,6 +2568,7 @@ dependencies = [
  "tauri-nspanel",
  "tauri-plugin-opener",
  "tauri-plugin-positioner",
+ "tempfile",
 ]
 
 [[package]]
@@ -3473,7 +3477,7 @@ dependencies = [
 [[package]]
 name = "tauri-nspanel"
 version = "2.0.1"
-source = "git+https://github.com/ahkohd/tauri-nspanel?branch=v2#18ffb9a201fbf6fedfaa382fd4b92315ea30ab1a"
+source = "git+https://github.com/ahkohd/tauri-nspanel?rev=18ffb9a201fbf6fedfaa382fd4b92315ea30ab1a#18ffb9a201fbf6fedfaa382fd4b92315ea30ab1a"
 dependencies = [
  "bitflags 2.13.0",
  "block",

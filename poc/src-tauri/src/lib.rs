@@ -6,6 +6,10 @@
 //   4. パネル内のテキスト入力にキーボード入力できるか
 //   5. マルチディスプレイ／別 Space でも現在の画面のトレイ下に出るか
 
+// 移行: データストア（Electron 版 src/main/*.ts の Rust 移植）
+mod session_store;
+mod types;
+
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
