@@ -9,6 +9,7 @@
 // 移行: データストア（Electron 版 src/main/*.ts の Rust 移植）
 mod daily_store;
 mod session_store;
+mod settings_store;
 mod types;
 
 use tauri::{
