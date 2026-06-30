@@ -20,7 +20,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
-tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2" }
+# 供給網対策：branch 追従ではなく特定 rev にピン留め（再現性・改ざん耐性）
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "18ffb9a201fbf6fedfaa382fd4b92315ea30ab1a" }
 tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
 objc = "0.2"
 serde = { version = "1", features = ["derive"] }

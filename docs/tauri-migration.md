@@ -72,6 +72,14 @@ PoC は `poc/`（`npm create tauri-app` の vanilla-ts ベース）。`poc/src-t
 現状の PoC は CSS `backdrop-filter` のみで、背後の他アプリまではぼかせない。
 本物の vibrancy が必要なら `NSVisualEffectView` のネイティブ対応が別途必要（優先度低）。
 
+### 5. セキュリティ（コミット時レビュー指摘 → 対応済み／要継続）
+
+- **git 依存はピン留め必須**：`tauri-nspanel` は branch 追従だと改ざん・破壊的変更を自動で取り込むため、
+  特定 rev（`18ffb9a…`）に固定済み。更新時は rev を意図的に上げて差分を確認する。
+- **CSP**：scaffold 既定の `csp: null` は XSS ハードニング無効。PoC はローカル限定 inline を許可した
+  暫定 CSP に変更済み。**本番移行では Vite ビルド済み renderer を使い `'unsafe-inline'` を外す**こと。
+- 認証トークンは `safeStorage`→`keyring`（Keychain）で OS 暗号化を維持する（移植マップ参照）。
+
 ## メインプロセス移植マップ（Electron → Rust）
 
 Renderer（`src/renderer/`）は React のまま流用可能。重いのは `src/main/` の Rust 化。
