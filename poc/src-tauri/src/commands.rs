@@ -211,3 +211,30 @@ pub fn settings_is_setup_completed(store: State<'_, SettingsStore>) -> bool {
 pub fn settings_complete_setup(store: State<'_, SettingsStore>) -> CmdResult<()> {
     map(store.complete_setup())
 }
+
+// ---- 通知スケジューラ（Electron 版 timer:started/stopped/adjust + activity 相当） ----
+
+#[tauri::command]
+pub fn notif_timer_started(app: tauri::AppHandle) {
+    crate::notif_scheduler::on_timer_started(&app);
+}
+
+#[tauri::command]
+pub fn notif_timer_stopped(app: tauri::AppHandle) {
+    crate::notif_scheduler::on_timer_stopped(&app);
+}
+
+#[tauri::command]
+pub fn notif_timer_adjust(new_start_ms: i64, app: tauri::AppHandle) {
+    crate::notif_scheduler::on_timer_adjust(&app, new_start_ms);
+}
+
+#[tauri::command]
+pub fn record_activity(app: tauri::AppHandle) {
+    crate::notif_scheduler::record_activity(&app);
+}
+
+#[tauri::command]
+pub fn notif_test(app: tauri::AppHandle) {
+    crate::notif_scheduler::show_test(&app);
+}

@@ -9,12 +9,14 @@
 // 移行: データストア（Electron 版 src/main/*.ts の Rust 移植）
 mod commands;
 mod daily_store;
+mod notif_scheduler;
 mod notifications;
 mod session_store;
 mod settings_store;
 mod types;
 
 use daily_store::DailyStore;
+use notif_scheduler::NotificationEngine;
 use session_store::SessionStore;
 use settings_store::SettingsStore;
 use std::path::PathBuf;
@@ -67,6 +69,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_nspanel::init())
         .plugin(tauri_plugin_positioner::init())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             commands::sessions_get,
             commands::sessions_save,
@@ -95,6 +98,11 @@ pub fn run() {
             commands::settings_set_dismissed_update_version,
             commands::settings_is_setup_completed,
             commands::settings_complete_setup,
+            commands::notif_timer_started,
+            commands::notif_timer_stopped,
+            commands::notif_timer_adjust,
+            commands::record_activity,
+            commands::notif_test,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。
@@ -103,11 +111,14 @@ pub fn run() {
             app.manage(SessionStore::new(data_dir.clone()));
             app.manage(DailyStore::new(data_dir.clone()));
             app.manage(SettingsStore::new(data_dir));
+            app.manage(NotificationEngine::new());
 
             // メニューバー常駐アプリ：Dock にアイコンを出さない（Electron の app.dock.hide 相当）
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let handle = app.app_handle();
+            // アイドル監視ループを開始（engine 登録後）
+            notif_scheduler::init(handle);
             init_panel(handle);
             build_tray(handle)?;
             Ok(())

@@ -1,8 +1,6 @@
 // 通知の純粋ロジック（Electron 版 src/main/notifications/* の判定/計算部分の移植）。
 // タイマー・OS 通知表示・スケジューリングの副作用は別レイヤ（scheduler 配線）で扱い、
 // ここは決定論的にテスト可能な「いつ・何を通知すべきか」だけを持つ。
-// NOTE: scheduler 配線が入るまでは未使用のため dead_code を許可している。
-#![allow(dead_code)]
 
 pub const NOTIF_TITLE: &str = "Juice";
 pub const IDLE_BODY: &str = "ジュースを飲みたくありませんか？";
@@ -84,6 +82,11 @@ pub fn pomodoro_message(fired_pos_ms: i64) -> &'static str {
     } else {
         POMODORO_RESUME
     }
+}
+
+/// 周期内の位置（0..CYCLE_MS）。発火時のフェーズ判定に使う。
+pub fn pomodoro_cycle_pos(now_ms: i64, start_ms: i64) -> i64 {
+    (now_ms - start_ms).rem_euclid(CYCLE_MS)
 }
 
 #[cfg(test)]
@@ -186,5 +189,12 @@ mod tests {
         // 25分位置以降は休憩メッセージ、未満は再開メッセージ
         assert_eq!(pomodoro_message(25 * MIN), POMODORO_BREAK);
         assert_eq!(pomodoro_message(0), POMODORO_RESUME);
+    }
+
+    #[test]
+    fn pomodoro_cycle_pos_wraps() {
+        assert_eq!(pomodoro_cycle_pos(0, 0), 0);
+        assert_eq!(pomodoro_cycle_pos(25 * MIN, 0), 25 * MIN);
+        assert_eq!(pomodoro_cycle_pos(31 * MIN, 0), MIN); // 30分周期を1分超過
     }
 }
