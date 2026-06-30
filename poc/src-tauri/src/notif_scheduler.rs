@@ -42,17 +42,25 @@ impl NotificationEngine {
 }
 
 fn show(app: &AppHandle, body: &str) {
-    let _ = app
+    // 権限状態を観測（macOS dev バイナリは挙動が不安定なことがある）
+    let perm = app.notification().permission_state();
+    match app
         .notification()
         .builder()
         .title(NOTIF_TITLE)
         .body(body)
-        .show();
+        .show()
+    {
+        Ok(_) => eprintln!("[notif] show OK (perm={perm:?}): {body}"),
+        Err(e) => eprintln!("[notif] show ERR (perm={perm:?}): {e}"),
+    }
 }
 
 /// 即時通知（配線の動作確認用）。
+/// macOS は同一文面の連続通知を抑制するため、毎回ユニークになるよう時刻を含める。
 pub fn show_test(app: &AppHandle) {
-    show(app, "通知テスト — これが見えれば配線 OK");
+    let t = chrono::Local::now().format("%H:%M:%S");
+    show(app, &format!("通知テスト {t} — これが見えれば配線 OK"));
 }
 
 /// 起動時にアイドル監視ループを開始する（設定は毎 tick 読むので自己調整）。
