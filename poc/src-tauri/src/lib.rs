@@ -9,6 +9,7 @@
 // 移行: データストア（Electron 版 src/main/*.ts の Rust 移植）
 mod commands;
 mod daily_store;
+mod holidays;
 mod notif_scheduler;
 mod notifications;
 mod session_store;
@@ -103,6 +104,7 @@ pub fn run() {
             commands::notif_timer_adjust,
             commands::record_activity,
             commands::notif_test,
+            commands::holidays_get,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。
@@ -112,6 +114,7 @@ pub fn run() {
             app.manage(DailyStore::new(data_dir.clone()));
             app.manage(SettingsStore::new(data_dir));
             app.manage(NotificationEngine::new());
+            app.manage(holidays::HolidaysClient::new());
 
             // メニューバー常駐アプリ：Dock にアイコンを出さない（Electron の app.dock.hide 相当）
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);

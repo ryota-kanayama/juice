@@ -238,3 +238,12 @@ pub fn record_activity(app: tauri::AppHandle) {
 pub fn notif_test(app: tauri::AppHandle) {
     crate::notif_scheduler::show_test(&app);
 }
+
+// ---- 外部 API: 祝日 ----
+
+#[tauri::command]
+pub async fn holidays_get(
+    client: State<'_, crate::holidays::HolidaysClient>,
+) -> CmdResult<std::collections::HashMap<String, String>> {
+    Ok(client.get().await)
+}
