@@ -247,3 +247,15 @@ pub async fn holidays_get(
 ) -> CmdResult<std::collections::HashMap<String, String>> {
     Ok(client.get().await)
 }
+
+// ---- 認証 ----
+
+#[tauri::command]
+pub fn auth_get_status(store: State<'_, crate::auth::AuthStore>) -> crate::auth::AuthStatus {
+    store.get_status(chrono::Utc::now().timestamp_millis())
+}
+
+#[tauri::command]
+pub fn auth_sign_out(store: State<'_, crate::auth::AuthStore>) {
+    store.clear_token();
+}

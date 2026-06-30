@@ -7,6 +7,7 @@
 //   5. マルチディスプレイ／別 Space でも現在の画面のトレイ下に出るか
 
 // 移行: データストア（Electron 版 src/main/*.ts の Rust 移植）
+mod auth;
 mod commands;
 mod daily_store;
 mod holidays;
@@ -105,6 +106,8 @@ pub fn run() {
             commands::record_activity,
             commands::notif_test,
             commands::holidays_get,
+            commands::auth_get_status,
+            commands::auth_sign_out,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。
@@ -115,6 +118,7 @@ pub fn run() {
             app.manage(SettingsStore::new(data_dir));
             app.manage(NotificationEngine::new());
             app.manage(holidays::HolidaysClient::new());
+            app.manage(auth::AuthStore::new());
 
             // メニューバー常駐アプリ：Dock にアイコンを出さない（Electron の app.dock.hide 相当）
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
