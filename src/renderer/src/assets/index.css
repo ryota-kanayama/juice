@@ -32,6 +32,15 @@
     font-family: inherit;
   }
 
+  /* Preflight 無効のため、ボタンが UA 既定の背景を持つ。Chromium(Electron) と
+     WebKit(Tauri/WKWebView) で既定グレーの濃さが異なり、bg 未指定の ghost/link
+     ボタンの見た目がエンジンで変わる。preflight 相当の背景リセットを補い、
+     背景はバリアントのユーティリティにのみ委ねる。 */
+  button {
+    background-color: transparent;
+    background-image: none;
+  }
+
   /* Preflight 無効のため border-style リセットが無く、Tailwind の border 系
      ユーティリティ（border-width のみ設定）が描画されない。Tailwind preflight
      相当のボーダー初期化を base レイヤーで補う。CSS Modules（非レイヤー＝優先度上）
