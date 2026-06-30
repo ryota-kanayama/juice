@@ -6,6 +6,14 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
 
+  // フロントエンドは front/ に集約（index.html もここ）。backend は src-tauri/。
+  root: "front",
+  build: {
+    // tauri.conf.json の frontendDist "../dist"（= poc/dist）に出力する
+    outDir: "../dist",
+    emptyOutDir: true,
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
