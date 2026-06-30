@@ -11,6 +11,7 @@ mod auth;
 mod commands;
 mod daily_store;
 mod holidays;
+mod integrations;
 mod notif_scheduler;
 mod notifications;
 mod session_store;
@@ -108,6 +109,8 @@ pub fn run() {
             commands::holidays_get,
             commands::auth_get_status,
             commands::auth_sign_out,
+            commands::attendance_send,
+            commands::whiteboard_telework_start,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。

@@ -259,3 +259,15 @@ pub fn auth_get_status(store: State<'_, crate::auth::AuthStore>) -> crate::auth:
 pub fn auth_sign_out(store: State<'_, crate::auth::AuthStore>) {
     store.clear_token();
 }
+
+// ---- 勤怠 / ホワイトボード ----
+
+#[tauri::command]
+pub async fn attendance_send(app: tauri::AppHandle, text: String) -> crate::integrations::HttpResult {
+    crate::integrations::send_attendance(&app, &text).await
+}
+
+#[tauri::command]
+pub async fn whiteboard_telework_start(app: tauri::AppHandle) {
+    crate::integrations::send_whiteboard(&app, "telework").await;
+}
