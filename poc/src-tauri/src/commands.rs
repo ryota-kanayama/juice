@@ -271,3 +271,27 @@ pub async fn attendance_send(app: tauri::AppHandle, text: String) -> crate::inte
 pub async fn whiteboard_telework_start(app: tauri::AppHandle) {
     crate::integrations::send_whiteboard(&app, "telework").await;
 }
+
+// ---- ウィンドウ / 外部連携（Electron 版 window:hide / shell.openExternal / app.getVersion 相当） ----
+
+/// ポップオーバー（NSPanel）を隠す。blur-to-close と同じ `order_out` を使う。
+#[tauri::command]
+pub fn window_hide(app: tauri::AppHandle) {
+    use tauri_nspanel::ManagerExt;
+    if let Ok(panel) = app.get_webview_panel("main") {
+        panel.order_out(None);
+    }
+}
+
+/// 外部 URL を既定ブラウザで開く。
+#[tauri::command]
+pub fn open_url(app: tauri::AppHandle, url: String) -> CmdResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    map(app.opener().open_url(url, None::<&str>))
+}
+
+/// アプリのバージョン（tauri.conf.json の version）を返す。
+#[tauri::command]
+pub fn get_app_version(app: tauri::AppHandle) -> String {
+    app.package_info().version.to_string()
+}

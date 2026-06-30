@@ -92,8 +92,9 @@ const electronAPI = {
   sendAttendance: (text: string) => invoke("attendance_send", { text }),
   teleworkStart: () => invoke("whiteboard_telework_start"),
 
-  // ---- Window（🟡 STUB：Phase 3 で実装予定） ----
-  hideWindow: () => stub("hideWindow", Promise.resolve()),
+  // ---- Window（hide=✅ MAPPED / resize=🟡 STUB） ----
+  hideWindow: () => invoke("window_hide"),
+  // 🟡 稼働中リサイズ(560×420)は renderer から未呼出。将来 Rust 側でタイマー連動実装。
   resizeWindow: (_width: number, _height: number) =>
     stub("resizeWindow", Promise.resolve()),
 
@@ -113,8 +114,8 @@ const electronAPI = {
   // ---- Misc ----
   completeSetup: () => invoke("settings_complete_setup"),
   getHolidays: () => invoke("holidays_get"),
-  openUrl: (_url: string) => stub("openUrl", Promise.resolve()), // 🟡 Phase 3
-  getAppVersion: () => stub("getAppVersion", Promise.resolve("0.0.0-tauri")), // 🟡
+  openUrl: (url: string) => invoke("open_url", { url }),
+  getAppVersion: () => invoke("get_app_version"),
 
   // ---- Events（🔔 listen へ。emit 側未実装は購読のみ） ----
   onThemeChanged: (cb: (themeId: string) => void) =>

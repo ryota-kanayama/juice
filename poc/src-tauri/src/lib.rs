@@ -73,6 +73,7 @@ pub fn run() {
         .plugin(tauri_nspanel::init())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::sessions_get,
             commands::sessions_save,
@@ -111,6 +112,9 @@ pub fn run() {
             commands::auth_sign_out,
             commands::attendance_send,
             commands::whiteboard_telework_start,
+            commands::window_hide,
+            commands::open_url,
+            commands::get_app_version,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。
