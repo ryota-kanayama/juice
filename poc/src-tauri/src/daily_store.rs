@@ -5,7 +5,7 @@
 
 use crate::session_store::{append_ext, is_date, is_year_month, StoreError};
 use chrono::{Duration, Local, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
@@ -18,6 +18,7 @@ pub struct DailyMonth {
 }
 
 /// importLegacy の各エントリ（date と任意 record オブジェクト）。
+#[derive(Deserialize)]
 pub struct LegacyEntry {
     pub date: String,
     pub record: Value,

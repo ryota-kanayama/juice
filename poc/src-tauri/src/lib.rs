@@ -7,10 +7,16 @@
 //   5. マルチディスプレイ／別 Space でも現在の画面のトレイ下に出るか
 
 // 移行: データストア（Electron 版 src/main/*.ts の Rust 移植）
+mod commands;
 mod daily_store;
 mod session_store;
 mod settings_store;
 mod types;
+
+use daily_store::DailyStore;
+use session_store::SessionStore;
+use settings_store::SettingsStore;
+use std::path::PathBuf;
 
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -35,12 +41,68 @@ const NSFloatWindowLevel: i32 = 4;
 #[allow(non_upper_case_globals)]
 const NSWindowStyleMaskNonActivatingPanel: i32 = 1 << 7;
 
+/// Electron 版と同じデータディレクトリを返す。
+/// dev（debug ビルド）は juice-dev、本番は Juice（~/Library/Application Support 下）。
+fn resolve_data_dir() -> PathBuf {
+    // テスト/検証用の明示上書き（本番経路には影響しない）
+    if let Ok(dir) = std::env::var("JUICE_DATA_DIR") {
+        if !dir.is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
+    let home = std::env::var("HOME").unwrap_or_default();
+    let name = if cfg!(debug_assertions) {
+        "juice-dev"
+    } else {
+        "Juice"
+    };
+    PathBuf::from(home)
+        .join("Library/Application Support")
+        .join(name)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_nspanel::init())
         .plugin(tauri_plugin_positioner::init())
+        .invoke_handler(tauri::generate_handler![
+            commands::sessions_get,
+            commands::sessions_save,
+            commands::sessions_update,
+            commands::sessions_delete,
+            commands::daily_get_month,
+            commands::daily_get_day,
+            commands::daily_set_day,
+            commands::daily_import_legacy,
+            commands::daily_prune,
+            commands::settings_get_theme,
+            commands::settings_set_theme,
+            commands::settings_get_idle,
+            commands::settings_set_idle,
+            commands::settings_get_elapsed,
+            commands::settings_set_elapsed,
+            commands::settings_get_pomodoro,
+            commands::settings_set_pomodoro,
+            commands::settings_get_whiteboard,
+            commands::settings_set_whiteboard,
+            commands::settings_get_break_behavior,
+            commands::settings_set_break_behavior,
+            commands::settings_get_main_project_code,
+            commands::settings_set_main_project_code,
+            commands::settings_get_dismissed_update_version,
+            commands::settings_set_dismissed_update_version,
+            commands::settings_is_setup_completed,
+            commands::settings_complete_setup,
+        ])
         .setup(|app| {
+            // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。
+            let data_dir = resolve_data_dir();
+            let _ = std::fs::create_dir_all(&data_dir);
+            app.manage(SessionStore::new(data_dir.clone()));
+            app.manage(DailyStore::new(data_dir.clone()));
+            app.manage(SettingsStore::new(data_dir));
+
             // メニューバー常駐アプリ：Dock にアイコンを出さない（Electron の app.dock.hide 相当）
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 

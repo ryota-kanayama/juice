@@ -78,13 +78,7 @@
         <input id="task" placeholder="ここに入力できれば input OK" />
       </div>
 
-      <div class="hint">
-        検証手順：<br />
-        ① 別アプリ（例：エディタ）を選択した状態でトレイをクリック<br />
-        ② このパネルが出ても元アプリのフォーカスが奪われないか<br />
-        ③ パネル外をクリックして自動で閉じるか<br />
-        ④ 上の入力欄に文字を打てるか
-      </div>
+      <div class="hint" id="ipc">IPC self-test: 実行中…</div>
     </div>
 
     <script>
@@ -96,6 +90,21 @@
       }
       tick();
       setInterval(tick, 1000);
+
+      // IPC 往復の自己検証（読み取りのみ・非破壊）：Rust ストアから読めることを示す
+      async function ipcSelfTest() {
+        const out = document.getElementById('ipc');
+        try {
+          const invoke = window.__TAURI__.core.invoke;
+          const ym = new Date().toISOString().slice(0, 7);
+          const theme = await invoke('settings_get_theme');
+          const sessions = await invoke('sessions_get', { yearMonth: ym });
+          out.textContent = `IPC OK: theme=${theme}, ${ym}=${sessions.length}件`;
+        } catch (e) {
+          out.textContent = 'IPC NG: ' + e;
+        }
+      }
+      ipcSelfTest();
     </script>
   </body>
 </html>
