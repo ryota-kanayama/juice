@@ -4,10 +4,9 @@
 //
 // このファイルを「レンダラーの一番最初」に import すること（main.tsx の先頭）。
 //
-// メソッドは3分類：
-//   ✅ MAPPED  … 既存 Tauri コマンドへ転送
-//   🟡 STUB    … バックエンド未移植。安全な既定値を返す（後の Phase で実装）
-//   🔔 EVENT   … Tauri listen へ。emit 側未実装のものは購読だけ張って no-op
+// 全メソッドが Tauri バックエンド（invoke / listen）へ転送される（スタブ無し）。
+//   ✅ COMMAND … 既存 Tauri コマンドへ invoke で転送
+//   🔔 EVENT   … Tauri listen へ。emit は Rust 側で実装済み
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -24,16 +23,6 @@ function subscribe<T>(event: string, callback: (payload: T) => void): () => void
     cancelled = true;
     if (unlisten) unlisten();
   };
-}
-
-/** 未実装メソッドの目印（コンソールに一度だけ警告）。 */
-const warned = new Set<string>();
-function stub<T>(name: string, value: T): T {
-  if (!warned.has(name)) {
-    warned.add(name);
-    console.warn(`[electronAPI shim] '${name}' は未移植のためスタブ応答`);
-  }
-  return value;
 }
 
 const electronAPI = {
