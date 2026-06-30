@@ -5,16 +5,17 @@ import { resolve } from "path";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// 既存レンダラー(src/renderer/src)を「参照」してビルドする。コピーせず 1 ソース共有。
-const rendererSrc = resolve(import.meta.dirname, "../src/renderer/src");
-const repoRoot = resolve(import.meta.dirname, "..");
+// レンダラー(src/renderer/src)を参照してビルドする。コピーせず 1 ソース共有。
+// 設定はリポジトリルートにあるため、src/renderer/src を直接指す。
+const rendererSrc = resolve(import.meta.dirname, "src/renderer/src");
+const repoRoot = import.meta.dirname;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   // フロントエンドは front/ に集約（index.html もここ）。backend は src-tauri/。
   root: "front",
   build: {
-    // tauri.conf.json の frontendDist "../dist"（= poc/dist）に出力する
+    // tauri.conf.json の frontendDist "../dist"（= ルート/dist）に出力する
     outDir: "../dist",
     emptyOutDir: true,
   },

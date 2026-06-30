@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "poc",
-  "version": "0.1.0",
-  "identifier": "com.juice.tauripoc",
+  "productName": "Juice",
+  "version": "1.3.2",
+  "identifier": "com.kanaami.juice",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Juice PoC",
+        "title": "Juice",
         "width": 320,
         "height": 520,
         "resizable": false,

@@ -1,14 +1,16 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
-  content: ['./src/renderer/index.html', './src/renderer/src/**/*.{ts,tsx}'],
+  content: [
+    './src/renderer/src/**/*.{ts,tsx}',
+    './front/**/*.{ts,tsx,html}',
+  ],
   corePlugins: {
     // 既存CSS Modules画面の崩れを防ぐため全体リセットは無効化
     preflight: false,
   },
   theme: {
     extend: {
-      // shadcn のトークン。既存の --accent/--border 等との衝突を避けるため --sc- 接頭辞。
       colors: {
         border: 'hsl(var(--sc-border))',
         input: 'hsl(var(--sc-input))',
@@ -68,12 +70,10 @@ module.exports = {
           '100%': { transform: 'translateY(0px)', opacity: '0' },
         },
         'wave-shift': {
-          // viewBox 120 の user 単位で 1 周期(=120)ぶん横スクロール
           from: { transform: 'translateX(0)' },
           to: { transform: 'translateX(-120px)' },
         },
         slosh: {
-          // 中心まわりに左右へ傾けて液体が揺れているように見せる
           '0%, 100%': { transform: 'rotate(-3deg)' },
           '50%': { transform: 'rotate(3deg)' },
         },
