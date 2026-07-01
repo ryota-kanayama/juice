@@ -70,7 +70,7 @@ jobs:
           releaseDraft: true
           prerelease: false
           # 独自アップデータ（src-tauri/src/update.rs）を使うため tauri-plugin-updater 用の
-          # latest.json / 署名(.sig) はアップロードしない。
-          uploadUpdaterJson: false
-          uploadUpdaterSignatures: false
-          args: --target ${{ matrix.target }}
+          # latest.json は生成しない。
+          includeUpdaterJson: false
+          # DMG のみ生成（.app.tar.gz など updater 用バンドルを作らない＝リリースを DMG だけに）
+          args: --target ${{ matrix.target }} --bundles dmg
