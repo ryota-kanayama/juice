@@ -101,16 +101,30 @@ fn is_newer_version(candidate: &str, current: &str) -> bool {
 
 // ---- アセット選択（Electron 版 selectAsset.ts 相当） ----
 
+/// arm64 向け DMG か。Tauri 命名（`_aarch64.dmg`）と Electron 命名（`-arm64.dmg`）の両方。
+fn is_arm64_dmg(name: &str) -> bool {
+    name.ends_with("_aarch64.dmg") || name.ends_with("-arm64.dmg")
+}
+
 /// 実行 arch に合う DMG を選ぶ。
-/// Tauri の DMG 命名 `{productName}_{version}_{arch}.dmg` に合わせ、
-/// arm64→"_aarch64.dmg"、x64→"_x64.dmg" で末尾一致させる。
+/// Electron→Tauri 移行の橋渡しのため、両者の命名を受理する:
+///   arm64 : `_aarch64.dmg`（Tauri） / `-arm64.dmg`（Electron）
+///   x64   : `_x64.dmg`（Tauri） / 無印 `.dmg`（Electron、arm64 でないもの）
+/// arm64 の DMG を x64 機が誤選択しないよう明確に除外する。
 fn select_dmg_asset(assets: &[ReleaseAsset], arch: &str) -> Option<ReleaseAsset> {
-    let suffix = if arch == "arm64" {
-        "_aarch64.dmg"
-    } else {
-        "_x64.dmg"
-    };
-    assets.iter().find(|a| a.name.ends_with(suffix)).cloned()
+    if arch == "arm64" {
+        return assets.iter().find(|a| is_arm64_dmg(&a.name)).cloned();
+    }
+    // x64: 明示 `_x64.dmg` を優先、無ければ arm64 でない `.dmg`（Electron 無印）
+    assets
+        .iter()
+        .find(|a| a.name.ends_with("_x64.dmg"))
+        .or_else(|| {
+            assets
+                .iter()
+                .find(|a| a.name.ends_with(".dmg") && !is_arm64_dmg(&a.name))
+        })
+        .cloned()
 }
 
 /// std の ARCH を Electron の process.arch 表記へ。
@@ -527,6 +541,34 @@ mod tests {
     fn select_none_when_arch_absent() {
         // aarch64 のみ → x64 機は選べない（誤選択しない）
         let only_arm = vec![ReleaseAsset { name: "Juice_1.1.0_aarch64.dmg".into(), url: "u".into() }];
+        assert!(select_dmg_asset(&only_arm, "x64").is_none());
+    }
+
+    // ---- 橋渡し: Electron 命名（-arm64.dmg / 無印 .dmg）も受理する ----
+
+    fn electron_assets() -> Vec<ReleaseAsset> {
+        vec![
+            ReleaseAsset { name: "Juice-1.4.0-arm64.dmg".into(), url: "e-arm".into() },
+            ReleaseAsset { name: "Juice-1.4.0.dmg".into(), url: "e-x64".into() },
+        ]
+    }
+
+    #[test]
+    fn select_arm64_accepts_electron_naming() {
+        let a = select_dmg_asset(&electron_assets(), "arm64").unwrap();
+        assert_eq!(a.url, "e-arm");
+    }
+
+    #[test]
+    fn select_x64_accepts_electron_plain_dmg_not_arm() {
+        // Electron 無印 .dmg を選び、-arm64.dmg は誤選択しない
+        let a = select_dmg_asset(&electron_assets(), "x64").unwrap();
+        assert_eq!(a.url, "e-x64");
+    }
+
+    #[test]
+    fn select_x64_electron_only_arm_is_none() {
+        let only_arm = vec![ReleaseAsset { name: "Juice-1.4.0-arm64.dmg".into(), url: "e".into() }];
         assert!(select_dmg_asset(&only_arm, "x64").is_none());
     }
 

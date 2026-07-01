@@ -71,11 +71,30 @@ npm run tauri build
      `hdiutil detach '/Volumes/Juice'` 等で外す
 4. GitHub Release を `vX.Y.Z` タグで作成し、本文に CHANGELOG の該当節を貼り、
    arm64 / x64 両方の DMG を添付する
-   - アップデータは Tauri の命名（`_aarch64.dmg` / `_x64.dmg`）で arch 一致の
-     アセットを選ぶ（`src-tauri/src/update.rs` の `select_dmg_asset`）。
-     ファイル名を変えると検知されないので既定名のまま添付すること
+   - アップデータは Tauri 命名（`_aarch64.dmg` / `_x64.dmg`）と Electron 命名
+     （`-arm64.dmg` / 無印 `.dmg`）の**両方**で arch 一致アセットを選ぶ
+     （`src-tauri/src/update.rs` の `select_dmg_asset`）。通常は Tauri 既定名のまま添付
    - **必ず正式リリースで公開する（pre-release にしない）**。アプリは
      `releases/latest` を参照するが、このエンドポイントは pre-release / draft を
      除外するため、pre-release のままだと更新が検知されない
 5. クライアントは6時間以内（または再起動・手動チェック）に更新を検知し、
    ワンクリックで DMG を取得・オープンできる
+
+### Electron → Tauri 引き継ぎリリース（初回のみ）
+
+現行 Electron 版から Tauri 版へ既存ユーザーを自動移行させるための **1 回限りの橋渡し
+リリース**。Electron 版の updater は DMG を **Electron 命名（`-arm64.dmg` / 無印 `.dmg`）**
+でしか探さないため、この回だけ DMG を Electron 命名にリネームして添付する。
+
+1. 通常どおり `npm run tauri build` で Tauri 版の DMG を作る
+2. **中身は Tauri のまま、ファイル名を Electron 命名にリネーム**して添付する
+   - `Juice_X.Y.Z_aarch64.dmg` → `Juice-X.Y.Z-arm64.dmg`
+   - `Juice_X.Y.Z_x64.dmg`     → `Juice-X.Y.Z.dmg`
+3. 既存 Electron ユーザーの自動更新がこれを検知し、install スクリプトが
+   `/Applications/Juice.app` を Tauri 版へ丸ごと置換（quarantine も除去）して再起動
+   → 以降は Tauri 版として動く
+4. この橋渡し以降のリリースは Tauri 既定名（`_aarch64.dmg` / `_x64.dmg`）のままでよい
+   （Tauri 版 updater は両命名対応済み）
+
+> 補足: 現状 .app / DMG は**未署名**。install スクリプトが `xattr -dr
+> com.apple.quarantine` するため置換後は起動できるが、将来的には署名／公証を検討する。
