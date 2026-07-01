@@ -66,6 +66,9 @@ npm run tauri build
    （形式はファイル冒頭のテンプレートに従う。リリース本文にも同じ内容を使う）
 3. `npm run tauri build` で DMG をビルド（arm64 機なら `Juice_X.Y.Z_aarch64.dmg`、
    Intel 機なら `Juice_X.Y.Z_x64.dmg` が `src-tauri/target/release/bundle/dmg/` に出る）
+   - ビルド前に **マウント中の「Juice」ボリュームが無いこと**を確認する
+     （`mount | grep -i juice`）。残っていると `bundle_dmg.sh` の `hdiutil` が失敗する。
+     `hdiutil detach '/Volumes/Juice'` 等で外す
 4. GitHub Release を `vX.Y.Z` タグで作成し、本文に CHANGELOG の該当節を貼り、
    arm64 / x64 両方の DMG を添付する
    - アップデータは Tauri の命名（`_aarch64.dmg` / `_x64.dmg`）で arch 一致の
