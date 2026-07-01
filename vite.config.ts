@@ -5,16 +5,16 @@ import { resolve } from "path";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// レンダラー(front/renderer/src)の `@` / `@renderer` エイリアスを解決する。
-const rendererSrc = resolve(import.meta.dirname, "front/renderer/src");
+// レンダラー(frontend/renderer/src)の `@` / `@renderer` エイリアスを解決する。
+const rendererSrc = resolve(import.meta.dirname, "frontend/renderer/src");
 const repoRoot = import.meta.dirname;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  // フロントエンドは front/ に集約（index.html もここ）。backend は src-tauri/。
-  root: "front",
+  // フロントエンドは frontend/ に集約（index.html もここ）。backend は src-tauri/。
+  root: "frontend",
   build: {
-    // tauri.conf.json の frontendDist "../dist"（= ルート/dist）に出力する
+    // tauri.conf.json の frontendendDist "../dist"（= ルート/dist）に出力する
     outDir: "../dist",
     emptyOutDir: true,
   },
@@ -49,7 +49,7 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
-    // レンダラー等は front/ 配下だが、念のためリポジトリルートを配信許可
+    // レンダラー等は frontend/ 配下だが、念のためリポジトリルートを配信許可
     fs: {
       allow: [repoRoot],
     },

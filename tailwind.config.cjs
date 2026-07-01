@@ -2,7 +2,7 @@
 module.exports = {
   darkMode: 'class',
   content: [
-    './front/**/*.{ts,tsx,html}',
+    './frontend/**/*.{ts,tsx,html}',
   ],
   corePlugins: {
     // 既存CSS Modules画面の崩れを防ぐため全体リセットは無効化
