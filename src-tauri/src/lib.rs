@@ -282,7 +282,7 @@ fn position_native(window: &WebviewWindow) {
         let origin_y = top_y - PANEL_HEIGHT;
 
         eprintln!(
-            "[poc] native place: mouse=({:.0},{:.0}) visTop={:.0} -> origin=({:.0},{:.0})",
+            "[juice] native place: mouse=({:.0},{:.0}) visTop={:.0} -> origin=({:.0},{:.0})",
             mouse.x, mouse.y, top_y, origin_x, origin_y
         );
         let origin = NSPoint {
