@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components --
+   context + hook + provider を同居させる標準的な構成のため（Fast Refresh のみの制約）。 */
 import { createContext, useContext, useState, useRef, useCallback, type ReactNode } from 'react'
 import type { DayRecord } from '../../../shared/types'
 import { dailyRepository } from '../repositories/dailyRepository'

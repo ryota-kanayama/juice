@@ -125,6 +125,9 @@ export function useWeeklyAnalysis(date: string | null): { analysis: WeeklyAnalys
 
       setAnalysis({ weekLabel, days, weeklyAvgUtilization })
     }).finally(() => setLoading(false))
+    // daily は context 由来で毎レンダー identity が変わり得るため deps に含めない
+    // （含めると再実行ループの恐れ）。週(date)変更時のみ再計算する意図。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
 
   return { analysis, loading }
