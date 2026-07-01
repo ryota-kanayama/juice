@@ -96,6 +96,12 @@ function PopoverView() {
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpen])
 
+  // 更新が無い（最新）ときだけロゴ横に ✦ を出す。更新の検知〜適用中は非表示。
+  const upToDate =
+    update.phase !== 'available' &&
+    update.phase !== 'downloading' &&
+    update.phase !== 'installing'
+
   return (
     <div className={styles.app}>
       {/* ヘッダー */}
@@ -103,7 +109,9 @@ function PopoverView() {
         <Button variant="ghost" size="icon" aria-label="閉じる" className="[-webkit-app-region:no-drag]" onClick={() => windowRepository.hide()}>
           <Xmark width={16} height={16} />
         </Button>
-        <span className={styles.logo}>juice</span>
+        <span className={styles.logo} title={upToDate ? '最新版です' : undefined}>
+          {upToDate ? 'juice ✦' : 'juice'}
+        </span>
         <div className="flex items-center gap-0.5">
           <UsageGuideButton onOpen={() => setHelpOpen(true)} />
           <div className={styles.menuWrapper} ref={menuRef}>
