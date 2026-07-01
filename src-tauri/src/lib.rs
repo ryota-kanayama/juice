@@ -49,6 +49,14 @@ const NSFloatWindowLevel: i32 = 4;
 #[allow(non_upper_case_globals)]
 const NSWindowStyleMaskNonActivatingPanel: i32 = 1 << 7;
 
+/// blur 時に「アンカーから動いていたら閉じない」判定の移動しきい値（px）。
+const DRAG_KEEP_OPEN_THRESHOLD: f64 = 20.0;
+
+/// パネル表示時のアンカー位置（左下原点のグローバル座標）。
+/// ヘッダーをドラッグして動かした後は blur でも閉じずフローティングさせるための判定に使う。
+#[derive(Default)]
+struct AnchorPos(std::sync::Mutex<Option<(f64, f64)>>);
+
 /// Electron 版と同じデータディレクトリを返す。
 /// dev（debug ビルド）は juice-dev、本番は Juice（~/Library/Application Support 下）。
 fn resolve_data_dir() -> PathBuf {
@@ -140,6 +148,7 @@ pub fn run() {
             app.manage(auth::AuthStore::new());
             app.manage(oauth::PendingState::default());
             app.manage(update::UpdateAck::default());
+            app.manage(AnchorPos::default());
 
             // juice://auth コールバック（Slack サインイン）を deep-link で受ける。
             {
@@ -196,6 +205,10 @@ fn init_panel(app_handle: &AppHandle) {
     });
     delegate.set_listener(Box::new(move |name: String| {
         if name.as_str() == "window_did_resign_key" {
+            // ヘッダーをドラッグしてアンカーから動かしていたら閉じない（フローティング維持）。
+            if panel_moved_from_anchor(&handle) {
+                return;
+            }
             if let Ok(panel) = handle.get_webview_panel("main") {
                 panel.order_out(None);
             }
@@ -343,5 +356,38 @@ fn position_native(window: &WebviewWindow) {
             y: origin_y,
         };
         let _: () = msg_send![ns_window, setFrameOrigin: origin];
+
+        // 表示位置をアンカーとして記録（blur 時の移動判定に使う）
+        *window
+            .state::<AnchorPos>()
+            .0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some((origin_x, origin_y));
+    }
+}
+
+/// パネルが表示時アンカーから DRAG_KEEP_OPEN_THRESHOLD 以上ドラッグ移動されているか。
+fn panel_moved_from_anchor(app: &AppHandle) -> bool {
+    let anchor = {
+        let g = app.state::<AnchorPos>();
+        let v = *g.0.lock().unwrap_or_else(|e| e.into_inner());
+        v
+    };
+    let anchor = match anchor {
+        Some(a) => a,
+        None => return false,
+    };
+    let window = match app.get_webview_window("main") {
+        Some(w) => w,
+        None => return false,
+    };
+    let ns_window = match window.ns_window() {
+        Ok(p) => p as id,
+        Err(_) => return false,
+    };
+    unsafe {
+        let frame: NSRect = msg_send![ns_window, frame];
+        (frame.origin.x - anchor.0).abs() > DRAG_KEEP_OPEN_THRESHOLD
+            || (frame.origin.y - anchor.1).abs() > DRAG_KEEP_OPEN_THRESHOLD
     }
 }

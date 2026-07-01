@@ -104,12 +104,12 @@ function PopoverView() {
 
   return (
     <div className={styles.app}>
-      {/* ヘッダー */}
-      <header className={styles.header}>
+      {/* ヘッダー（data-tauri-drag-region: つかんでウィンドウを移動できる） */}
+      <header className={styles.header} data-tauri-drag-region>
         <Button variant="ghost" size="icon" aria-label="閉じる" className="[-webkit-app-region:no-drag]" onClick={() => windowRepository.hide()}>
           <Xmark width={16} height={16} />
         </Button>
-        <span className={styles.logo} title={upToDate ? '最新版です' : undefined}>
+        <span className={styles.logo} data-tauri-drag-region title={upToDate ? '最新版です' : undefined}>
           {upToDate ? 'juice ✦' : 'juice'}
         </span>
         <div className="flex items-center gap-0.5">
