@@ -97,10 +97,7 @@ pub fn classify_whiteboard_response(status: u16, ok: bool, body: &str) -> Whiteb
 
 // ---- glue（実 HTTP / 副作用） ----
 
-/// Lambda プロキシ URL。Electron 版の MAIN_VITE_PROXY_URL 相当（env で注入）。
-fn proxy_url() -> String {
-    std::env::var("JUICE_PROXY_URL").unwrap_or_default()
-}
+use crate::config::proxy_url;
 
 /// JSON + Bearer の POST。ネットワークエラーは status:0（Electron httpPost と同様 reject しない）。
 async fn http_post(url: &str, body: String, token: &str) -> HttpResult {

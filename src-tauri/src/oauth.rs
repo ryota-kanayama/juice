@@ -13,13 +13,7 @@ use tauri_plugin_notification::NotificationExt;
 
 const STATE_TTL_MS: i64 = 10 * 60 * 1000;
 
-/// Electron 版 .env の MAIN_VITE_PROXY_URL 相当。実行時 env で上書き可能。
-const DEFAULT_PROXY_URL: &str =
-    "https://ssahpea3hpg7cnfhvnurknzwuy0inogz.lambda-url.ap-northeast-1.on.aws";
-
-fn proxy_url() -> String {
-    std::env::var("JUICE_PROXY_URL").unwrap_or_else(|_| DEFAULT_PROXY_URL.to_string())
-}
+use crate::config::proxy_url;
 
 fn now_ms() -> i64 {
     chrono::Utc::now().timestamp_millis()

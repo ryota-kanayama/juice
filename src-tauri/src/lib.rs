@@ -9,6 +9,7 @@
 // 移行: データストア（Electron 版 src/main/*.ts の Rust 移植）
 mod auth;
 mod commands;
+mod config;
 mod daily_store;
 mod holidays;
 mod integrations;
