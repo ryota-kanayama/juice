@@ -2,7 +2,6 @@
 module.exports = {
   darkMode: 'class',
   content: [
-    './src/renderer/src/**/*.{ts,tsx}',
     './front/**/*.{ts,tsx,html}',
   ],
   corePlugins: {

@@ -1,4 +1,4 @@
-// Electron 版 src/shared/types.ts と同じ JSON スキーマ（camelCase）に対応する共有型。
+// front/shared/types.ts と同じ JSON スキーマ（camelCase）に対応する共有型。
 
 use serde::{Deserialize, Serialize};
 

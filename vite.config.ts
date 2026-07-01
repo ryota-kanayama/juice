@@ -5,9 +5,8 @@ import { resolve } from "path";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// レンダラー(src/renderer/src)を参照してビルドする。コピーせず 1 ソース共有。
-// 設定はリポジトリルートにあるため、src/renderer/src を直接指す。
-const rendererSrc = resolve(import.meta.dirname, "src/renderer/src");
+// レンダラー(front/renderer/src)の `@` / `@renderer` エイリアスを解決する。
+const rendererSrc = resolve(import.meta.dirname, "front/renderer/src");
 const repoRoot = import.meta.dirname;
 
 // https://vite.dev/config/
@@ -50,7 +49,7 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
-    // front の外(src/renderer)を参照するため、リポジトリルートを配信許可
+    // レンダラー等は front/ 配下だが、念のためリポジトリルートを配信許可
     fs: {
       allow: [repoRoot],
     },

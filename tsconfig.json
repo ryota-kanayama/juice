@@ -22,9 +22,9 @@
     /* レンダラーの `@` / `@renderer` エイリアス */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/renderer/src/*"],
-      "@renderer/*": ["./src/renderer/src/*"]
+      "@/*": ["./front/renderer/src/*"],
+      "@renderer/*": ["./front/renderer/src/*"]
     }
   },
-  "include": ["src/renderer/src", "src/shared", "front"]
+  "include": ["front"]
 }

@@ -6,14 +6,14 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@renderer': resolve('src/renderer/src'),
-      '@': resolve('src/renderer/src')
+      '@renderer': resolve('front/renderer/src'),
+      '@': resolve('front/renderer/src')
     }
   },
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/renderer/src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.{ts,tsx}', 'lambda/src/**/*.test.ts'],
+    setupFiles: ['./front/renderer/src/test/setup.ts'],
+    include: ['front/**/*.test.{ts,tsx}', 'front/**/*.spec.{ts,tsx}', 'lambda/src/**/*.test.ts'],
   }
 })
