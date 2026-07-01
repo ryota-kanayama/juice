@@ -61,24 +61,31 @@ npm run tauri build
 アプリ内で通知する（実装は `src-tauri/src/update.rs`）。配信時は次の手順を踏む
 （**version を上げ忘れると検知されない**）。
 
-1. `package.json` と `src-tauri/tauri.conf.json` の `version` を揃えて上げる
+ビルドは **GitHub Actions（`.github/workflows/release.yml`）が両アーキテクチャ分を
+自動生成**する。タグを push するとドラフトリリースに DMG が添付されるので、内容を確認
+して公開する。手順:
+
+1. `package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` の `version` を
+   揃えて上げる
 2. [`CHANGELOG.md`](CHANGELOG.md) にこのバージョンの節を追記する
    （形式はファイル冒頭のテンプレートに従う。リリース本文にも同じ内容を使う）
-3. `npm run tauri build` で DMG をビルド（arm64 機なら `Juice_X.Y.Z_aarch64.dmg`、
-   Intel 機なら `Juice_X.Y.Z_x64.dmg` が `src-tauri/target/release/bundle/dmg/` に出る）
-   - ビルド前に **マウント中の「Juice」ボリュームが無いこと**を確認する
-     （`mount | grep -i juice`）。残っていると `bundle_dmg.sh` の `hdiutil` が失敗する。
-     `hdiutil detach '/Volumes/Juice'` 等で外す
-4. GitHub Release を `vX.Y.Z` タグで作成し、本文に CHANGELOG の該当節を貼り、
-   arm64 / x64 両方の DMG を添付する
+3. コミットして **`vX.Y.Z` タグを push** する
+   （例: `git tag v2.0.1 && git push origin v2.0.1`）
+4. CI が arm64 / x64 の DMG（`Juice_X.Y.Z_aarch64.dmg` / `Juice_X.Y.Z_x64.dmg`、**未署名**）を
+   ビルドし、同タグの**ドラフトリリース**に添付する
+5. ドラフトを開き、本文に CHANGELOG の該当節を貼って **公開（draft 解除）** する
    - アップデータは Tauri 命名（`_aarch64.dmg` / `_x64.dmg`）と Electron 命名
      （`-arm64.dmg` / 無印 `.dmg`）の**両方**で arch 一致アセットを選ぶ
-     （`src-tauri/src/update.rs` の `select_dmg_asset`）。通常は Tauri 既定名のまま添付
-   - **必ず正式リリースで公開する（pre-release にしない）**。アプリは
+     （`src-tauri/src/update.rs` の `select_dmg_asset`）。通常は Tauri 既定名のまま公開
+   - **必ず正式リリースで公開する（pre-release / draft にしない）**。アプリは
      `releases/latest` を参照するが、このエンドポイントは pre-release / draft を
-     除外するため、pre-release のままだと更新が検知されない
-5. クライアントは6時間以内（または再起動・手動チェック）に更新を検知し、
+     除外するため、draft のままだと更新が検知されない
+6. クライアントは6時間以内（または再起動・手動チェック）に更新を検知し、
    ワンクリックで DMG を取得・オープンできる
+
+> ローカルで手元ビルドする場合は `npm run tauri build`（`src-tauri/target/release/bundle/dmg/`
+> に出力）。マウント中の「Juice」ボリュームがあると `bundle_dmg.sh` が失敗するので
+> `mount | grep -i juice` で確認し、あれば `hdiutil detach '/Volumes/Juice'` で外す。
 
 ### Electron → Tauri 引き継ぎリリース（初回のみ）
 
@@ -86,11 +93,12 @@ npm run tauri build
 リリース**。Electron 版の updater は DMG を **Electron 命名（`-arm64.dmg` / 無印 `.dmg`）**
 でしか探さないため、この回だけ DMG を Electron 命名にリネームして添付する。
 
-1. 通常どおり `npm run tauri build` で Tauri 版の DMG を作る
-2. **中身は Tauri のまま、ファイル名を Electron 命名にリネーム**して添付する
+1. 通常どおりタグを push し、CI にドラフトリリースと DMG を作らせる（上記手順 1〜4）
+2. ドラフトの DMG を**中身は Tauri のまま、ファイル名だけ Electron 命名にリネーム**して
+   差し替える（ダウンロード→リネーム→再アップロード、または手元ビルドをリネームして添付）
    - `Juice_X.Y.Z_aarch64.dmg` → `Juice-X.Y.Z-arm64.dmg`
    - `Juice_X.Y.Z_x64.dmg`     → `Juice-X.Y.Z.dmg`
-3. 既存 Electron ユーザーの自動更新がこれを検知し、install スクリプトが
+3. ドラフトを公開する。既存 Electron ユーザーの自動更新がこれを検知し、install スクリプトが
    `/Applications/Juice.app` を Tauri 版へ丸ごと置換（quarantine も除去）して再起動
    → 以降は Tauri 版として動く
 4. この橋渡し以降のリリースは Tauri 既定名（`_aarch64.dmg` / `_x64.dmg`）のままでよい

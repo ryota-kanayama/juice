@@ -1,0 +1,76 @@
+name: Release
+
+# タグ push（v*）で macOS の両アーキテクチャ DMG を自動ビルドし、
+# ドラフトリリースに添付する。未署名（ad-hoc 署名のみ、Tauri が自動付与）。
+# 公開前に CHANGELOG 記載・（引き継ぎ回のみ）DMG の Electron 命名リネームを行い、
+# ドラフトを手動で publish する運用（updater は releases/latest = 非ドラフトを見るため）。
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 同一タグの重複実行を抑止
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    permissions:
+      contents: write # リリース作成・アセットアップロードに必要
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin # Apple Silicon
+          - target: x86_64-apple-darwin # Intel（macos-latest=arm64 からのクロスビルド）
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # tauri-action が tauri build（beforeBuildCommand=vite build 含む）を実行し、
+      # 生成された DMG を同一タグのリリースへアップロードする。
+      - name: Build & upload (Tauri, unsigned)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name }}
+          releaseBody: |
+            自動ビルド（未署名）。arm64 / x64 の DMG を添付しています。
+
+            公開前チェック:
+            - CHANGELOG.md の該当節を本文に記載
+            - **引き継ぎリリース時のみ**: DMG を Electron 命名へリネーム
+              （`Juice_X.Y.Z_aarch64.dmg`→`Juice-X.Y.Z-arm64.dmg`、`_x64.dmg`→`.dmg`）
+            - ドラフトを解除して正式公開（pre-release/draft のままだと updater が検知しない）
+          releaseDraft: true
+          prerelease: false
+          # 独自アップデータ（src-tauri/src/update.rs）を使うため tauri-plugin-updater 用の
+          # latest.json / 署名(.sig) はアップロードしない。
+          uploadUpdaterJson: false
+          uploadUpdaterSignatures: false
+          args: --target ${{ matrix.target }}
