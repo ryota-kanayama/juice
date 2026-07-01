@@ -40,3 +40,9 @@ base64 = "0.22"
 [dev-dependencies]
 tempfile = "3"
 
+[lints.rust]
+# objc の msg_send!/class! マクロが #[cfg(feature = "cargo-clippy")] を出すため、
+# この feature 値を既知として宣言し誤検知の unexpected_cfgs を抑える
+# （他の未知 cfg は引き続き警告する）。
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+

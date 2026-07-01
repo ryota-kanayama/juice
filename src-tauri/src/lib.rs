@@ -32,13 +32,18 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, WebviewWindow,
 };
+// tauri-nspanel が再エクスポートする `cocoa` 系は objc2 へ置換され deprecated 扱いだが、
+// 現状 tauri-nspanel が提供する API がこれなので許容する（アップストリーム追従の課題）。
+#[allow(deprecated)]
 use tauri_nspanel::{
     cocoa::appkit::NSWindowCollectionBehavior, panel_delegate, ManagerExt, WebviewWindowExt,
 };
 // Tauri の set_position は macOS マルチモニタ座標バグ(tauri#7890/#7139)で効かないため、
 // AppKit を直接叩いて配置する。
 use objc::{class, msg_send, sel, sel_impl};
+#[allow(deprecated)]
 use tauri_nspanel::cocoa::base::id;
+#[allow(deprecated)]
 use tauri_nspanel::cocoa::foundation::{NSPoint, NSRect};
 
 const PANEL_WIDTH: f64 = 320.0;
@@ -183,6 +188,7 @@ pub fn run() {
 }
 
 /// main ウィンドウを非アクティベート NSPanel に変換し、blur で閉じる挙動を仕込む。
+#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
 fn init_panel(app_handle: &AppHandle) {
     let window: WebviewWindow = app_handle.get_webview_window("main").unwrap();
     let panel = window.to_panel().unwrap();
@@ -315,6 +321,7 @@ fn toggle_panel(app: &AppHandle) {
 /// カーソルのグローバル座標（Cocoa の左下原点・全画面共通空間）からカーソルが居る
 /// NSScreen を特定し、その画面のメニューバー直下・カーソル中央に setFrameOrigin する。
 /// Tauri の座標変換（macOS マルチモニタでバグあり）を完全にバイパスする。
+#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
 fn position_native(window: &WebviewWindow) {
     let ns_window = match window.ns_window() {
         Ok(ptr) => ptr as id,
@@ -368,6 +375,7 @@ fn position_native(window: &WebviewWindow) {
 }
 
 /// パネルが表示時アンカーから DRAG_KEEP_OPEN_THRESHOLD 以上ドラッグ移動されているか。
+#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
 fn panel_moved_from_anchor(app: &AppHandle) -> bool {
     let anchor = {
         let g = app.state::<AnchorPos>();
