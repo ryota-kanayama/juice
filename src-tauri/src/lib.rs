@@ -86,6 +86,10 @@ fn resolve_data_dir() -> PathBuf {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // 単一インスタンス化（最初に登録）。2つ目の起動は即終了させ、常駐トレイ/パネルの
+        // 二重化や同一 JSON への同時書き込みを防ぐ。ログイン起動の重複や
+        // 「再ログイン時にウインドウ再開」との併発でも1つに保つ。
+        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_nspanel::init())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_notification::init())
