@@ -19,10 +19,6 @@ export interface Session {
   workLocation?: WorkLocation
 }
 
-export interface SessionFile {
-  sessions: Session[]
-}
-
 /** 日付ごとの勤務関連データ（workStart/workEnd/telework/sessionOrder） */
 export interface DayRecord {
   workStart?: string

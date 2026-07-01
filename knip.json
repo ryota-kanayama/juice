@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["frontend/renderer/src/main.tsx"],
+  "project": ["frontend/**/*.{ts,tsx}"],
+  "ignore": [
+    "frontend/renderer/src/components/ui/**"
+  ],
+  "ignoreExportsUsedInFile": true
+}
