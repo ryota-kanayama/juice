@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { THEMES, DARK_THEMES } from '../../themes'
+import { THEMES } from '../../themes'
 import { useSetup } from '../../hooks/useSetup'
 import { useAuthStatus } from '../../hooks/useAuthStatus'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
@@ -112,10 +112,8 @@ export function SetupView() {
           <div className="mb-4">
             <Card>
               <CardContent className="p-4">
+                {/* ダークテーマは視認性改修中のため設定画面と同様に一時非表示 */}
                 <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={setTheme} size="compact" />
-                <div className="mt-2">
-                  <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={setTheme} size="compact" />
-                </div>
               </CardContent>
             </Card>
           </div>
