@@ -64,17 +64,15 @@ npm run tauri build
 1. `package.json` と `src-tauri/tauri.conf.json` の `version` を揃えて上げる
 2. [`CHANGELOG.md`](CHANGELOG.md) にこのバージョンの節を追記する
    （形式はファイル冒頭のテンプレートに従う。リリース本文にも同じ内容を使う）
-3. `npm run tauri build` で arm64 / x64 の DMG をビルド
+3. `npm run tauri build` で DMG をビルド（arm64 機なら `Juice_X.Y.Z_aarch64.dmg`、
+   Intel 機なら `Juice_X.Y.Z_x64.dmg` が `src-tauri/target/release/bundle/dmg/` に出る）
 4. GitHub Release を `vX.Y.Z` タグで作成し、本文に CHANGELOG の該当節を貼り、
-   arm64 / x64 の DMG を添付する
+   arm64 / x64 両方の DMG を添付する
+   - アップデータは Tauri の命名（`_aarch64.dmg` / `_x64.dmg`）で arch 一致の
+     アセットを選ぶ（`src-tauri/src/update.rs` の `select_dmg_asset`）。
+     ファイル名を変えると検知されないので既定名のまま添付すること
    - **必ず正式リリースで公開する（pre-release にしない）**。アプリは
      `releases/latest` を参照するが、このエンドポイントは pre-release / draft を
      除外するため、pre-release のままだと更新が検知されない
 5. クライアントは6時間以内（または再起動・手動チェック）に更新を検知し、
    ワンクリックで DMG を取得・オープンできる
-
-> **follow-up（要対応）**: アップデータの DMG 選択（`select_dmg_asset`）は
-> `-arm64.dmg` / `.dmg` という Electron 時代の命名を期待している。Tauri の既定
-> DMG 名（例 `Juice_1.3.2_aarch64.dmg`）とは不一致のため、`tauri.conf.json` の
-> bundle 設定でファイル名を合わせるか、`select_dmg_asset` 側を Tauri の命名に
-> 合わせる必要がある（パッケージング確定時に対応）。

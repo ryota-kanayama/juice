@@ -101,16 +101,16 @@ fn is_newer_version(candidate: &str, current: &str) -> bool {
 
 // ---- アセット選択（Electron 版 selectAsset.ts 相当） ----
 
-/// 実行 arch に合う DMG を選ぶ。arm64→"-arm64.dmg"、x64→".dmg" かつ非 "-arm64.dmg"。
+/// 実行 arch に合う DMG を選ぶ。
+/// Tauri の DMG 命名 `{productName}_{version}_{arch}.dmg` に合わせ、
+/// arm64→"_aarch64.dmg"、x64→"_x64.dmg" で末尾一致させる。
 fn select_dmg_asset(assets: &[ReleaseAsset], arch: &str) -> Option<ReleaseAsset> {
-    if arch == "arm64" {
-        assets.iter().find(|a| a.name.ends_with("-arm64.dmg")).cloned()
+    let suffix = if arch == "arm64" {
+        "_aarch64.dmg"
     } else {
-        assets
-            .iter()
-            .find(|a| a.name.ends_with(".dmg") && !a.name.ends_with("-arm64.dmg"))
-            .cloned()
-    }
+        "_x64.dmg"
+    };
+    assets.iter().find(|a| a.name.ends_with(suffix)).cloned()
 }
 
 /// std の ARCH を Electron の process.arch 表記へ。
@@ -503,28 +503,30 @@ mod tests {
     }
 
     fn assets() -> Vec<ReleaseAsset> {
+        // Tauri の DMG 命名（{productName}_{version}_{arch}.dmg）
         vec![
-            ReleaseAsset { name: "Juice-1.1.0-arm64.dmg".into(), url: "u-arm".into() },
-            ReleaseAsset { name: "Juice-1.1.0.dmg".into(), url: "u-x64".into() },
-            ReleaseAsset { name: "Juice-1.1.0.zip".into(), url: "u-zip".into() },
+            ReleaseAsset { name: "Juice_1.1.0_aarch64.dmg".into(), url: "u-arm".into() },
+            ReleaseAsset { name: "Juice_1.1.0_x64.dmg".into(), url: "u-x64".into() },
+            ReleaseAsset { name: "Juice_1.1.0_aarch64.dmg.tar.gz".into(), url: "u-sig".into() },
         ]
     }
 
     #[test]
-    fn select_arm64_picks_arm_dmg() {
+    fn select_arm64_picks_aarch64_dmg() {
         let a = select_dmg_asset(&assets(), "arm64").unwrap();
         assert_eq!(a.url, "u-arm");
     }
 
     #[test]
-    fn select_x64_picks_plain_dmg_not_arm() {
+    fn select_x64_picks_x64_dmg() {
         let a = select_dmg_asset(&assets(), "x64").unwrap();
         assert_eq!(a.url, "u-x64");
     }
 
     #[test]
-    fn select_none_when_no_match() {
-        let only_arm = vec![ReleaseAsset { name: "X-arm64.dmg".into(), url: "u".into() }];
+    fn select_none_when_arch_absent() {
+        // aarch64 のみ → x64 機は選べない（誤選択しない）
+        let only_arm = vec![ReleaseAsset { name: "Juice_1.1.0_aarch64.dmg".into(), url: "u".into() }];
         assert!(select_dmg_asset(&only_arm, "x64").is_none());
     }
 
