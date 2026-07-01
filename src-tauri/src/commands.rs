@@ -216,8 +216,17 @@ pub fn settings_is_setup_completed(store: State<'_, SettingsStore>) -> bool {
 }
 
 #[tauri::command]
-pub fn settings_complete_setup(store: State<'_, SettingsStore>) -> CmdResult<()> {
-    map(store.complete_setup())
+pub fn settings_complete_setup(
+    app: tauri::AppHandle,
+    store: State<'_, SettingsStore>,
+) -> CmdResult<()> {
+    use tauri::Manager;
+    map(store.complete_setup())?;
+    // セットアップ窓を閉じる（Destroyed イベントで Accessory ポリシーに戻る）
+    if let Some(win) = app.get_webview_window("setup") {
+        let _ = win.close();
+    }
+    Ok(())
 }
 
 // ---- 通知スケジューラ（Electron 版 timer:started/stopped/adjust + activity 相当） ----

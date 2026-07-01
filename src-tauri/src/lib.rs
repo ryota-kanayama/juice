@@ -162,6 +162,10 @@ pub fn run() {
             update::start_periodic_check(handle);
             init_panel(handle);
             build_tray(handle)?;
+            // 初回起動（セットアップ未完了）はセットアップ窓を出す（Electron 版と同じ）
+            if !handle.state::<SettingsStore>().is_setup_completed() {
+                open_aux_window(handle, "setup", "setup", "Juice — セットアップ", 480.0, 600.0);
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -202,18 +206,23 @@ fn init_panel(app_handle: &AppHandle) {
 
 /// メニューバーのトレイアイコンを構築。左クリックでトグル、右クリックで終了メニュー。
 fn build_tray(app_handle: &AppHandle) -> tauri::Result<()> {
+    let settings = MenuItemBuilder::with_id("settings", "設定").build(app_handle)?;
     let quit = MenuItemBuilder::with_id("quit", "終了").build(app_handle)?;
-    let menu = MenuBuilder::new(app_handle).items(&[&quit]).build()?;
+    let menu = MenuBuilder::new(app_handle)
+        .item(&settings)
+        .separator()
+        .item(&quit)
+        .build()?;
 
     TrayIconBuilder::with_id("main-tray")
         .icon(app_handle.default_window_icon().unwrap().clone())
         .icon_as_template(true) // ダーク/ライトメニューバーに追従
         .menu(&menu)
         .show_menu_on_left_click(false) // 左クリックはメニューでなくトグルに使う
-        .on_menu_event(|app, event| {
-            if event.id() == "quit" {
-                app.exit(0);
-            }
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "settings" => open_settings(app),
+            "quit" => app.exit(0),
+            _ => {}
         })
         .on_tray_icon_event(|tray, event| {
             // ★ positioner にトレイ位置を記録させる（全イベントで必須）
@@ -230,6 +239,50 @@ fn build_tray(app_handle: &AppHandle) -> tauri::Result<()> {
         })
         .build(app_handle)?;
     Ok(())
+}
+
+/// 設定 / セットアップ用の通常ウィンドウを開く（既にあれば前面化）。
+/// メインは Accessory(Dock 非表示) の NSPanel だが、付属ウィンドウは前面化・フォーカスを
+/// 効かせるため一時的に Regular に切替える。全付属ウィンドウを閉じたら Accessory に戻す。
+fn open_aux_window(app: &AppHandle, label: &str, hash: &str, title: &str, w: f64, h: f64) {
+    if let Some(win) = app.get_webview_window(label) {
+        let _ = win.show();
+        let _ = win.set_focus();
+        return;
+    }
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    let url = tauri::WebviewUrl::App(format!("index.html#{hash}").into());
+    match tauri::WebviewWindowBuilder::new(app, label, url)
+        .title(title)
+        .inner_size(w, h)
+        .resizable(false)
+        .build()
+    {
+        Ok(win) => {
+            let _ = win.set_focus();
+            let handle = app.clone();
+            win.on_window_event(move |ev| {
+                if matches!(ev, tauri::WindowEvent::Destroyed) {
+                    revert_activation_policy_if_no_aux(&handle);
+                }
+            });
+        }
+        Err(e) => eprintln!("[juice] open {label} window failed: {e}"),
+    }
+}
+
+/// 付属ウィンドウ（settings/setup）が1つも無ければ Accessory（Dock 非表示）に戻す。
+fn revert_activation_policy_if_no_aux(app: &AppHandle) {
+    let has_aux =
+        app.get_webview_window("settings").is_some() || app.get_webview_window("setup").is_some();
+    if !has_aux {
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+    }
+}
+
+/// 設定ウィンドウを開く（トレイ「設定」から）。
+pub fn open_settings(app: &AppHandle) {
+    open_aux_window(app, "settings", "settings", "Juice 設定", 440.0, 500.0);
 }
 
 /// トレイアイコンの真下にパネルを表示／非表示でトグルする。
