@@ -1,3 +1,29 @@
+/* アプリ標準フォント（Rounded Mplus 1c）をローカル同梱する。
+   以前は Google Fonts CDN を index.html で読み込んでいたが、パッケージ版
+   (WebKit/tauri:// オリジン)で不安定なため self-host に変更。オフラインでも
+   Electron 版と同じ字体を保証する。 */
+@font-face {
+  font-family: "Rounded Mplus 1c";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/rounded-mplus-1c-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Rounded Mplus 1c";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./fonts/rounded-mplus-1c-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Rounded Mplus 1c";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/rounded-mplus-1c-700.woff2") format("woff2");
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -95,6 +121,10 @@ html, body {
   padding: 0;
   background: transparent;
   overflow: hidden;
+  /* body 直下に描画される Radix ポータル（モーダル/フォーム/セレクト等）も
+     アプリ標準フォントを継承させる。.app だけに当てると切り離された
+     コンポーネントがフォールバックしてしまう。 */
+  font-family: var(--font-family);
 }
 
 #root {
