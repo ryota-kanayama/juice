@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { THEMES, DARK_THEMES } from '../../themes'
+import { THEMES } from '../../themes'
 import { useSettings } from '../../hooks/useSettings'
 import { useUpdate } from '../../hooks/useUpdate'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
@@ -73,8 +73,9 @@ export function SettingsView() {
           <>
             <h2 className={heading}>ライト</h2>
             <ThemeGrid themes={THEMES} activeThemeId={activeThemeId} onSelect={setTheme} />
-            <h2 className={heading} style={{ marginTop: '1.5rem' }}>ダーク</h2>
-            <ThemeGrid themes={DARK_THEMES} activeThemeId={activeThemeId} onSelect={setTheme} />
+            {/* ダークテーマは表示（文字の視認性）改修中のため一時非表示 */}
+            <h2 className={heading} style={{ marginTop: '1.5rem' }}>ダーク（改修中）</h2>
+            <p className="mt-1 text-[12px] text-muted-foreground">改修中のため一時的に非表示です。</p>
           </>
         )}
 

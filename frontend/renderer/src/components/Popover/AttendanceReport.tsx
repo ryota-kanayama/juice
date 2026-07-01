@@ -3,6 +3,7 @@ import type { Session } from '../../types/session'
 import { useAttendanceReport } from '../../hooks/useAttendanceReport'
 import { isValidWorkTime } from '../../domain/attendance'
 import { Card } from '@/components/ui/card'
+import { Hint } from '@/components/ui/hint'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { TimeField } from '@/components/ui/time-field'
@@ -96,39 +97,42 @@ export function AttendanceReport({ sessions, today }: Props) {
 
       <div className="mb-3 flex items-center justify-between rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2 [backdrop-filter:blur(8px)]">
         <div className="flex items-center gap-3">
-          <button
-            className={`group flex flex-col items-center gap-0.5 border-0 bg-transparent p-0 ${workStart ? 'cursor-pointer' : 'cursor-default'}`}
-            onDoubleClick={workStart ? () => openDialog('workStart') : undefined}
-            title={workStart ? 'ダブルクリックで編集' : undefined}
-          >
-            <span className="text-[10px] text-muted-foreground">出勤</span>
-            <span className={`text-[13px] font-semibold transition-colors ${workStart ? 'text-foreground group-hover:text-[var(--accent)]' : 'text-muted-foreground'}`}>
-              {workStart ?? '--:--'}
-            </span>
-          </button>
+          <Hint label={workStart ? 'ダブルクリックで編集' : undefined}>
+            <button
+              className={`group flex flex-col items-center gap-0.5 border-0 bg-transparent p-0 ${workStart ? 'cursor-pointer' : 'cursor-default'}`}
+              onDoubleClick={workStart ? () => openDialog('workStart') : undefined}
+            >
+              <span className="text-[10px] text-muted-foreground">出勤</span>
+              <span className={`text-[13px] font-semibold transition-colors ${workStart ? 'text-foreground group-hover:text-[var(--accent)]' : 'text-muted-foreground'}`}>
+                {workStart ?? '--:--'}
+              </span>
+            </button>
+          </Hint>
           <span className="text-[13px] text-muted-foreground">〜</span>
-          <button
-            className={`group flex flex-col items-center gap-0.5 border-0 bg-transparent p-0 ${workEnd ? 'cursor-pointer' : 'cursor-default'}`}
-            onDoubleClick={workEnd ? () => openDialog('workEnd') : undefined}
-            title={workEnd ? 'ダブルクリックで編集' : undefined}
-          >
-            <span className="text-[10px] text-muted-foreground">退勤</span>
-            <span className={`text-[13px] font-semibold transition-colors ${workEnd ? 'text-foreground group-hover:text-[var(--accent)]' : 'text-muted-foreground'}`}>
-              {workEnd ?? '--:--'}
-            </span>
-          </button>
+          <Hint label={workEnd ? 'ダブルクリックで編集' : undefined}>
+            <button
+              className={`group flex flex-col items-center gap-0.5 border-0 bg-transparent p-0 ${workEnd ? 'cursor-pointer' : 'cursor-default'}`}
+              onDoubleClick={workEnd ? () => openDialog('workEnd') : undefined}
+            >
+              <span className="text-[10px] text-muted-foreground">退勤</span>
+              <span className={`text-[13px] font-semibold transition-colors ${workEnd ? 'text-foreground group-hover:text-[var(--accent)]' : 'text-muted-foreground'}`}>
+                {workEnd ?? '--:--'}
+              </span>
+            </button>
+          </Hint>
         </div>
         <div className="h-4 w-px bg-border" />
-        <button
-          className="group flex cursor-pointer flex-col items-center gap-0.5 border-0 bg-transparent p-0"
-          onDoubleClick={() => openDialog('break')}
-          title="ダブルクリックで編集"
-        >
-          <span className="text-[10px] text-muted-foreground">休憩</span>
-          <span className="text-[13px] font-semibold text-foreground transition-colors group-hover:text-[var(--accent)]">
-            {breakMinutes}分
-          </span>
-        </button>
+        <Hint label="ダブルクリックで編集">
+          <button
+            className="group flex cursor-pointer flex-col items-center gap-0.5 border-0 bg-transparent p-0"
+            onDoubleClick={() => openDialog('break')}
+          >
+            <span className="text-[10px] text-muted-foreground">休憩</span>
+            <span className="text-[13px] font-semibold text-foreground transition-colors group-hover:text-[var(--accent)]">
+              {breakMinutes}分
+            </span>
+          </button>
+        </Hint>
       </div>
 
       <pre className="mb-3 min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2.5 font-mono text-xs leading-[1.7] text-[var(--text-primary)] [backdrop-filter:blur(8px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{text}</pre>

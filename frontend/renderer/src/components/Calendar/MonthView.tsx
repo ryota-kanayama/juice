@@ -1,5 +1,6 @@
 import { NavArrowLeft, NavArrowRight } from 'iconoir-react'
 import { Card } from '@/components/ui/card'
+import { Hint } from '@/components/ui/hint'
 import { Button } from '@/components/ui/button'
 
 interface Props {
@@ -78,26 +79,26 @@ export function MonthView({
                 ? 'text-[#3498db]'
                 : 'text-[var(--text-primary)]'
           return (
-            <button
-              key={dateStr}
-              className={[
-                'relative flex h-full min-h-[32px] cursor-pointer items-center justify-center rounded-[6px] border-0 text-[13px] leading-none transition-all',
-                hasSession ? 'font-semibold' : '',
-                isSelected
-                  ? 'bg-[image:var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)]'
-                  : isToday
-                    ? 'bg-[var(--today-light)] hover:bg-[var(--today-light)]'
-                    : 'bg-transparent hover:bg-[var(--accent-light)]',
-                textColor,
-              ].filter(Boolean).join(' ')}
-              title={isHoliday ? holidays[dateStr] : undefined}
-              onClick={() => onSelectDate(dateStr)}
-              aria-pressed={isSelected}
-              aria-label={`${month}月${day}日${hasSession ? '（記録あり）' : ''}`}
-            >
-              {day}
-              {hasSession && <span className={`absolute top-[calc(50%+8px)] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${isSelected ? 'bg-[var(--text-on-accent)]' : 'bg-[var(--accent)]'}`} aria-hidden="true" />}
-            </button>
+            <Hint key={dateStr} label={isHoliday ? holidays[dateStr] : undefined}>
+              <button
+                className={[
+                  'relative flex h-full min-h-[32px] cursor-pointer items-center justify-center rounded-[6px] border-0 text-[13px] leading-none transition-all',
+                  hasSession ? 'font-semibold' : '',
+                  isSelected
+                    ? 'bg-[image:var(--gradient-accent)] shadow-[0_4px_12px_var(--accent-light)]'
+                    : isToday
+                      ? 'bg-[var(--today-light)] hover:bg-[var(--today-light)]'
+                      : 'bg-transparent hover:bg-[var(--accent-light)]',
+                  textColor,
+                ].filter(Boolean).join(' ')}
+                onClick={() => onSelectDate(dateStr)}
+                aria-pressed={isSelected}
+                aria-label={`${month}月${day}日${hasSession ? '（記録あり）' : ''}`}
+              >
+                {day}
+                {hasSession && <span className={`absolute top-[calc(50%+8px)] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${isSelected ? 'bg-[var(--text-on-accent)]' : 'bg-[var(--accent)]'}`} aria-hidden="true" />}
+              </button>
+            </Hint>
           )
         })}
       </div>
