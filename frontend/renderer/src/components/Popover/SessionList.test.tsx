@@ -465,12 +465,13 @@ describe('SessionList — ページをまたぐ並び替え', () => {
 describe('SessionList — 操作ヒント', () => {
   beforeEach(() => { mockDayStore = {}; setDailyDay.mockClear() })
 
-  it('セッション行が操作ヒントの Tooltip トリガーになっている', () => {
+  it('セッション行には操作ヒントの吹き出しを出さない', () => {
     renderWithProvider(<SessionList sessions={sessions} />)
     const row = screen.getByText('企画書作業').closest('[data-session-item]')
-    // native title ではなく Radix Tooltip（追加で注ぐ と同じコンポーネント）を使う
+    // 見た目が煩雑なため行ホバー/フォーカス時のツールチップは廃止した。
+    // native title も Radix Tooltip(data-state) も付けない。
     expect(row).not.toHaveAttribute('title')
-    expect(row).toHaveAttribute('data-state')
+    expect(row).not.toHaveAttribute('data-state')
   })
 
   it('空状態で開始操作のヒントを表示する', () => {
