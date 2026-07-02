@@ -1,6 +1,6 @@
-// electronAPI 互換シム（Tauri 版）。
-// 既存レンダラーは window.electronAPI のみに依存しているため、これを Tauri の
-// invoke/listen に転送する薄いシムを1枚かませれば、レンダラーを無改修で動かせる。
+// bridge — レンダラーとバックエンドをつなぐ IPC ブリッジ（Tauri 版）。
+// レンダラーは window.bridge のみに依存しているため、これを Tauri の
+// invoke/listen に転送する薄いブリッジを1枚かませれば、レンダラーを無改修で動かせる。
 //
 // このファイルを「レンダラーの一番最初」に import すること（main.tsx の先頭）。
 //
@@ -25,7 +25,7 @@ function subscribe<T>(event: string, callback: (payload: T) => void): () => void
   };
 }
 
-const electronAPI = {
+const bridge = {
   // ---- Sessions（✅ MAPPED） ----
   getSessions: (yearMonth: string) => invoke("sessions_get", { yearMonth }),
   saveSession: (session: unknown) => invoke("sessions_save", { session }),
@@ -115,8 +115,7 @@ const electronAPI = {
     subscribe<void>("update-prepare-quit", () => cb()),
 };
 
-// レンダラーが参照する window.electronAPI を提供する。
-(window as unknown as { electronAPI: typeof electronAPI }).electronAPI =
-  electronAPI;
+// レンダラーが参照する window.bridge を提供する。
+(window as unknown as { bridge: typeof bridge }).bridge = bridge;
 
 export {};

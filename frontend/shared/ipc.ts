@@ -1,6 +1,6 @@
 // レンダラーと Rust バックエンドで共有する設定・認証まわりのデータ型。
 // （旧 Electron の IPC チャンネル契約 IpcContract 等は Tauri 移行時に撤去した。
-//  バックエンド呼び出しは frontend/electron-api-shim.ts が Tauri invoke へ転送する。）
+//  バックエンド呼び出しは frontend/bridge.ts が Tauri invoke へ転送する。）
 
 export interface AttendanceSendResult {
   ok: boolean

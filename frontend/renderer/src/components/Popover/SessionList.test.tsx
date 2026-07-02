@@ -6,11 +6,11 @@ import { DailyDataProvider } from '../../daily/DailyDataContext'
 import type { Session } from '../../types/session'
 import type { DailyMonth } from '../../../../shared/types'
 
-// DailyDataProvider が使う electronAPI をモックする
+// DailyDataProvider が使う bridge をモックする
 const setDailyDay = vi.fn().mockResolvedValue(undefined)
 let mockDayStore: Record<string, { sessionOrder?: string[] }> = {}
 
-vi.stubGlobal('electronAPI', {
+vi.stubGlobal('bridge', {
   getDailyMonth: vi.fn().mockImplementation((_yearMonth: string): Promise<DailyMonth> =>
     Promise.resolve({ version: 1, days: mockDayStore as DailyMonth['days'] })
   ),

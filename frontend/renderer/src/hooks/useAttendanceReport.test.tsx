@@ -14,7 +14,7 @@ vi.mock('../repositories/attendanceRepository', () => ({
 }))
 
 // DailyDataProvider が必要なため getDailyMonth をスタブ
-vi.stubGlobal('electronAPI', {
+vi.stubGlobal('bridge', {
   getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
   setDailyDay: vi.fn().mockResolvedValue(undefined),
 })
@@ -96,7 +96,7 @@ describe('useAttendanceReport — 送信結果の分類', () => {
 describe('useAttendanceReport — workStart/workEnd setter', () => {
   it('setWorkStart が daily.setDay を workStart で呼ぶ', async () => {
     const setDailyDay = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('electronAPI', {
+    vi.stubGlobal('bridge', {
       getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
       setDailyDay,
     })
@@ -110,7 +110,7 @@ describe('useAttendanceReport — workStart/workEnd setter', () => {
 
   it('setWorkEnd が daily.setDay を workEnd で呼ぶ', async () => {
     const setDailyDay = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('electronAPI', {
+    vi.stubGlobal('bridge', {
       getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
       setDailyDay,
     })

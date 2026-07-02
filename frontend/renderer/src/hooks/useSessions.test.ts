@@ -12,7 +12,7 @@ const updateSession = vi.fn().mockResolvedValue(undefined)
 const deleteSession = vi.fn().mockResolvedValue(undefined)
 const teleworkStart = vi.fn().mockResolvedValue(undefined)
 
-vi.stubGlobal('electronAPI', {
+vi.stubGlobal('bridge', {
   getSessions,
   updateSession,
   deleteSession,

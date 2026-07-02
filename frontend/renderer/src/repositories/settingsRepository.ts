@@ -1,66 +1,66 @@
-// 設定のデータアクセス: window.electronAPI（IPC）への依存をこの層に閉じ込める。
+// 設定のデータアクセス: window.bridge（IPC）への依存をこの層に閉じ込める。
 
 export const settingsRepository = {
   getTheme(): Promise<string> {
-    return window.electronAPI.getTheme()
+    return window.bridge.getTheme()
   },
   setTheme(themeId: string): Promise<void> {
-    return window.electronAPI.setTheme(themeId)
+    return window.bridge.setTheme(themeId)
   },
   onThemeChanged(callback: (themeId: string) => void): () => void {
-    return window.electronAPI.onThemeChanged(callback)
+    return window.bridge.onThemeChanged(callback)
   },
 
   getIdle(): Promise<{ enabled: boolean; minutes: number }> {
-    return window.electronAPI.getIdleSettings()
+    return window.bridge.getIdleSettings()
   },
   setIdle(enabled: boolean, minutes: number): Promise<void> {
-    return window.electronAPI.setIdleSettings(enabled, minutes)
+    return window.bridge.setIdleSettings(enabled, minutes)
   },
 
   getElapsed(): Promise<{ enabled: boolean; minutes: number }> {
-    return window.electronAPI.getElapsedSettings()
+    return window.bridge.getElapsedSettings()
   },
   setElapsed(enabled: boolean, minutes: number): Promise<void> {
-    return window.electronAPI.setElapsedSettings(enabled, minutes)
+    return window.bridge.setElapsedSettings(enabled, minutes)
   },
 
   getPomodoro(): Promise<{ enabled: boolean }> {
-    return window.electronAPI.getPomodoroSettings()
+    return window.bridge.getPomodoroSettings()
   },
   setPomodoro(enabled: boolean): Promise<void> {
-    return window.electronAPI.setPomodoroSettings(enabled)
+    return window.bridge.setPomodoroSettings(enabled)
   },
 
   getWhiteboard(): Promise<{ enabled: boolean }> {
-    return window.electronAPI.getWhiteboardSettings()
+    return window.bridge.getWhiteboardSettings()
   },
   setWhiteboard(enabled: boolean): Promise<void> {
-    return window.electronAPI.setWhiteboardSettings(enabled)
+    return window.bridge.setWhiteboardSettings(enabled)
   },
 
   getBreakBehavior(): Promise<{ behavior: 'stop' | 'pause' }> {
-    return window.electronAPI.getBreakBehaviorSettings()
+    return window.bridge.getBreakBehaviorSettings()
   },
   setBreakBehavior(behavior: 'stop' | 'pause'): Promise<void> {
-    return window.electronAPI.setBreakBehaviorSettings(behavior)
+    return window.bridge.setBreakBehaviorSettings(behavior)
   },
 
   getMainProjectCode(): Promise<string> {
-    return window.electronAPI.getMainProjectCode()
+    return window.bridge.getMainProjectCode()
   },
   setMainProjectCode(code: string): Promise<void> {
-    return window.electronAPI.setMainProjectCode(code)
+    return window.bridge.setMainProjectCode(code)
   },
 
   getLaunchAtLogin(): Promise<boolean> {
-    return window.electronAPI.getLaunchAtLogin()
+    return window.bridge.getLaunchAtLogin()
   },
   setLaunchAtLogin(enabled: boolean): Promise<void> {
-    return window.electronAPI.setLaunchAtLogin(enabled)
+    return window.bridge.setLaunchAtLogin(enabled)
   },
 
   completeSetup(): Promise<void> {
-    return window.electronAPI.completeSetup()
+    return window.bridge.completeSetup()
   },
 }

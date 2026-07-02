@@ -5,7 +5,7 @@ import { DailyDataProvider } from '../daily/DailyDataContext'
 import { useWorkday } from './useWorkday'
 
 const setDailyDay = vi.fn().mockResolvedValue(undefined)
-vi.stubGlobal('electronAPI', {
+vi.stubGlobal('bridge', {
   getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
   setDailyDay,
 })

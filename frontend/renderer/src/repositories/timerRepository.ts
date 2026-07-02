@@ -4,18 +4,18 @@
 export const timerRepository = {
   /** タイマー開始をメインプロセスに通知する */
   started(): Promise<void> {
-    return window.electronAPI.timerStarted()
+    return window.bridge.timerStarted()
   },
   /** タイマー停止をメインプロセスに通知する */
   stopped(): Promise<void> {
-    return window.electronAPI.timerStopped()
+    return window.bridge.timerStopped()
   },
   /** タイマー開始時刻の変更をメインプロセスに通知する */
   adjustStartTime(newStartMs: number): Promise<void> {
-    return window.electronAPI.timerAdjustStartTime(newStartMs)
+    return window.bridge.timerAdjustStartTime(newStartMs)
   },
   /** タイマーが稼働中かどうかをメインプロセスに問い合わせる */
   isRunning(): Promise<boolean> {
-    return window.electronAPI.isTimerRunning()
+    return window.bridge.isTimerRunning()
   },
 }

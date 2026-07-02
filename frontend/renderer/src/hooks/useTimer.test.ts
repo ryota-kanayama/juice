@@ -6,7 +6,7 @@ import type { Session } from '../types/session'
 const mockSaveSession = vi.fn().mockResolvedValue(undefined)
 const mockUpdateSession = vi.fn().mockResolvedValue(undefined)
 const mockGetElapsedSettings = vi.fn()
-vi.stubGlobal('electronAPI', {
+vi.stubGlobal('bridge', {
   saveSession: mockSaveSession,
   updateSession: mockUpdateSession,
   getSessions: vi.fn().mockResolvedValue([]),

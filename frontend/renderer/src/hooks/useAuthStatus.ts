@@ -7,14 +7,14 @@ export function useAuthStatus() {
 
   useEffect(() => {
     let alive = true
-    window.electronAPI.getAuthStatus().then((s) => { if (alive) setStatus(s) })
-    const off = window.electronAPI.onAuthChanged(setStatus)
+    window.bridge.getAuthStatus().then((s) => { if (alive) setStatus(s) })
+    const off = window.bridge.onAuthChanged(setStatus)
     return () => { alive = false; off() }
   }, [])
 
   return {
     status,
-    signIn: (): void => { window.electronAPI.signInWithSlack() },
-    signOut: (): void => { window.electronAPI.signOutSlack().catch(console.error) },
+    signIn: (): void => { window.bridge.signInWithSlack() },
+    signOut: (): void => { window.bridge.signOutSlack().catch(console.error) },
   }
 }

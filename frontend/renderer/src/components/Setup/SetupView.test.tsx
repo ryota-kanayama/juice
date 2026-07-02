@@ -23,7 +23,7 @@ beforeEach(() => {
   api.getAuthStatus.mockResolvedValue({ signedIn: false })
   api.getWhiteboardSettings.mockResolvedValue({ enabled: false })
   api.getMainProjectCode.mockResolvedValue('')
-  Object.assign(window, { electronAPI: api })
+  Object.assign(window, { bridge: api })
 })
 
 describe('SetupView step2（サインイン）', () => {

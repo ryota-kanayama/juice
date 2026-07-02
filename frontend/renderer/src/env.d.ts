@@ -5,9 +5,9 @@ import type {
   AttendanceSendResult, AuthStatus, BreakBehaviorSettings, PomodoroSettings, ToggleSettings, WhiteboardSettings,
 } from '../../shared/ipc'
 
-// preload が contextBridge 経由でレンダラーに公開する API。
+// bridge がレンダラーに公開する IPC API（Tauri invoke/listen へ転送）。
 // IPC チャンネル契約は src/shared/ipc.ts の IpcContract を参照。
-interface ElectronAPI {
+interface Bridge {
   // sessions
   getSessions: (yearMonth: string) => Promise<Session[]>
   saveSession: (session: Session) => Promise<void>
@@ -79,6 +79,6 @@ interface ElectronAPI {
 
 declare global {
   interface Window {
-    electronAPI: ElectronAPI
+    bridge: Bridge
   }
 }

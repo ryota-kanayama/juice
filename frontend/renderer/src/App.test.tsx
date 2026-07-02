@@ -6,7 +6,7 @@ import type { SessionsState } from './hooks/useSessions'
 
 // その日の DayRecord を返すよう getDailyMonth をスタブして勤怠状態を仕込む
 const getDailyMonth = vi.fn().mockResolvedValue({ version: 1, days: {} })
-vi.stubGlobal('electronAPI', {
+vi.stubGlobal('bridge', {
   getSessions: vi.fn().mockResolvedValue([]),
   getDailyMonth,
   setDailyDay: vi.fn().mockResolvedValue(undefined),

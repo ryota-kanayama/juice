@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { migrateLegacyDailyData } from './migrateLegacy'
 
 const importLegacy = vi.fn().mockResolvedValue(undefined)
-vi.stubGlobal('electronAPI', {
+vi.stubGlobal('bridge', {
   importLegacyDaily: importLegacy,
 })
 

@@ -11,7 +11,7 @@ vi.mock('../../repositories/attendanceRepository', () => ({
   attendanceRepository: { send: vi.fn().mockResolvedValue({ ok: true, status: 200, body: '{}' }) },
 }))
 
-vi.stubGlobal('electronAPI', {
+vi.stubGlobal('bridge', {
   getDailyMonth: vi.fn().mockResolvedValue({
     version: 1,
     days: {
