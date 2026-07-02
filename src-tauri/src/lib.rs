@@ -238,8 +238,13 @@ fn build_tray(app_handle: &AppHandle) -> tauri::Result<()> {
         .item(&quit)
         .build()?;
 
+    // メニューバー専用のトレイアイコン（黒シルエット）。template 指定で macOS が
+    // ライト/ダークに合わせて自動反転する。アプリ(Dock)アイコンとは別素材を使う。
+    let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))
+        .expect("valid tray icon");
+
     TrayIconBuilder::with_id("main-tray")
-        .icon(app_handle.default_window_icon().unwrap().clone())
+        .icon(tray_icon)
         .icon_as_template(true) // ダーク/ライトメニューバーに追従
         .menu(&menu)
         .show_menu_on_left_click(false) // 左クリックはメニューでなくトグルに使う
