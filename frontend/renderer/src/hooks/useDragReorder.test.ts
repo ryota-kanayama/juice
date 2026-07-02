@@ -4,7 +4,7 @@ import type { DragEvent } from 'react'
 import { useDragReorder } from './useDragReorder'
 
 const makeDragEvent = () =>
-  ({ preventDefault: vi.fn(), dataTransfer: { effectAllowed: '', dropEffect: '' } }) as unknown as DragEvent
+  ({ preventDefault: vi.fn(), dataTransfer: { effectAllowed: '', dropEffect: '', setData: vi.fn() } }) as unknown as DragEvent
 
 function setup(orderedIds: string[]) {
   const onReorder = vi.fn()
@@ -38,6 +38,16 @@ describe('useDragReorder', () => {
     const { result, onReorder } = setup(['a', 'b', 'c'])
     drag(result, 'a', 'b')
     expect(onReorder).toHaveBeenCalledWith(['b', 'a', 'c'])
+  })
+
+  // WKWebView(WebKit) は dragstart で dataTransfer にデータを設定しないとドラッグを開始しない。
+  // これが欠けると Tauri 上で並び替えが動かなくなる（Chromium では不要だったため退行しやすい）。
+  it('handleDragStart は dataTransfer.setData を呼ぶ（WKWebView 対応）', () => {
+    const { result } = setup(['a', 'b', 'c'])
+    const setData = vi.fn()
+    const ev = { preventDefault: vi.fn(), dataTransfer: { effectAllowed: '', dropEffect: '', setData } } as unknown as DragEvent
+    act(() => { result.current.handleDragStart(ev, 'a') })
+    expect(setData).toHaveBeenCalled()
   })
 
   it('同じ要素へのドロップでは onReorder を呼ばない', () => {

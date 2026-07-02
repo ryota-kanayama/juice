@@ -415,7 +415,7 @@ describe('SessionList — ページをまたぐ並び替え', () => {
   function makeDragEvent(type: string, clientX = 0): MouseEvent {
     const ev = new MouseEvent(type, { bubbles: true, cancelable: true, clientX })
     Object.defineProperty(ev, 'dataTransfer', {
-      value: { effectAllowed: '', dropEffect: '' },
+      value: { effectAllowed: '', dropEffect: '', setData: () => {} },
     })
     return ev
   }

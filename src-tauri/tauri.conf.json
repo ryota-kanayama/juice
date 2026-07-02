@@ -24,6 +24,7 @@
         "alwaysOnTop": true,
         "visible": false,
         "skipTaskbar": true,
+        "dragDropEnabled": false,
         "windowEffects": {
           "effects": ["hudWindow"],
           "state": "active",

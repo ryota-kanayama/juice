@@ -37,6 +37,9 @@ export function useDragReorder({ orderedIds, onReorder, page, totalPages, change
     dragItemRef.current = sessionId
     // 既定の copy 効果（緑のプラスマーク）を出さず移動として扱う
     e.dataTransfer.effectAllowed = 'move'
+    // WKWebView(WebKit) は dragstart でデータ未設定だとドラッグを開始しないため必須。
+    // Chromium(Electron) では不要だった。値自体は使わない。
+    e.dataTransfer.setData('text/plain', sessionId)
   }
 
   const handleDragOver = (e: DragEvent, sessionId: string): void => {
