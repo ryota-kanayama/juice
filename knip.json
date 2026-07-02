@@ -1,20 +1,9 @@
 {
-  "$schema": "./node_modules/knip/schema.json",
-  "entry": [
-    "src/main/index.ts",
-    "src/preload/index.ts",
-    "src/renderer/src/main.tsx"
-  ],
-  "project": ["src/**/*.{ts,tsx}"],
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["frontend/renderer/src/main.tsx"],
+  "project": ["frontend/**/*.{ts,tsx}"],
   "ignore": [
-    "src/main/env.d.ts",
-    "src/renderer/src/env.d.ts",
-    "src/renderer/src/components/ui/**"
-  ],
-  "ignoreDependencies": [
-    "@electron-toolkit/preload",
-    "@electron-toolkit/utils",
-    "@electron-toolkit/eslint-config-prettier"
+    "frontend/renderer/src/components/ui/**"
   ],
   "ignoreExportsUsedInFile": true
 }

@@ -1,0 +1,135 @@
+/* アプリ標準フォント（Rounded Mplus 1c）をローカル同梱する。
+   以前は Google Fonts CDN を index.html で読み込んでいたが、パッケージ版
+   (WebKit/tauri:// オリジン)で不安定なため self-host に変更。オフラインでも
+   Electron 版と同じ字体を保証する。 */
+@font-face {
+  font-family: "Rounded Mplus 1c";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/rounded-mplus-1c-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Rounded Mplus 1c";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./fonts/rounded-mplus-1c-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Rounded Mplus 1c";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/rounded-mplus-1c-700.woff2") format("woff2");
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== shadcn/ui tokens (zinc) — 既存トークンと衝突回避のため --sc- 接頭辞 ===== */
+@layer base {
+  :root {
+    --sc-background: 0 0% 100%;
+    --sc-foreground: 240 10% 3.9%;
+    --sc-card: 0 0% 100%;
+    --sc-card-foreground: 240 10% 3.9%;
+    --sc-popover: 0 0% 100%;
+    --sc-popover-foreground: 240 10% 3.9%;
+    --sc-primary: 240 5.9% 10%;
+    --sc-primary-foreground: 0 0% 98%;
+    --sc-secondary: 240 4.8% 95.9%;
+    --sc-secondary-foreground: 240 5.9% 10%;
+    --sc-muted: 240 4.8% 95.9%;
+    --sc-muted-foreground: 240 3.8% 46.1%;
+    --sc-accent: 240 4.8% 95.9%;
+    --sc-accent-foreground: 240 5.9% 10%;
+    --sc-destructive: 0 84.2% 60.2%;
+    --sc-destructive-foreground: 0 0% 98%;
+    --sc-border: 240 5.9% 90%;
+    --sc-input: 240 5.9% 90%;
+    --sc-ring: 240 10% 3.9%;
+    --radius: 0.5rem;
+  }
+
+  /* Preflight 無効のため、フォームコントロールにアプリのフォントを継承させる */
+  button, input, optgroup, select, textarea {
+    font-family: inherit;
+  }
+
+  /* Preflight 無効のため、ボタンが UA 既定の背景を持つ。Chromium(Electron) と
+     WebKit(Tauri/WKWebView) で既定グレーの濃さが異なり、bg 未指定の ghost/link
+     ボタンの見た目がエンジンで変わる。preflight 相当の背景リセットを補い、
+     背景はバリアントのユーティリティにのみ委ねる。 */
+  button {
+    background-color: transparent;
+    background-image: none;
+  }
+
+  /* Preflight 無効のため border-style リセットが無く、Tailwind の border 系
+     ユーティリティ（border-width のみ設定）が描画されない。Tailwind preflight
+     相当のボーダー初期化を base レイヤーで補う。CSS Modules（非レイヤー＝優先度上）
+     や utilities レイヤーには影響しない。 */
+  *, ::before, ::after {
+    border-width: 0;
+    border-style: solid;
+    border-color: hsl(var(--sc-border));
+  }
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ===== Shared Design Tokens ===== */
+:root {
+  --radius-2xl: 16px;
+  --radius-xl: 12px;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-sm: 6px;
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-glass: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --font-family: "Rounded Mplus 1c", "Hiragino Maru Gothic ProN", -apple-system, sans-serif;
+  --glass-blur: 0px;
+  --glass-bg: #FFFFFF;
+  --glass-border: #E4E4E7;
+  --gradient-accent: linear-gradient(135deg, var(--accent), var(--accent-secondary, var(--accent)));
+  --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  /* accent を背景にしたときの文字色（明色アクセントのダークテーマでは暗色にする） */
+  --text-on-accent: #FFFFFF;
+  /* フォールバック（Milk 相当）。applyTheme が実行されると上書きされる */
+  --bg: #f6f6f8;
+  --bg-card: #fdfdfe;
+  --bg-tag: #ececee;
+  --bg-hover: #ececee;
+  --border: #e1e1e2;
+  --border-light: #eeeeef;
+  --text-primary: #1a1a1c;
+  --text-secondary: #4d4d4f;
+  --text-muted: #717173;
+  --accent: #212124;
+  --accent-secondary: #131316;
+  --accent-hover: #161618;
+  --accent-light: #e8e8e9;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  /* body 直下に描画される Radix ポータル（モーダル/フォーム/セレクト等）も
+     アプリ標準フォントを継承させる。.app だけに当てると切り離された
+     コンポーネントがフォールバックしてしまう。 */
+  font-family: var(--font-family);
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}

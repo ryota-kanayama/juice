@@ -1,0 +1,51 @@
+[package]
+name = "juice"
+version = "2.0.0"
+description = "作業セッションを時間区間として記録する macOS メニューバーアプリ"
+authors = ["kanayama"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "juice_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api", "image-png"] }
+tauri-plugin-opener = "2"
+# 供給網対策：branch 追従ではなく特定 rev にピン留め（再現性・改ざん耐性）
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "18ffb9a201fbf6fedfaa382fd4b92315ea30ab1a" }
+tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
+tauri-plugin-notification = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-deep-link = "2"
+tokio = { version = "1", features = ["time", "sync"] }
+url = "2"
+getrandom = "0.2"
+objc = "0.2"
+# NSEvent のグローバルマウス監視ハンドラに渡す ObjC ブロック生成用
+block = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
+reqwest = { version = "0.12", features = ["json"] }
+keyring = { version = "3", features = ["apple-native"] }
+base64 = "0.22"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.rust]
+# objc の msg_send!/class! マクロが #[cfg(feature = "cargo-clippy")] を出すため、
+# この feature 値を既知として宣言し誤検知の unexpected_cfgs を抑える
+# （他の未知 cfg は引き続き警告する）。
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
