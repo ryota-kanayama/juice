@@ -104,5 +104,5 @@ npm run tauri build
 4. この橋渡し以降のリリースは Tauri 既定名（`_aarch64.dmg` / `_x64.dmg`）のままでよい
    （Tauri 版 updater は両命名対応済み）
 
-> 補足: 現状 .app / DMG は**未署名**。install スクリプトが `xattr -dr
-> com.apple.quarantine` するため置換後は起動できるが、将来的には署名／公証を検討する。
+> 補足: .app / DMG は**未署名**（コード署名・公証は行わない方針）。install スクリプトが
+> `xattr -dr com.apple.quarantine` するため、置換後は問題なく起動できる。

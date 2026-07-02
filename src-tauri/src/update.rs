@@ -2,7 +2,7 @@
 // 署名なし GitHub Releases から arch 一致の DMG を取得し、アプリ終了後に bash スクリプトで
 // .app を自己差し替えする。dev / .app パス不明時は DMG を開くだけ（従来挙動）。
 //
-// renderer へのイベント名はシム(electron-api-shim.ts)の購読に合わせる:
+// renderer へのイベント名はブリッジ(bridge.ts)の購読に合わせる:
 //   update-available / update-progress / update-prepare-quit
 //
 // セキュリティ設計（受容済みトレードオフ）:
