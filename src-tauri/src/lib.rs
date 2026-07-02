@@ -41,6 +41,7 @@ use tauri_nspanel::{
 // Tauri の set_position は macOS マルチモニタ座標バグ(tauri#7890/#7139)で効かないため、
 // AppKit を直接叩いて配置する。
 use objc::{class, msg_send, sel, sel_impl};
+use block::ConcreteBlock;
 #[allow(deprecated)]
 use tauri_nspanel::cocoa::base::id;
 #[allow(deprecated)]
@@ -54,6 +55,13 @@ const PANEL_HEIGHT: f64 = 520.0;
 const NSFloatWindowLevel: i32 = 4;
 #[allow(non_upper_case_globals)]
 const NSWindowStyleMaskNonActivatingPanel: i32 = 1 << 7;
+// NSEventMask（マウス押下）。グローバル監視で「パネル外クリック」を捕捉するのに使う。
+#[allow(non_upper_case_globals)]
+const NSEventMaskLeftMouseDown: u64 = 1 << 1;
+#[allow(non_upper_case_globals)]
+const NSEventMaskRightMouseDown: u64 = 1 << 3;
+#[allow(non_upper_case_globals)]
+const NSEventMaskOtherMouseDown: u64 = 1 << 25;
 
 /// blur 時に「アンカーから動いていたら閉じない」判定の移動しきい値（px）。
 const DRAG_KEEP_OPEN_THRESHOLD: f64 = 20.0;
@@ -208,6 +216,13 @@ fn init_panel(app_handle: &AppHandle) {
             | NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenAuxiliary,
     );
 
+    // 背景ドラッグでのウィンドウ移動を無効化する。
+    // これが有効だと tao の send_event が LeftMouseDown ごとに
+    // performWindowDragWithEvent を呼び、一覧アイテムのドラッグでもウィンドウが動いて
+    // しまう → アンカーから移動＝フローティング誤判定で「張り付く」。
+    // ヘッダー移動は data-tauri-drag-region（DragWindow 経路）が別途担うため影響しない。
+    panel.set_moveable_by_window_background(false);
+
     // blur-to-close：パネルが key ウィンドウでなくなったら（＝外側クリック）閉じる
     let handle = app_handle.to_owned();
     let delegate = panel_delegate!(JuicePanelDelegate {
@@ -226,6 +241,42 @@ fn init_panel(app_handle: &AppHandle) {
         }
     }));
     panel.set_delegate(delegate);
+
+    // blur-to-close の取りこぼし対策（本命）。
+    // 非アクティベート NSPanel は WebKit の HTML5 ドラッグや2回目以降の show のあと
+    // windowDidResignKey が発火しないことがあり、外側クリックで閉じない（＝前面に張り付く）。
+    // key/blur 状態に依存しないグローバルマウス監視で確実に閉じる。
+    install_global_mouse_monitor(app_handle);
+}
+
+/// パネル表示中に「自アプリ外＝パネル外」がクリックされたら閉じる。
+/// グローバル監視は他アプリへ配送されるイベントだけを拾う（自アプリのトレイ/パネル内
+/// クリックは対象外）ため、外側クリックの検出に過不足がない。ヘッダードラッグで
+/// フローティング中（アンカーから移動済み）は維持する。
+#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
+fn install_global_mouse_monitor(app_handle: &AppHandle) {
+    let handle = app_handle.to_owned();
+    let block = ConcreteBlock::new(move |_event: id| {
+        if let Ok(panel) = handle.get_webview_panel("main") {
+            if panel.is_visible() && !panel_moved_from_anchor(&handle) {
+                panel.order_out(None);
+            }
+        }
+    });
+    let block = block.copy();
+    let mask: u64 =
+        NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskOtherMouseDown;
+    unsafe {
+        let monitor: id = msg_send![
+            class!(NSEvent),
+            addGlobalMonitorForEventsMatchingMask: mask
+            handler: &*block
+        ];
+        // monitor（自動解放オブジェクト）と block はアプリ存続中保持する。
+        let _: id = msg_send![monitor, retain];
+    }
+    // block は Cocoa 側が copy 済みだが、念のためアプリ存続中保持する。
+    std::mem::forget(block);
 }
 
 /// メニューバーのトレイアイコンを構築。左クリックでトグル、右クリックで終了メニュー。
