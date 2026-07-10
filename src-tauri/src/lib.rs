@@ -277,6 +277,43 @@ fn install_global_mouse_monitor(app_handle: &AppHandle) {
     }
     // block は Cocoa 側が copy 済みだが、念のためアプリ存続中保持する。
     std::mem::forget(block);
+
+    // フロート中（ヘッダードラッグでアンカーから移動 済み）の非アクティベート NSPanel は、
+    // 長時間稼働・外部ディスプレイ環境下で稀に「クリックしても key window にならない」
+    // ケースが起きる（WindowServer 側のキーウィンドウ管理と非アクティベートパネルの
+    // 組み合わせに起因する既知の相性問題。tauri-nspanel #75 等）。
+    // 見た目は最前面でもキーボード入力が背後のアプリに渡ってしまい、モーダルの
+    // フォームに入力できなくなる。パネル内クリックのたびに明示的に makeKeyWindow を
+    // 呼び直し、OS 側の暗黙の挙動に依存せず確実にキーウィンドウを奪い返す。
+    install_local_focus_reclaim_monitor(app_handle);
+}
+
+/// 自アプリ（パネル）内でのクリックのたびに明示的に makeKeyWindow する。
+/// ローカル監視は自アプリの各ウィンドウへ配送される直前のイベントを拾うため、
+/// パネル外クリックには反応しない（グローバル監視とは別役割）。
+#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
+fn install_local_focus_reclaim_monitor(app_handle: &AppHandle) {
+    let handle = app_handle.to_owned();
+    let block = ConcreteBlock::new(move |event: id| -> id {
+        if let Ok(panel) = handle.get_webview_panel("main") {
+            if panel.is_visible() {
+                panel.make_key_window();
+            }
+        }
+        event
+    });
+    let block = block.copy();
+    let mask: u64 =
+        NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskOtherMouseDown;
+    unsafe {
+        let monitor: id = msg_send![
+            class!(NSEvent),
+            addLocalMonitorForEventsMatchingMask: mask
+            handler: &*block
+        ];
+        let _: id = msg_send![monitor, retain];
+    }
+    std::mem::forget(block);
 }
 
 /// メニューバーのトレイアイコンを構築。左クリックでトグル、右クリックで終了メニュー。
