@@ -10,15 +10,30 @@ interface Props {
   onSelectDate: (date: string) => void
 }
 
-/** グリッドの表示範囲（時）と1時間あたりの高さ(px)。 */
+/** グリッドの表示範囲（時）と1時間あたりの最小高さ(px)。 */
 const START_HOUR = 8
 const END_HOUR = 20
 const HOUR_PX = 44
-const GRID_HEIGHT = (END_HOUR - START_HOUR) * HOUR_PX
-/** 短い記録が潰れて見えなくならないよう確保する最小高さ(px)。 */
+const HOUR_COUNT = END_HOUR - START_HOUR
+/** グリッドの最小高さ(px)。ウィンドウが高いときはこれを超えて縦に伸びる。 */
+const MIN_GRID_PX = HOUR_COUNT * HOUR_PX
+/** 短い記録が潰れて見えなくならないよう確保する最小高さ(px 相当)。 */
 const MIN_BLOCK_PX = 14
-/** ブロックがこの高さ未満のときは作業名のみ1行で表示する。 */
+/** ブロックがこの高さ(px 相当)未満のときは作業名のみ1行で表示する。 */
 const COMPACT_BLOCK_PX = 28
+
+/**
+ * グリッドは高さを固定せず縦に伸びるため、位置・高さは px ではなくグリッド高さに対する
+ * 割合(%)で持つ。px 指定の閾値も最小高さ時点の割合に換算して扱う。
+ */
+const MIN_BLOCK_PCT = (MIN_BLOCK_PX / MIN_GRID_PX) * 100
+const COMPACT_BLOCK_PCT = (COMPACT_BLOCK_PX / MIN_GRID_PX) * 100
+const HOUR_PCT = 100 / HOUR_COUNT
+
+/** 端数の長い小数が style 文字列に出ないよう丸めた % 表記にする。 */
+function pct(value: number): string {
+  return `${Number(value.toFixed(4))}%`
+}
 
 const WEEKDAYS = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日']
 
@@ -49,10 +64,10 @@ function toBlocks(sessions: Session[]): Block[] {
       const clippedStart = Math.max(startMin, START_HOUR * 60)
       const clippedEnd = Math.min(endMin, END_HOUR * 60)
       if (clippedEnd <= clippedStart) return
-      const top = ((clippedStart - START_HOUR * 60) / 60) * HOUR_PX
-      const rawHeight = ((clippedEnd - clippedStart) / 60) * HOUR_PX
+      const top = ((clippedStart - START_HOUR * 60) / (HOUR_COUNT * 60)) * 100
+      const rawHeight = ((clippedEnd - clippedStart) / (HOUR_COUNT * 60)) * 100
       // 短い記録でも視認できるよう最小高さを確保する。ただしグリッド最下部を超えないようクランプする
-      const height = Math.min(Math.max(rawHeight, MIN_BLOCK_PX), GRID_HEIGHT - top)
+      const height = Math.min(Math.max(rawHeight, MIN_BLOCK_PCT), 100 - top)
       blocks.push({
         key: `${s.id}-${i}`,
         name: s.name,
@@ -98,18 +113,19 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
         })}
       </div>
 
-      {/* 時間軸グリッド */}
+      {/* 時間軸グリッド。高さは固定せず、余った縦幅いっぱいまで伸ばす（最低 MIN_GRID_PX） */}
       <div
-        className="grid shrink-0 rounded-b-[6px] border border-[var(--glass-border)]"
-        style={{ gridTemplateColumns: cols }}
+        data-time-grid
+        className="grid min-h-0 flex-1 rounded-b-[6px] border border-[var(--glass-border)]"
+        style={{ gridTemplateColumns: cols, gridTemplateRows: '1fr', minHeight: `${MIN_GRID_PX}px` }}
       >
         {/* 時刻ガター */}
-        <div className="relative border-r border-[var(--glass-border)]" style={{ height: GRID_HEIGHT }}>
+        <div className="relative border-r border-[var(--glass-border)]">
           {hours.slice(1).map((h, i) => (
             <span
               key={h}
               className="absolute right-1 -translate-y-1/2 text-[9px] text-[var(--text-muted)]"
-              style={{ top: (i + 1) * HOUR_PX }}
+              style={{ top: pct((i + 1) * HOUR_PCT) }}
             >{h}:00</span>
           ))}
         </div>
@@ -127,9 +143,9 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
               key={date}
               className="relative border-r border-[var(--glass-border)] last:border-r-0"
               style={{
-                height: GRID_HEIGHT,
                 // 選択列は記録ブロックの視認性を邪魔しない程度にごく薄く敷く（列全体を強い色で塗らない）
-                background: `${isSelected ? 'color-mix(in srgb, var(--accent-light) 35%, transparent)' : tint} repeating-linear-gradient(to bottom, transparent 0, transparent ${HOUR_PX - 1}px, var(--glass-border) ${HOUR_PX - 1}px, var(--glass-border) ${HOUR_PX}px)`,
+                // 時間の横罫線もグリッド高さ基準の割合で引き、縦に伸びても1時間ごとに保たれる
+                background: `${isSelected ? 'color-mix(in srgb, var(--accent-light) 35%, transparent)' : tint} repeating-linear-gradient(to bottom, transparent 0, transparent calc(${pct(HOUR_PCT)} - 1px), var(--glass-border) calc(${pct(HOUR_PCT)} - 1px), var(--glass-border) ${pct(HOUR_PCT)})`,
               }}
               {...(isSelected ? { 'data-selected': date } : {})}
             >
@@ -138,11 +154,11 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
                   key={b.key}
                   data-event-block
                   className="absolute left-0.5 right-0.5 overflow-hidden rounded-[3px] px-1 py-0.5 text-[9px] leading-tight text-white shadow-sm"
-                  style={{ top: `${b.top}px`, height: `${b.height}px`, background: b.color }}
+                  style={{ top: pct(b.top), height: pct(b.height), background: b.color }}
                   title={`${b.name} ${b.label}`}
                 >
                   <div className="truncate font-semibold">{b.name}</div>
-                  {b.height >= COMPACT_BLOCK_PX && <div className="truncate opacity-85">{b.label}</div>}
+                  {b.height >= COMPACT_BLOCK_PCT && <div className="truncate opacity-85">{b.label}</div>}
                 </div>
               ))}
             </div>

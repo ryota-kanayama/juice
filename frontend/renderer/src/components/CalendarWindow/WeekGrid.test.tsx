@@ -56,14 +56,35 @@ describe('WeekGrid', () => {
     expect(block?.textContent).toContain('レビュー')
   })
 
-  it('ブロックの位置と高さが時刻から計算される', () => {
+  it('ブロックの位置と高さがグリッド高さに対する割合で表される', () => {
     const { container } = render(
       <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [makeSession()] }} />
     )
-    // 8:00 起点・1時間44px。10:00 開始 → top=88px、2時間 → height=88px
+    // 8:00〜20:00 の12時間グリッド。10:00 開始 → 2/12、2時間ぶん → 2/12。
+    // px ではなく割合で持つことで、ウィンドウ高さに応じて縦に伸びる
     const block = container.querySelector('[data-event-block]') as HTMLElement
-    expect(block.style.top).toBe('88px')
-    expect(block.style.height).toBe('88px')
+    expect(block.style.top).toMatch(/%$/)
+    expect(block.style.height).toMatch(/%$/)
+    expect(parseFloat(block.style.top)).toBeCloseTo((2 / 12) * 100, 3)
+    expect(parseFloat(block.style.height)).toBeCloseTo((2 / 12) * 100, 3)
+  })
+
+  it('時間軸グリッドは固定高さを持たず、最低高さだけを持つ', () => {
+    const { container } = render(<WeekGrid {...baseProps} />)
+    // 高さを固定すると余った縦幅が空白になる。最低高さ（12時間 × 44px）だけを保証し、
+    // それより広いときは親の高さいっぱいまで伸ばす
+    const grid = container.querySelector('[data-time-grid]') as HTMLElement
+    expect(grid).not.toBeNull()
+    expect(grid.style.height).toBe('')
+    expect(grid.style.minHeight).toBe('528px')
+  })
+
+  it('時刻ラベルもグリッド高さに対する割合で配置される', () => {
+    const { container } = render(<WeekGrid {...baseProps} />)
+    const label = screen.getByText('9:00')
+    expect((label as HTMLElement).style.top).toMatch(/%$/)
+    expect(parseFloat((label as HTMLElement).style.top)).toBeCloseTo((1 / 12) * 100, 3)
+    expect(container.querySelector('[data-time-grid]')).not.toBeNull()
   })
 
   it('1セッションの複数区間はそれぞれ別ブロックになる', () => {
@@ -97,9 +118,9 @@ describe('WeekGrid', () => {
       <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [early] }} />
     )
     const block = container.querySelector('[data-event-block]') as HTMLElement
-    expect(block.style.top).toBe('0px')
+    expect(parseFloat(block.style.top)).toBe(0)
     // 8:00〜9:00 の1時間ぶんだけ見える
-    expect(block.style.height).toBe('44px')
+    expect(parseFloat(block.style.height)).toBeCloseTo((1 / 12) * 100, 3)
   })
 
   it('選択中の日の列に data-selected が付く', () => {
@@ -116,6 +137,18 @@ describe('WeekGrid', () => {
       <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [oneMinute] }} />
     )
     const block = container.querySelector('[data-event-block]') as HTMLElement
-    expect(parseFloat(block.style.height)).toBeGreaterThanOrEqual(14)
+    // 1分ぶん(0.14%)ではなく、最低高さ 14px 相当（12時間 × 44px = 528px に対する割合）まで引き上げられる
+    expect(parseFloat(block.style.height)).toBeCloseTo((14 / 528) * 100, 3)
+  })
+
+  it('最小高さを確保してもグリッド最下部を超えない', () => {
+    const lastMinute = makeSession({
+      times: [{ startTime: '2026-08-06T19:59:00', endTime: '2026-08-06T20:00:00' }],
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [lastMinute] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    expect(parseFloat(block.style.top) + parseFloat(block.style.height)).toBeLessThanOrEqual(100)
   })
 })
