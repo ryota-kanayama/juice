@@ -15,6 +15,10 @@ const START_HOUR = 8
 const END_HOUR = 20
 const HOUR_PX = 44
 const GRID_HEIGHT = (END_HOUR - START_HOUR) * HOUR_PX
+/** 短い記録が潰れて見えなくならないよう確保する最小高さ(px)。 */
+const MIN_BLOCK_PX = 14
+/** ブロックがこの高さ未満のときは作業名のみ1行で表示する。 */
+const COMPACT_BLOCK_PX = 28
 
 const WEEKDAYS = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日']
 
@@ -45,12 +49,16 @@ function toBlocks(sessions: Session[]): Block[] {
       const clippedStart = Math.max(startMin, START_HOUR * 60)
       const clippedEnd = Math.min(endMin, END_HOUR * 60)
       if (clippedEnd <= clippedStart) return
+      const top = ((clippedStart - START_HOUR * 60) / 60) * HOUR_PX
+      const rawHeight = ((clippedEnd - clippedStart) / 60) * HOUR_PX
+      // 短い記録でも視認できるよう最小高さを確保する。ただしグリッド最下部を超えないようクランプする
+      const height = Math.min(Math.max(rawHeight, MIN_BLOCK_PX), GRID_HEIGHT - top)
       blocks.push({
         key: `${s.id}-${i}`,
         name: s.name,
         color: resolveJuiceColor(s.color),
-        top: ((clippedStart - START_HOUR * 60) / 60) * HOUR_PX,
-        height: ((clippedEnd - clippedStart) / 60) * HOUR_PX,
+        top,
+        height,
         label: `${t.startTime.split('T')[1].slice(0, 5)}–${t.endTime.split('T')[1].slice(0, 5)}`,
       })
     })
@@ -120,7 +128,8 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
               className="relative border-r border-[var(--glass-border)] last:border-r-0"
               style={{
                 height: GRID_HEIGHT,
-                background: `${isSelected ? 'var(--accent-light)' : tint} repeating-linear-gradient(to bottom, transparent 0, transparent ${HOUR_PX - 1}px, var(--glass-border) ${HOUR_PX - 1}px, var(--glass-border) ${HOUR_PX}px)`,
+                // 選択列は記録ブロックの視認性を邪魔しない程度にごく薄く敷く（列全体を強い色で塗らない）
+                background: `${isSelected ? 'color-mix(in srgb, var(--accent-light) 35%, transparent)' : tint} repeating-linear-gradient(to bottom, transparent 0, transparent ${HOUR_PX - 1}px, var(--glass-border) ${HOUR_PX - 1}px, var(--glass-border) ${HOUR_PX}px)`,
               }}
               {...(isSelected ? { 'data-selected': date } : {})}
             >
@@ -133,7 +142,7 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
                   title={`${b.name} ${b.label}`}
                 >
                   <div className="truncate font-semibold">{b.name}</div>
-                  <div className="truncate opacity-85">{b.label}</div>
+                  {b.height >= COMPACT_BLOCK_PX && <div className="truncate opacity-85">{b.label}</div>}
                 </div>
               ))}
             </div>

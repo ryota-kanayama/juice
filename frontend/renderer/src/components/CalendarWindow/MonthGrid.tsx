@@ -13,21 +13,41 @@ interface Props {
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
 /** セルに直接出すチップの最大数。超過分は「他N件」にまとめる。 */
 const MAX_CHIPS = 3
+/** カレンダーは常に6週(42セル)固定。月初/月末の空白は前後月の日付で埋める。 */
+const WEEK_ROWS = 6
+const GRID_CELLS = WEEK_ROWS * 7
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
 }
 
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+interface Cell {
+  date: Date
+  dateStr: string
+  day: number
+  /** 表示中の月に属するセルか（前後月のセルは薄く表示する）。 */
+  inCurrentMonth: boolean
+}
+
 export function MonthGrid({ anchorDate, sessionsByDate, selectedDate, holidays, onSelectDate }: Props) {
   const [year, month] = anchorDate.split('-').map(Number)
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const firstDayOfWeek = new Date(year, month - 1, 1).getDay()
+  const firstOfMonth = new Date(year, month - 1, 1)
+  const gridStart = new Date(year, month - 1, 1 - firstOfMonth.getDay())
 
-  const cells: (number | null)[] = [
-    ...Array<null>(firstDayOfWeek).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ]
-  const numWeekRows = Math.ceil(cells.length / 7)
+  const cells: Cell[] = Array.from({ length: GRID_CELLS }, (_, i) => {
+    const d = new Date(gridStart)
+    d.setDate(gridStart.getDate() + i)
+    return {
+      date: d,
+      dateStr: toDateStr(d),
+      day: d.getDate(),
+      inCurrentMonth: d.getMonth() === month - 1 && d.getFullYear() === year,
+    }
+  })
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -42,17 +62,15 @@ export function MonthGrid({ anchorDate, sessionsByDate, selectedDate, holidays, 
 
       <div
         className="grid min-h-0 flex-1 grid-cols-7 rounded-b-[6px] border border-[var(--glass-border)]"
-        style={{ gridTemplateRows: `repeat(${numWeekRows}, minmax(0, 1fr))` }}
+        style={{ gridTemplateRows: `repeat(${WEEK_ROWS}, minmax(0, 1fr))` }}
       >
-        {cells.map((day, idx) => {
-          if (day === null) {
-            return <div key={`empty-${idx}`} className="border-b border-r border-[var(--glass-border)]" />
-          }
-          const dateStr = `${year}-${pad(month)}-${pad(day)}`
+        {cells.map(cell => {
+          const { dateStr, day, inCurrentMonth } = cell
           const sessions = sessionsByDate[dateStr] ?? []
           const isSelected = dateStr === selectedDate
           const isHoliday = dateStr in holidays
-          const dow = new Date(year, month - 1, day).getDay()
+          const dow = cell.date.getDay()
+          const cellMonth = cell.date.getMonth() + 1
           const dayColor = (dow === 0 || isHoliday)
             ? 'text-[#e74c3c]'
             : dow === 6
@@ -64,10 +82,11 @@ export function MonthGrid({ anchorDate, sessionsByDate, selectedDate, holidays, 
               className={`flex cursor-pointer flex-col items-stretch gap-0.5 overflow-hidden border-0 border-b border-r border-[var(--glass-border)] p-1 text-left transition-colors ${isSelected ? 'bg-[var(--accent-light)]' : 'bg-transparent hover:bg-[var(--bg-hover)]'}`}
               onClick={() => onSelectDate(dateStr)}
               aria-pressed={isSelected}
-              aria-label={`${month}月${day}日${sessions.length > 0 ? '（記録あり）' : ''}`}
+              aria-label={`${cellMonth}月${day}日${sessions.length > 0 ? '（記録あり）' : ''}`}
               {...(isHoliday ? { 'data-holiday': dateStr } : {})}
+              {...(!inCurrentMonth ? { 'data-outside-month': dateStr } : {})}
             >
-              <span className={`text-[11px] leading-none ${isSelected ? 'font-bold' : ''} ${dayColor}`}>{day}</span>
+              <span className={`text-[11px] leading-none ${isSelected ? 'font-bold' : ''} ${dayColor} ${inCurrentMonth ? '' : 'opacity-40'}`}>{day}</span>
               {sessions.slice(0, MAX_CHIPS).map(s => (
                 <span
                   key={s.id}

@@ -77,4 +77,41 @@ describe('MonthGrid', () => {
     )
     expect(container.querySelector('[data-holiday="2026-08-11"]')).not.toBeNull()
   })
+
+  it('6週固定で前月・翌月の日付を薄く表示する', () => {
+    // 2026年8月は1日(土)始まり・31日(月)終わりなので、前月末(7/26-31)と翌月頭(9/1-5)が
+    // 空白セルを埋める形で表示され、6週=42セル固定になる
+    const { container } = render(<MonthGrid {...baseProps} />)
+
+    const prevCell = container.querySelector('[data-outside-month="2026-07-31"]')
+    expect(prevCell).not.toBeNull()
+    expect(prevCell).toHaveAttribute('aria-label', expect.stringContaining('7月31日'))
+    expect(prevCell?.querySelector('span')?.className).toContain('opacity-40')
+
+    const nextCell = container.querySelector('[data-outside-month="2026-09-01"]')
+    expect(nextCell).not.toBeNull()
+    expect(nextCell).toHaveAttribute('aria-label', expect.stringContaining('9月1日'))
+    expect(nextCell?.querySelector('span')?.className).toContain('opacity-40')
+
+    // 当月のセルには data-outside-month が付かない
+    expect(container.querySelector('[data-outside-month="2026-08-06"]')).toBeNull()
+
+    // 常に42セル(6週)固定
+    expect(container.querySelectorAll('button')).toHaveLength(42)
+  })
+
+  it('前月・翌月のセルもクリックで選択でき、記録があればチップを表示する', async () => {
+    const onSelectDate = vi.fn()
+    render(
+      <MonthGrid
+        {...baseProps}
+        onSelectDate={onSelectDate}
+        sessionsByDate={{ '2026-07-31': [makeSession({ date: '2026-07-31' })] }}
+      />
+    )
+    const prevCell = screen.getByRole('button', { name: /7月31日/ })
+    expect(prevCell.textContent).toContain('レビュー')
+    await userEvent.click(prevCell)
+    expect(onSelectDate).toHaveBeenCalledWith('2026-07-31')
+  })
 })

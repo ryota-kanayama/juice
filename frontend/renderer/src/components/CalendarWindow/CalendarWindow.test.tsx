@@ -67,7 +67,7 @@ describe('CalendarWindow', () => {
   it('サイドバーに選択日の詳細を出す', async () => {
     render(<CalendarWindow />, { wrapper })
     await waitFor(() => {
-      expect(screen.getByText('2026-08-06')).toBeInTheDocument()
+      expect(screen.getByText('8月6日(木)')).toBeInTheDocument()
     })
   })
 })

@@ -107,4 +107,15 @@ describe('WeekGrid', () => {
     expect(container.querySelector('[data-selected="2026-08-06"]')).not.toBeNull()
     expect(container.querySelector('[data-selected="2026-08-04"]')).toBeNull()
   })
+
+  it('1分の記録でも最小高さが確保される', () => {
+    const oneMinute = makeSession({
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T10:01:00' }],
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [oneMinute] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    expect(parseFloat(block.style.height)).toBeGreaterThanOrEqual(14)
+  })
 })

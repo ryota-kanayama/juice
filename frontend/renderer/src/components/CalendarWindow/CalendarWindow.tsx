@@ -33,7 +33,7 @@ export function CalendarWindow() {
   return (
     <div className="flex h-screen w-full bg-[var(--bg)] font-[var(--font-family)] antialiased">
       {/* 左サイドバー */}
-      <aside className="flex w-[220px] shrink-0 flex-col gap-3 overflow-hidden border-r border-[var(--glass-border)] p-3">
+      <aside className="flex w-[220px] shrink-0 flex-col gap-3 overflow-hidden p-3">
         <MiniCalendar
           anchorDate={cal.anchorDate}
           selectedDate={cal.selectedDate}
