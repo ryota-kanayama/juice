@@ -11,6 +11,8 @@ interface Props {
   baseSeconds?: number
   /** 水位が100%になるまでの秒数。デフォルトは25分（1500秒） */
   fillSeconds?: number
+  /** 水位計算専用の経過秒。満杯到達で周期的に0へリセットされる値を渡す。未指定時はelapsedSecondsを使う */
+  juiceSeconds?: number
   color: string
   initialProjectCode?: string
   initialWorkCategory?: string
@@ -29,11 +31,11 @@ function juiceLevel(seconds: number, fillSeconds: number): number {
   return Math.min((seconds / fillSeconds) * 100, 100)
 }
 
-export function ActiveTimer({ name, elapsedSeconds, baseSeconds = 0, fillSeconds = DEFAULT_FILL_SECONDS, color, initialProjectCode, initialWorkCategory, projectCodeSuggestions = [], workCategorySuggestions = [], onStop, onBreak, isOnBreak = false }: Props) {
+export function ActiveTimer({ name, elapsedSeconds, baseSeconds = 0, fillSeconds = DEFAULT_FILL_SECONDS, juiceSeconds, color, initialProjectCode, initialWorkCategory, projectCodeSuggestions = [], workCategorySuggestions = [], onStop, onBreak, isOnBreak = false }: Props) {
   const [projectCode, setProjectCode] = useState(initialProjectCode ?? '')
   const [workCategory, setWorkCategory] = useState(initialWorkCategory ?? '')
   const resolvedColor = resolveJuiceColor(color)
-  const level = juiceLevel(elapsedSeconds, fillSeconds)
+  const level = juiceLevel(juiceSeconds ?? elapsedSeconds, fillSeconds)
   // 液面の y 座標（0=満杯/上端、120=空/下端）。
   // 山の高さを不均一にした 1 周期(=120px, 30px幅の山4つ)を 3 つ並べて x=-120..240 を埋め、
   // 下端(120)まで閉じて塗りつぶす。横スクロール(-120px)で 1 周期ぶんシームレスにループ。

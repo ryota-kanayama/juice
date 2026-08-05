@@ -191,4 +191,24 @@ describe('ActiveTimer', () => {
       expect(screen.queryByRole('button', { name: '休憩' })).toBeNull()
     })
   })
+
+  describe('juiceSeconds（水位専用の経過秒）', () => {
+    it('juiceSeconds未指定時はelapsedSecondsで水位を計算する（後方互換）', () => {
+      const { container } = render(
+        <ActiveTimer name="テスト" elapsedSeconds={900} fillSeconds={1800} color="#FF9500" onStop={vi.fn()} />
+      )
+      const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+      expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,60 /)
+    })
+
+    it('juiceSeconds指定時はelapsedSecondsと異なっていてもjuiceSecondsで水位を計算する', () => {
+      const { container } = render(
+        <ActiveTimer name="テスト" elapsedSeconds={3000} juiceSeconds={0} fillSeconds={1800} color="#FF9500" onStop={vi.fn()} />
+      )
+      const juiceLevel = container.querySelector('[data-testid="juice-level"]')
+      expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
+      // 表示テキストは elapsedSeconds ベースのまま（juiceSecondsの影響を受けない）
+      expect(screen.getByText('50分経過')).toBeInTheDocument()
+    })
+  })
 })
