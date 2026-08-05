@@ -150,28 +150,28 @@ export function AttendanceReport({ sessions, today }: Props) {
             <TooltipTrigger asChild>
               <button
                 className={`${actionButton} disabled:transform-none disabled:cursor-not-allowed disabled:opacity-60 ${
-                  overageMinutes !== null
-                    ? 'bg-[linear-gradient(135deg,#f59e0b,#d97706)]'
-                    : sendResult === 'success'
-                      ? 'bg-[linear-gradient(135deg,#26de81,#20c870)]'
-                      : sendResult === 'auth' || sendResult === 'error'
-                        ? 'bg-[linear-gradient(135deg,#ef4444,#dc2626)]'
+                  sendResult === 'success'
+                    ? 'bg-[linear-gradient(135deg,#26de81,#20c870)]'
+                    : sendResult === 'auth' || sendResult === 'error'
+                      ? 'bg-[linear-gradient(135deg,#ef4444,#dc2626)]'
+                      : overageMinutes !== null
+                        ? 'bg-[linear-gradient(135deg,#f59e0b,#d97706)]'
                         : 'bg-[linear-gradient(135deg,#3b82f6,#2563eb)] shadow-[0_4px_12px_rgba(59,130,246,0.3)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.4)]'
                 }`}
                 onClick={handleSendClick}
                 data-tour="att-send"
                 disabled={sending || !canSend}
               >
-                {overageMinutes !== null
-                  ? <><WarningTriangle width={14} height={14} /> 調整して送る</>
-                  : sending
-                    ? '送信中...'
-                    : sendResult === 'success'
-                      ? <><Check width={14} height={14} /> 送信しました</>
-                      : sendResult === 'auth'
-                        ? '認証が必要です'
-                        : sendResult === 'error'
-                          ? '送信失敗'
+                {sending
+                  ? '送信中...'
+                  : sendResult === 'success'
+                    ? <><Check width={14} height={14} /> 送信しました</>
+                    : sendResult === 'auth'
+                      ? '認証が必要です'
+                      : sendResult === 'error'
+                        ? '送信失敗'
+                        : overageMinutes !== null
+                          ? <><WarningTriangle width={14} height={14} /> 調整して送る</>
                           : <><SendDiagonal width={14} height={14} /> 送る</>}
               </button>
             </TooltipTrigger>
