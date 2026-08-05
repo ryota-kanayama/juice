@@ -83,6 +83,7 @@ const bridge = {
   hideWindow: () => invoke("window_hide"),
   resizeWindow: (width: number, height: number) =>
     invoke("window_resize", { width, height }),
+  openCalendarWindow: () => invoke("open_calendar_window"),
 
   // ---- Auth（✅ MAPPED） ----
   signInWithSlack: () => invoke("sign_in_with_slack"),

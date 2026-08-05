@@ -55,6 +55,7 @@ interface Bridge {
   // window
   hideWindow: () => Promise<void>
   resizeWindow: (width: number, height: number) => Promise<void>
+  openCalendarWindow: () => Promise<void>
 
   // auth
   signInWithSlack: () => Promise<void>

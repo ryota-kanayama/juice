@@ -13,4 +13,8 @@ export const windowRepository = {
   openUrl(url: string): Promise<void> {
     return window.bridge.openUrl(url)
   },
+  /** カレンダー専用ウィンドウを開く */
+  openCalendar(): Promise<void> {
+    return window.bridge.openCalendarWindow()
+  },
 }

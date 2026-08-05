@@ -3,7 +3,7 @@ export interface TourStep {
   title: string
   body: string
   placement?: 'top' | 'bottom' | 'left' | 'right'
-  scene?: { tab?: 'timer' | 'calendar' | 'attendance'; demo?: boolean }
+  scene?: { tab?: 'timer' | 'attendance'; demo?: boolean }
 }
 
 export const TOUR_STEPS: TourStep[] = [
