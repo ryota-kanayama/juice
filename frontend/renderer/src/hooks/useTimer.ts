@@ -6,8 +6,8 @@ import { timerRepository } from '../repositories/timerRepository'
 import { sessionRepository } from '../repositories/sessionRepository'
 import { settingsRepository } from '../repositories/settingsRepository'
 
-/** ジュースが満杯になるまでの秒数。経過時間通知ONならその間隔、OFFなら25分（ポモドーロの作業時間と同じ） */
-const DEFAULT_FILL_SECONDS = 1500
+/** ジュースが満杯になるまでの秒数。経過時間通知ONならその間隔、OFFなら30分（経過時間通知のデフォルト間隔と同じ） */
+const DEFAULT_FILL_SECONDS = 1800
 
 async function resolveFillSeconds(): Promise<number> {
   try {

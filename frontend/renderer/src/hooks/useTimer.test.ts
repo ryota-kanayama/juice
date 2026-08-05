@@ -275,16 +275,16 @@ describe('useTimer', () => {
       totalTime: 25,
     }
 
-    it('初期値は1500（25分）', () => {
+    it('初期値は1800（30分）', () => {
       const { result } = renderHook(() => useTimer())
-      expect(result.current.fillSeconds).toBe(1500)
+      expect(result.current.fillSeconds).toBe(1800)
     })
 
-    it('経過時間通知OFFでstartすると1500', async () => {
+    it('経過時間通知OFFでstartすると1800', async () => {
       mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
       const { result } = renderHook(() => useTimer())
       await act(async () => { result.current.start('テスト') })
-      expect(result.current.fillSeconds).toBe(1500)
+      expect(result.current.fillSeconds).toBe(1800)
     })
 
     it('経過時間通知ON（30分）でstartすると1800', async () => {
@@ -301,23 +301,23 @@ describe('useTimer', () => {
       expect(result.current.fillSeconds).toBe(3600)
     })
 
-    it('設定読み込みに失敗してもタイマーは開始され1500になる', async () => {
+    it('設定読み込みに失敗してもタイマーは開始され1800になる', async () => {
       mockGetElapsedSettings.mockRejectedValue(new Error('read error'))
       const { result } = renderHook(() => useTimer())
       await act(async () => { result.current.start('テスト') })
       expect(result.current.isRunning).toBe(true)
-      expect(result.current.fillSeconds).toBe(1500)
+      expect(result.current.fillSeconds).toBe(1800)
     })
 
-    it('通知ONで開始→OFFに変更→再startで1500に戻る', async () => {
-      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 30 })
+    it('通知ONで開始→OFFに変更→再startで1800に戻る', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 45 })
       const { result } = renderHook(() => useTimer())
       await act(async () => { result.current.start('テスト') })
-      expect(result.current.fillSeconds).toBe(1800)
+      expect(result.current.fillSeconds).toBe(2700)
       act(() => { result.current.cancel() })
       mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
       await act(async () => { result.current.start('テスト2') })
-      expect(result.current.fillSeconds).toBe(1500)
+      expect(result.current.fillSeconds).toBe(1800)
     })
   })
 
