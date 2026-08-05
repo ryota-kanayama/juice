@@ -80,14 +80,20 @@ export function useTimer(): TimerState {
     const newElapsed = Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000)
     elapsedSecondsRef.current = newElapsed
     setElapsedSeconds(newElapsed)
-    // 経過時間通知が OFF のときだけ、ここで fillSeconds ごとのローカル周期リセットを行う。
-    // ON のときは通知の実発火イベント（onElapsedNotificationFired）でリセットする。
-    if (!notificationEnabledRef.current) {
-      const fill = fillSecondsRef.current
-      if (fill > 0 && newElapsed - cycleAnchorSecondsRef.current >= fill) {
-        const nextAnchor = cycleAnchorSecondsRef.current + fill
-        cycleAnchorSecondsRef.current = nextAnchor
-        setCycleAnchorSeconds(nextAnchor)
+    // fillSeconds ごとにローカルで周期リセットする（通知ON/OFFに関わらず常に判定する）。
+    // 通知ONのときはバックエンドの実発火イベント（onElapsedNotificationFired）でも
+    // 個別に現在値へ再アンカーされるが、それが何らかの理由で届かない場合や、
+    // 稼働中に通知設定がONからOFFへ切り替わった場合でも水位が張り付いたままにならないよう、
+    // ローカル周期判定を常時のフォールバックとして機能させる。
+    const fill = fillSecondsRef.current
+    if (fill > 0) {
+      let anchor = cycleAnchorSecondsRef.current
+      while (newElapsed - anchor >= fill) {
+        anchor += fill
+      }
+      if (anchor !== cycleAnchorSecondsRef.current) {
+        cycleAnchorSecondsRef.current = anchor
+        setCycleAnchorSeconds(anchor)
       }
     }
   }, [])
@@ -269,6 +275,13 @@ export function useTimer(): TimerState {
     const newElapsed = Math.floor((Date.now() - newStartDate.getTime()) / 1000)
     elapsedSecondsRef.current = newElapsed
     setElapsedSeconds(newElapsed)
+    // 開始時刻がずれると cycleAnchorSeconds（旧タイムラインでの周期起点）が
+    // 新しい elapsedSeconds と整合しなくなる（ジュースが数時間空のまま固まりうる）ため、
+    // fillSeconds の倍数に合わせて再アンカーする。
+    const fill = fillSecondsRef.current
+    const nextAnchor = fill > 0 ? newElapsed - (newElapsed % fill) : 0
+    cycleAnchorSecondsRef.current = nextAnchor
+    setCycleAnchorSeconds(nextAnchor)
     timerRepository.adjustStartTime(newStartDate.getTime())
   }, [])
 
