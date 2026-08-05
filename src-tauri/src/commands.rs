@@ -355,6 +355,12 @@ pub fn window_resize(app: tauri::AppHandle, width: f64, height: f64) -> CmdResul
     }
 }
 
+/// カレンダー専用ウィンドウを開く（既にあれば前面化）。
+#[tauri::command]
+pub fn open_calendar_window(app: tauri::AppHandle) {
+    crate::open_calendar(&app);
+}
+
 /// タイマー稼働中か（再起動前の確認文言切替などに使う）。
 #[tauri::command]
 pub fn timer_is_running(app: tauri::AppHandle) -> bool {

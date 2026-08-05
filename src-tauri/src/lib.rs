@@ -146,6 +146,7 @@ pub fn run() {
             commands::open_url,
             commands::get_app_version,
             commands::window_resize,
+            commands::open_calendar_window,
             commands::timer_is_running,
             commands::get_launch_at_login,
             commands::set_launch_at_login,
@@ -191,7 +192,7 @@ pub fn run() {
             build_tray(handle)?;
             // 初回起動（セットアップ未完了）はセットアップ窓を出す（Electron 版と同じ）
             if !handle.state::<SettingsStore>().is_setup_completed() {
-                open_aux_window(handle, "setup", "setup", "Juice — セットアップ", 480.0, 600.0);
+                open_aux_window(handle, "setup", "setup", "Juice — セットアップ", 480.0, 600.0, false);
             }
             Ok(())
         })
@@ -295,9 +296,25 @@ fn install_global_mouse_monitor(app_handle: &AppHandle) {
 fn install_local_focus_reclaim_monitor(app_handle: &AppHandle) {
     let handle = app_handle.to_owned();
     let block = ConcreteBlock::new(move |event: id| -> id {
-        if let Ok(panel) = handle.get_webview_panel("main") {
-            if panel.is_visible() {
-                panel.make_key_window();
+        // イベントの発生元が main パネル自身のときだけ奪還する。
+        // カレンダー窓など他ウィンドウのクリックで奪い返すと、そちらの
+        // キーボード入力が効かなくなる（#131）。
+        // 比較には Tauri 公式の ns_window()（NSWindow* を返す）を使う。
+        let main_ns_window = handle
+            .get_webview_window("main")
+            .and_then(|w| w.ns_window().ok());
+        let is_panel_event = match main_ns_window {
+            Some(ptr) => unsafe {
+                let event_window: id = msg_send![event, window];
+                !event_window.is_null() && event_window as *mut std::ffi::c_void == ptr
+            },
+            None => false,
+        };
+        if is_panel_event {
+            if let Ok(panel) = handle.get_webview_panel("main") {
+                if panel.is_visible() {
+                    panel.make_key_window();
+                }
             }
         }
         event
@@ -361,7 +378,15 @@ fn build_tray(app_handle: &AppHandle) -> tauri::Result<()> {
 /// 設定 / セットアップ用の通常ウィンドウを開く（既にあれば前面化）。
 /// メインは Accessory(Dock 非表示) の NSPanel だが、付属ウィンドウは前面化・フォーカスを
 /// 効かせるため一時的に Regular に切替える。全付属ウィンドウを閉じたら Accessory に戻す。
-fn open_aux_window(app: &AppHandle, label: &str, hash: &str, title: &str, w: f64, h: f64) {
+fn open_aux_window(
+    app: &AppHandle,
+    label: &str,
+    hash: &str,
+    title: &str,
+    w: f64,
+    h: f64,
+    resizable: bool,
+) {
     if let Some(win) = app.get_webview_window(label) {
         let _ = win.show();
         let _ = win.set_focus();
@@ -372,7 +397,7 @@ fn open_aux_window(app: &AppHandle, label: &str, hash: &str, title: &str, w: f64
     match tauri::WebviewWindowBuilder::new(app, label, url)
         .title(title)
         .inner_size(w, h)
-        .resizable(false)
+        .resizable(resizable)
         .build()
     {
         Ok(win) => {
@@ -390,8 +415,9 @@ fn open_aux_window(app: &AppHandle, label: &str, hash: &str, title: &str, w: f64
 
 /// 付属ウィンドウ（settings/setup）が1つも無ければ Accessory（Dock 非表示）に戻す。
 fn revert_activation_policy_if_no_aux(app: &AppHandle) {
-    let has_aux =
-        app.get_webview_window("settings").is_some() || app.get_webview_window("setup").is_some();
+    let has_aux = app.get_webview_window("settings").is_some()
+        || app.get_webview_window("setup").is_some()
+        || app.get_webview_window("calendar").is_some();
     if !has_aux {
         let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
     }
@@ -399,7 +425,12 @@ fn revert_activation_policy_if_no_aux(app: &AppHandle) {
 
 /// 設定ウィンドウを開く（トレイ「設定」から）。
 pub fn open_settings(app: &AppHandle) {
-    open_aux_window(app, "settings", "settings", "Juice 設定", 440.0, 500.0);
+    open_aux_window(app, "settings", "settings", "Juice 設定", 440.0, 500.0, false);
+}
+
+/// カレンダーウィンドウを開く。通常のアプリウィンドウ（リサイズ可）。
+pub fn open_calendar(app: &AppHandle) {
+    open_aux_window(app, "calendar", "calendar", "Juice カレンダー", 1000.0, 680.0, true);
 }
 
 /// トレイアイコンの真下にパネルを表示／非表示でトグルする。
