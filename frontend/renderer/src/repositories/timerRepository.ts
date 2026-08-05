@@ -18,4 +18,8 @@ export const timerRepository = {
   isRunning(): Promise<boolean> {
     return window.bridge.isTimerRunning()
   },
+  /** 経過時間通知が実際に発火した瞬間を購読する（ジュース水位の周期リセットに使う） */
+  onElapsedNotificationFired(callback: () => void): () => void {
+    return window.bridge.onElapsedNotificationFired(callback)
+  },
 }

@@ -24,6 +24,7 @@ interface Bridge {
   getTheme: () => Promise<string>
   setTheme: (themeId: string) => Promise<void>
   onThemeChanged: (callback: (themeId: string) => void) => () => void
+  onElapsedNotificationFired: (callback: () => void) => () => void
   getIdleSettings: () => Promise<ToggleSettings>
   setIdleSettings: (enabled: boolean, minutes: number) => Promise<void>
   getElapsedSettings: () => Promise<ToggleSettings>
