@@ -130,4 +130,23 @@ describe('AttendanceReport — 超過調整時の送信確認', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'キャンセル' }))
     expect(attendanceRepository.send).not.toHaveBeenCalled()
   })
+
+  it('超過調整の送信が成功すると「送信しました」に切り替わる', async () => {
+    const { container } = render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
+    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
+    await screen.findByText('調整して送る')
+    fireEvent.click(sendBtn)
+    fireEvent.click(await screen.findByRole('button', { name: '送信' }))
+    expect(await screen.findByText('送信しました')).toBeInTheDocument()
+  })
+
+  it('超過調整の送信が失敗すると「送信失敗」に切り替わる', async () => {
+    vi.mocked(attendanceRepository.send).mockResolvedValueOnce({ ok: false, status: 500, body: '' })
+    const { container } = render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
+    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
+    await screen.findByText('調整して送る')
+    fireEvent.click(sendBtn)
+    fireEvent.click(await screen.findByRole('button', { name: '送信' }))
+    expect(await screen.findByText('送信失敗')).toBeInTheDocument()
+  })
 })
