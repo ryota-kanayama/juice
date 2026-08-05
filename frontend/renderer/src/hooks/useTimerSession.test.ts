@@ -34,6 +34,7 @@ function makeTimerMock(overrides = {}) {
     elapsedSeconds: 0,
     baseSeconds: 0,
     fillSeconds: 1500,
+    juiceSeconds: 0,
     activeColor: '#fff',
     activeSessionId: null as string | null,
     start: mockTimerStart,
