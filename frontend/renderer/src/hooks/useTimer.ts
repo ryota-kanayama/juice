@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Session, WorkLocation } from '../types/session'
 import { formatLocalDateTime, formatLocalDate } from '../../../shared/sessionUtils'
 import { JUICE_COLOR_KEYS, randomColor } from '../domain/colors'
@@ -6,15 +6,20 @@ import { timerRepository } from '../repositories/timerRepository'
 import { sessionRepository } from '../repositories/sessionRepository'
 import { settingsRepository } from '../repositories/settingsRepository'
 
-/** ジュースが満杯になるまでの秒数。経過時間通知ONならその間隔、OFFなら25分（ポモドーロの作業時間と同じ） */
-const DEFAULT_FILL_SECONDS = 1500
+/** ジュースが満杯になるまでの秒数。経過時間通知ONならその間隔、OFFなら30分（経過時間通知のデフォルト間隔と同じ） */
+const DEFAULT_FILL_SECONDS = 1800
 
-async function resolveFillSeconds(): Promise<number> {
+interface ResolvedFillSeconds {
+  fillSeconds: number
+  notificationEnabled: boolean
+}
+
+async function resolveFillSeconds(): Promise<ResolvedFillSeconds> {
   try {
     const { enabled, minutes } = await settingsRepository.getElapsed()
-    return enabled ? minutes * 60 : DEFAULT_FILL_SECONDS
+    return { fillSeconds: enabled ? minutes * 60 : DEFAULT_FILL_SECONDS, notificationEnabled: enabled }
   } catch {
-    return DEFAULT_FILL_SECONDS
+    return { fillSeconds: DEFAULT_FILL_SECONDS, notificationEnabled: false }
   }
 }
 
@@ -26,6 +31,8 @@ export interface TimerState {
   baseSeconds: number
   /** ジュース水位が満杯になるまでの秒数（タイマー開始時の設定で決まる） */
   fillSeconds: number
+  /** ジュース水位の計算専用の経過秒。満杯到達のたびに0へ周期リセットされる（elapsedSecondsは常に単調増加のまま） */
+  juiceSeconds: number
   activeColor: string
   activeSessionId: string | null
   start: (name: string, color?: string, workLocation?: WorkLocation) => void
@@ -42,6 +49,7 @@ export function useTimer(): TimerState {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [baseSeconds, setBaseSeconds] = useState(0)
   const [fillSeconds, setFillSeconds] = useState(DEFAULT_FILL_SECONDS)
+  const [cycleAnchorSeconds, setCycleAnchorSeconds] = useState(0)
   const [activeColor, setActiveColor] = useState<string>(JUICE_COLOR_KEYS[0])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
 
@@ -57,6 +65,47 @@ export function useTimer(): TimerState {
   const workLocationRef = useRef<WorkLocation | undefined>(undefined)
   const isPausedRef = useRef<boolean>(false)
   const pausedSecondsRef = useRef<number>(0)
+  const elapsedSecondsRef = useRef<number>(0)
+  const fillSecondsRef = useRef<number>(DEFAULT_FILL_SECONDS)
+  const notificationEnabledRef = useRef<boolean>(false)
+  const cycleAnchorSecondsRef = useRef<number>(0)
+
+  const resetJuiceCycle = useCallback(() => {
+    cycleAnchorSecondsRef.current = 0
+    setCycleAnchorSeconds(0)
+  }, [])
+
+  const runTick = useCallback(() => {
+    if (!startTimeRef.current) return
+    const newElapsed = Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000)
+    elapsedSecondsRef.current = newElapsed
+    setElapsedSeconds(newElapsed)
+    // fillSeconds ごとにローカルで周期リセットする（通知ON/OFFに関わらず常に判定する）。
+    // 通知ONのときはバックエンドの実発火イベント（onElapsedNotificationFired）でも
+    // 個別に現在値へ再アンカーされるが、それが何らかの理由で届かない場合や、
+    // 稼働中に通知設定がONからOFFへ切り替わった場合でも水位が張り付いたままにならないよう、
+    // ローカル周期判定を常時のフォールバックとして機能させる。
+    const fill = fillSecondsRef.current
+    if (fill > 0) {
+      let anchor = cycleAnchorSecondsRef.current
+      while (newElapsed - anchor >= fill) {
+        anchor += fill
+      }
+      if (anchor !== cycleAnchorSecondsRef.current) {
+        cycleAnchorSecondsRef.current = anchor
+        setCycleAnchorSeconds(anchor)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    return timerRepository.onElapsedNotificationFired(() => {
+      if (!isRunningRef.current) return
+      const anchor = elapsedSecondsRef.current
+      cycleAnchorSecondsRef.current = anchor
+      setCycleAnchorSeconds(anchor)
+    })
+  }, [])
 
   const start = useCallback((name: string, color?: string, workLocation?: WorkLocation) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -73,18 +122,22 @@ export function useTimer(): TimerState {
     isRunningRef.current = true
     setActiveColor(c)
     setBaseSeconds(0)
+    elapsedSecondsRef.current = 0
     setElapsedSeconds(0)
+    resetJuiceCycle()
     setIsRunning(true)
     setActiveSessionId(null)
     setFillSeconds(DEFAULT_FILL_SECONDS)
-    resolveFillSeconds().then(setFillSeconds)
+    fillSecondsRef.current = DEFAULT_FILL_SECONDS
+    notificationEnabledRef.current = false
+    resolveFillSeconds().then(({ fillSeconds: fs, notificationEnabled }) => {
+      fillSecondsRef.current = fs
+      notificationEnabledRef.current = notificationEnabled
+      setFillSeconds(fs)
+    })
     timerRepository.started()
-    intervalRef.current = setInterval(() => {
-      if (startTimeRef.current) {
-        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000))
-      }
-    }, 1000)
-  }, [])
+    intervalRef.current = setInterval(runTick, 1000)
+  }, [resetJuiceCycle, runTick])
 
   const startMore = useCallback((existingSession: Session) => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -99,18 +152,22 @@ export function useTimer(): TimerState {
     isRunningRef.current = true
     setActiveColor(existingSession.color)
     setBaseSeconds(existingSession.totalTime * 60)
+    elapsedSecondsRef.current = 0
     setElapsedSeconds(0)
+    resetJuiceCycle()
     setIsRunning(true)
     setActiveSessionId(existingSession.id)
     setFillSeconds(DEFAULT_FILL_SECONDS)
-    resolveFillSeconds().then(setFillSeconds)
+    fillSecondsRef.current = DEFAULT_FILL_SECONDS
+    notificationEnabledRef.current = false
+    resolveFillSeconds().then(({ fillSeconds: fs, notificationEnabled }) => {
+      fillSecondsRef.current = fs
+      notificationEnabledRef.current = notificationEnabled
+      setFillSeconds(fs)
+    })
     timerRepository.started()
-    intervalRef.current = setInterval(() => {
-      if (startTimeRef.current) {
-        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000))
-      }
-    }, 1000)
-  }, [])
+    intervalRef.current = setInterval(runTick, 1000)
+  }, [resetJuiceCycle, runTick])
 
   const stop = useCallback(async (opts?: { projectCode?: string; workCategory?: string }): Promise<Session | null> => {
     if (!startTimeRef.current || !isRunningRef.current) return null
@@ -168,11 +225,7 @@ export function useTimer(): TimerState {
     } catch (err) {
       // 保存に失敗した場合は計測を止めずに継続させ、データロスを防ぐ。
       // interval を張り直し（開始時刻 ref は保持済み）、呼び出し側で再試行できるよう例外を伝播する。
-      intervalRef.current = setInterval(() => {
-        if (startTimeRef.current) {
-          setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000))
-        }
-      }, 1000)
+      intervalRef.current = setInterval(runTick, 1000)
       throw err
     }
 
@@ -185,10 +238,12 @@ export function useTimer(): TimerState {
     timerRepository.stopped()
     setIsRunning(false)
     setBaseSeconds(0)
+    elapsedSecondsRef.current = 0
     setElapsedSeconds(0)
+    resetJuiceCycle()
     setActiveSessionId(null)
     return resultSession
-  }, [])
+  }, [resetJuiceCycle, runTick])
 
   const cancel = useCallback(() => {
     if (!isRunningRef.current) return
@@ -208,14 +263,25 @@ export function useTimer(): TimerState {
     timerRepository.stopped()
     setIsRunning(false)
     setBaseSeconds(0)
+    elapsedSecondsRef.current = 0
     setElapsedSeconds(0)
+    resetJuiceCycle()
     setActiveSessionId(null)
-  }, [])
+  }, [resetJuiceCycle])
 
   const adjustStartTime = useCallback((newStartDate: Date) => {
     if (newStartDate.getTime() >= Date.now()) return // 未来の時刻は無視
     startTimeRef.current = newStartDate
-    setElapsedSeconds(Math.floor((Date.now() - newStartDate.getTime()) / 1000))
+    const newElapsed = Math.floor((Date.now() - newStartDate.getTime()) / 1000)
+    elapsedSecondsRef.current = newElapsed
+    setElapsedSeconds(newElapsed)
+    // 開始時刻がずれると cycleAnchorSeconds（旧タイムラインでの周期起点）が
+    // 新しい elapsedSeconds と整合しなくなる（ジュースが数時間空のまま固まりうる）ため、
+    // fillSeconds の倍数に合わせて再アンカーする。
+    const fill = fillSecondsRef.current
+    const nextAnchor = fill > 0 ? newElapsed - (newElapsed % fill) : 0
+    cycleAnchorSecondsRef.current = nextAnchor
+    setCycleAnchorSeconds(nextAnchor)
     timerRepository.adjustStartTime(newStartDate.getTime())
   }, [])
 
@@ -237,12 +303,10 @@ export function useTimer(): TimerState {
     startTimeRef.current = new Date(Date.now() - pausedSecondsRef.current * 1000)
     isPausedRef.current = false
     setIsPaused(false)
-    intervalRef.current = setInterval(() => {
-      if (startTimeRef.current) {
-        setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current.getTime()) / 1000))
-      }
-    }, 1000)
-  }, [])
+    intervalRef.current = setInterval(runTick, 1000)
+  }, [runTick])
 
-  return { isRunning, isPaused, elapsedSeconds, baseSeconds, fillSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime, pause, resume }
+  const juiceSeconds = Math.max(0, elapsedSeconds - cycleAnchorSeconds)
+
+  return { isRunning, isPaused, elapsedSeconds, baseSeconds, fillSeconds, juiceSeconds, activeColor, activeSessionId, start, startMore, stop, cancel, adjustStartTime, pause, resume }
 }

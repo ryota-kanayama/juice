@@ -113,6 +113,8 @@ const bridge = {
     subscribe<unknown>("update-progress", cb),
   onUpdatePrepareQuit: (cb: () => void) =>
     subscribe<void>("update-prepare-quit", () => cb()),
+  onElapsedNotificationFired: (cb: () => void) =>
+    subscribe<void>("elapsed-notification-fired", () => cb()),
 };
 
 // レンダラーが参照する window.bridge を提供する。

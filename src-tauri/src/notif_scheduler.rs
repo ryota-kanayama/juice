@@ -10,7 +10,7 @@ use crate::settings_store::SettingsStore;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::async_runtime::JoinHandle;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 
 fn now_ms() -> i64 {
@@ -199,6 +199,7 @@ fn spawn_elapsed_loop(app: AppHandle) -> JoinHandle<()> {
             if let Some(total) = elapsed_due(now_ms(), start, minutes * 60_000, count) {
                 show(&app, &elapsed_body(total));
                 lock_inner(&app.state::<NotificationEngine>()).elapsed_count += 1;
+                let _ = app.emit("elapsed-notification-fired", ());
             }
         }
     })

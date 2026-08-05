@@ -9,6 +9,7 @@ export interface TimerSessionState {
   elapsedSeconds: number
   baseSeconds: number
   fillSeconds: number
+  juiceSeconds: number
   activeColor: string
   activeSessionId: string | null
   activeTimerName: string

@@ -16,6 +16,7 @@ const makeMockTs = (overrides: Partial<TimerSessionState> = {}): TimerSessionSta
   elapsedSeconds: 0,
   baseSeconds: 0,
   fillSeconds: 1500,
+  juiceSeconds: 0,
   activeColor: '#FF9500',
   activeSessionId: null,
   activeTimerName: '',

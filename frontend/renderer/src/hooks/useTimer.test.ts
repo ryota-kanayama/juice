@@ -6,6 +6,11 @@ import type { Session } from '../types/session'
 const mockSaveSession = vi.fn().mockResolvedValue(undefined)
 const mockUpdateSession = vi.fn().mockResolvedValue(undefined)
 const mockGetElapsedSettings = vi.fn()
+let elapsedFiredCallback: (() => void) | null = null
+const mockOnElapsedNotificationFired = vi.fn((cb: () => void) => {
+  elapsedFiredCallback = cb
+  return () => { elapsedFiredCallback = null }
+})
 vi.stubGlobal('bridge', {
   saveSession: mockSaveSession,
   updateSession: mockUpdateSession,
@@ -16,7 +21,9 @@ vi.stubGlobal('bridge', {
   deleteSession: vi.fn().mockResolvedValue(undefined),
   timerStarted: vi.fn().mockResolvedValue(undefined),
   timerStopped: vi.fn().mockResolvedValue(undefined),
+  timerAdjustStartTime: vi.fn().mockResolvedValue(undefined),
   getElapsedSettings: mockGetElapsedSettings,
+  onElapsedNotificationFired: mockOnElapsedNotificationFired,
 })
 
 describe('useTimer', () => {
@@ -25,6 +32,8 @@ describe('useTimer', () => {
     mockSaveSession.mockClear()
     mockUpdateSession.mockClear()
     mockGetElapsedSettings.mockReset().mockResolvedValue({ enabled: false, minutes: 30 })
+    mockOnElapsedNotificationFired.mockClear()
+    elapsedFiredCallback = null
   })
 
   afterEach(() => {
@@ -275,16 +284,16 @@ describe('useTimer', () => {
       totalTime: 25,
     }
 
-    it('初期値は1500（25分）', () => {
+    it('初期値は1800（30分）', () => {
       const { result } = renderHook(() => useTimer())
-      expect(result.current.fillSeconds).toBe(1500)
+      expect(result.current.fillSeconds).toBe(1800)
     })
 
-    it('経過時間通知OFFでstartすると1500', async () => {
+    it('経過時間通知OFFでstartすると1800', async () => {
       mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
       const { result } = renderHook(() => useTimer())
       await act(async () => { result.current.start('テスト') })
-      expect(result.current.fillSeconds).toBe(1500)
+      expect(result.current.fillSeconds).toBe(1800)
     })
 
     it('経過時間通知ON（30分）でstartすると1800', async () => {
@@ -301,23 +310,23 @@ describe('useTimer', () => {
       expect(result.current.fillSeconds).toBe(3600)
     })
 
-    it('設定読み込みに失敗してもタイマーは開始され1500になる', async () => {
+    it('設定読み込みに失敗してもタイマーは開始され1800になる', async () => {
       mockGetElapsedSettings.mockRejectedValue(new Error('read error'))
       const { result } = renderHook(() => useTimer())
       await act(async () => { result.current.start('テスト') })
       expect(result.current.isRunning).toBe(true)
-      expect(result.current.fillSeconds).toBe(1500)
+      expect(result.current.fillSeconds).toBe(1800)
     })
 
-    it('通知ONで開始→OFFに変更→再startで1500に戻る', async () => {
-      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 30 })
+    it('通知ONで開始→OFFに変更→再startで1800に戻る', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 45 })
       const { result } = renderHook(() => useTimer())
       await act(async () => { result.current.start('テスト') })
-      expect(result.current.fillSeconds).toBe(1800)
+      expect(result.current.fillSeconds).toBe(2700)
       act(() => { result.current.cancel() })
       mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
       await act(async () => { result.current.start('テスト2') })
-      expect(result.current.fillSeconds).toBe(1500)
+      expect(result.current.fillSeconds).toBe(1800)
     })
   })
 
@@ -383,6 +392,115 @@ describe('useTimer', () => {
       // totalTime は pause 前の約5秒（0分切り捨て） → 実質0分だが例外は出ない
       expect(session).not.toBeNull()
       vi.useRealTimers()
+    })
+  })
+
+  describe('juiceSeconds（ジュース水位の周期リセット）', () => {
+    it('start直後は0', () => {
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.start('テスト') })
+      expect(result.current.juiceSeconds).toBe(0)
+    })
+
+    it('startMore直後も0', () => {
+      const existing: Session = {
+        id: 'id-1', taskId: 'task-1', name: '既存作業', projectCode: 'P001', workCategory: '設計',
+        times: [{ startTime: '2026-06-11T09:00:00', endTime: '2026-06-11T09:25:00' }],
+        date: '2026-06-11', color: 'strawberry', totalTime: 25,
+      }
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(existing) })
+      expect(result.current.juiceSeconds).toBe(0)
+    })
+
+    it('経過時間通知OFF時、fillSeconds（1800秒）経過でローカルに0へリセットされる', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      act(() => { vi.advanceTimersByTime(1799 * 1000) })
+      expect(result.current.juiceSeconds).toBe(1799)
+      act(() => { vi.advanceTimersByTime(1000) })
+      expect(result.current.juiceSeconds).toBe(0)
+      // 表示用の経過時間はリセットされない
+      expect(result.current.elapsedSeconds).toBe(1800)
+    })
+
+    it('経過時間通知OFF時、2周期目（3600秒）でも再度ローカルに0へリセットされる', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      act(() => { vi.advanceTimersByTime(1800 * 1000) })
+      expect(result.current.juiceSeconds).toBe(0)
+      act(() => { vi.advanceTimersByTime(1799 * 1000) })
+      expect(result.current.juiceSeconds).toBe(1799)
+      act(() => { vi.advanceTimersByTime(1000) })
+      expect(result.current.juiceSeconds).toBe(0)
+      expect(result.current.elapsedSeconds).toBe(3600)
+    })
+
+    it('経過時間通知ON時も、イベントを待たずローカル周期リセットが働く（フォールバック）', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      // onElapsedNotificationFired イベントは一度も発火させていない
+      act(() => { vi.advanceTimersByTime(1800 * 1000) })
+      expect(result.current.juiceSeconds).toBe(0)
+      expect(result.current.elapsedSeconds).toBe(1800)
+    })
+
+    it('経過時間通知ON時、onElapsedNotificationFiredイベントでリセットされる', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      // fillSeconds（1800秒）未満まで進め、ローカル周期リセット（フォールバック）が
+      // まだ発火していない状態でイベントによるリセットを検証する
+      act(() => { vi.advanceTimersByTime(1799 * 1000) })
+      expect(result.current.juiceSeconds).toBe(1799)
+      act(() => { elapsedFiredCallback?.() })
+      expect(result.current.juiceSeconds).toBe(0)
+      // 表示用の経過時間はリセットされない
+      expect(result.current.elapsedSeconds).toBe(1799)
+    })
+
+    it('経過時間通知ON時、2回目のonElapsedNotificationFiredイベントでも再度リセットされる', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      act(() => { vi.advanceTimersByTime(1800 * 1000) })
+      act(() => { elapsedFiredCallback?.() })
+      expect(result.current.juiceSeconds).toBe(0)
+      act(() => { vi.advanceTimersByTime(1800 * 1000) })
+      act(() => { elapsedFiredCallback?.() })
+      expect(result.current.juiceSeconds).toBe(0)
+      expect(result.current.elapsedSeconds).toBe(3600)
+    })
+
+    it('タイマー停止後にイベントが来てもリセット処理は走らない', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: true, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      await act(async () => { await result.current.stop() })
+      expect(() => { act(() => { elapsedFiredCallback?.() }) }).not.toThrow()
+      expect(result.current.juiceSeconds).toBe(0)
+    })
+
+    it('adjustStartTimeで開始時刻を修正すると、cycleAnchorSecondsがfillSecondsの倍数に再アンカーされる', async () => {
+      mockGetElapsedSettings.mockResolvedValue({ enabled: false, minutes: 30 })
+      const { result } = renderHook(() => useTimer())
+      await act(async () => { result.current.start('テスト') })
+      // 5000秒経過（1800/3600の2つの周期境界を通過し、cycleAnchorSecondsは3600まで進んでいる）
+      act(() => { vi.advanceTimersByTime(5000 * 1000) })
+      expect(result.current.juiceSeconds).toBe(1400) // 5000 - 3600
+      // 開始時刻を「1000秒前」に修正（合計時間を大幅に短縮する操作に相当）
+      act(() => {
+        result.current.adjustStartTime(new Date(Date.now() - 1000 * 1000))
+      })
+      // 修正前の cycleAnchorSeconds(3600) をそのまま引きずると
+      // juiceSeconds = max(0, 1000 - 3600) = 0 に落ち込み、次の周期境界(5400秒)まで
+      // 空のまま固まってしまう。再アンカーにより 1000 - (1000 % 1800) = 0 が新しい基準になり、
+      // juiceSeconds は "空のまま固まる" のではなく妥当な値（1000）になる。
+      expect(result.current.elapsedSeconds).toBe(1000)
+      expect(result.current.juiceSeconds).toBe(1000)
     })
   })
 })

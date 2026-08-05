@@ -14,6 +14,8 @@ vi.stubGlobal('bridge', {
   // updateRepository が呼ぶ IPC モック
   onUpdatePrepareQuit: vi.fn().mockReturnValue(() => {}),
   readyToQuit: vi.fn().mockResolvedValue(undefined),
+  // useTimer が呼ぶ IPC モック
+  onElapsedNotificationFired: vi.fn().mockReturnValue(() => {}),
 })
 
 function stubSessions(): SessionsState {
