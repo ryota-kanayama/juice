@@ -283,6 +283,7 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
             elapsedSeconds={ts.elapsedSeconds}
             baseSeconds={ts.baseSeconds}
             fillSeconds={ts.fillSeconds}
+            juiceSeconds={ts.juiceSeconds}
             color={ts.activeColor}
             initialProjectCode={ts.activeTimerProjectCode}
             initialWorkCategory={ts.activeTimerWorkCategory}
