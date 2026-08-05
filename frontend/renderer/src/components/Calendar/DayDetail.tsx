@@ -3,13 +3,10 @@ import type { Session } from '../../types/session'
 import { orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit } from '../../domain/session'
 import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
-import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { SessionFormDialog, type SessionFormValues } from '../Popover/SessionFormDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
-import { usePagination } from '../../hooks/usePagination'
 import { Card, CardContent } from '@/components/ui/card'
 import { Hint } from '@/components/ui/hint'
-import { Button } from '@/components/ui/button'
 import { EditPencil } from 'iconoir-react'
 import { resolveJuiceColor } from '../../domain/colors'
 
@@ -18,14 +15,13 @@ interface Props {
   sessions: Session[]
   sessionOrder?: string[] | null
   onUpdate?: (session: Session) => Promise<void>
-  onBack?: () => void
   suggestions?: Suggestions
   onOpenAnalysis?: () => void
 }
 
 const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
 
-export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBack, suggestions = EMPTY_SUGGESTIONS, onOpenAnalysis }: Props) {
+export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, suggestions = EMPTY_SUGGESTIONS, onOpenAnalysis }: Props) {
   // 編集ダイアログ。開くたびに対象セッションの値で初期化する
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<SessionFormValues>(EMPTY_FORM)
@@ -38,7 +34,6 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBac
 
   const sortedSessions = orderSessions(sessions, sessionOrder)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
-  const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
 
   if (!date) {
     return <div className="px-4 py-8 text-center text-[14px] text-[var(--text-muted)]">日付を選択してください</div>
@@ -78,25 +73,14 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBac
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2.5">
       <div className="mb-3 flex items-center gap-2">
-        {onBack && (
-          <Button variant="ghost" size="icon" onClick={onBack} aria-label="戻る">←</Button>
-        )}
         <h3 className="m-0 text-[15px] font-bold text-[var(--text-primary)]">{date}</h3>
       </div>
 
       {sessions.length === 0 ? (
         <p className="m-0 flex-1 text-[13px] text-[var(--text-muted)]">この日はジュースを注いでいません</p>
       ) : (
-        <ul
-          className="m-0 flex min-h-0 flex-1 list-none animate-slide-up flex-col gap-2.5 p-0"
-          key={animKey}
-          onWheel={e => {
-            if (totalPages <= 1) return
-            if (e.deltaY > 0 && page < totalPages - 1) changePage(page + 1)
-            if (e.deltaY < 0 && page > 0) changePage(page - 1)
-          }}
-        >
-          {pagedSessions.map(session => (
+        <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-2.5 overflow-y-auto p-0">
+          {sortedSessions.map(session => (
             <li
               key={session.id}
               data-session-item
@@ -126,8 +110,6 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBac
           ))}
         </ul>
       )}
-
-      <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
 
       <Hint label={onOpenAnalysis ? 'ダブルクリックで週次分析を表示' : undefined}>
         <Card
