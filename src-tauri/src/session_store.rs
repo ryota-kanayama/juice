@@ -90,6 +90,10 @@ struct RawSession {
 /// 1（暗黙・version 無し）→ 2: 単区間で totalTime と食い違う記録の終了時刻を補正済み。
 const SESSION_FILE_VERSION: u32 = 2;
 
+/// 移行前の中身を1回だけ退避する専用ファイルの接尾辞。
+/// write() の .bak は保存のたびに上書きされるので、移行前の状態は別名で残す。
+const PRE_MIGRATION_BACKUP_SUFFIX: &str = ".pre-v2.bak";
+
 #[derive(Deserialize)]
 struct RawSessionFile {
     #[serde(default)]
@@ -169,17 +173,30 @@ impl SessionStore {
     pub fn get_sessions(&self, year_month: &str) -> Result<Vec<Session>, StoreError> {
         // 不正な yearMonth はここで即 throw（try の外で検証）
         let path = self.file_path(year_month)?;
-        let read = Self::read_parse(&path).or_else(|| {
-            let bak = append_ext(&path, ".bak");
-            Self::read_parse(&bak)
-        });
-        let Some((version, sessions)) = read else {
+        // 読み取り元のパスも覚えておく（移行前の退避はこのファイルを複製する）
+        let read = Self::read_parse(&path)
+            .map(|parsed| (path.clone(), parsed))
+            .or_else(|| {
+                let bak = append_ext(&path, ".bak");
+                Self::read_parse(&bak).map(|parsed| (bak, parsed))
+            });
+        let Some((source, (version, sessions))) = read else {
             return Ok(Vec::new());
         };
         if version >= SESSION_FILE_VERSION {
             return Ok(sessions);
         }
-        // 一度だけの移行。write() が旧ファイルを .bak へ退避するのでバックアップは自動で残る。
+        // 一度だけの移行。
+        // write() が作る .bak は移行後の最初の保存で上書きされてしまうため、
+        // 移行前の中身は専用名で1回だけ退避する（既にあれば作り直さない）。
+        // 退避に失敗したら移行そのものを中止し、移行前の内容を返す。
+        let pre = append_ext(&path, PRE_MIGRATION_BACKUP_SUFFIX);
+        if !pre.exists() {
+            if let Err(e) = std::fs::copy(&source, &pre) {
+                eprintln!("[juice] session migration {year_month} aborted (backup failed): {e}");
+                return Ok(sessions);
+            }
+        }
         // 保存に失敗したら移行前の内容を返す（表示と保存内容を食い違わせない。次回起動で再試行される）
         let original = sessions.clone();
         let (migrated, changed) = migrate_sessions(sessions);
@@ -292,7 +309,14 @@ fn migrate_sessions(sessions: Vec<Session>) -> (Vec<Session>, usize) {
             if actual == s.total_time || s.total_time < 1 {
                 return s;
             }
-            let fixed = start_dt + chrono::Duration::minutes(s.total_time);
+            // セッションファイルはユーザーが編集しうる信用できない入力。
+            // 巨大な total_time でも panic せず、そのセッションは触らずに残す。
+            let Some(delta) = chrono::TimeDelta::try_minutes(s.total_time) else {
+                return s;
+            };
+            let Some(fixed) = start_dt.checked_add_signed(delta) else {
+                return s;
+            };
             let fixed_str = fixed.format("%Y-%m-%dT%H:%M:%S").to_string();
             eprintln!(
                 "[juice] migrate {} {}: {} -> {} ({}分 -> {}分)",
@@ -597,15 +621,65 @@ mod tests {
     }
 
     #[test]
-    fn migration_keeps_original_in_bak() {
+    fn migration_keeps_original_in_pre_migration_backup() {
         let (store, dir) = new_store();
         let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
         std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
 
         store.get_sessions("2026-05").unwrap();
 
-        // write() が旧ファイルを .bak へ退避するので、移行前の内容が残る
-        let bak = std::fs::read_to_string(dir.path().join("sessions-2026-05.json.bak")).unwrap();
-        assert!(bak.contains("2026-05-20T10:01:00"));
+        // 移行前の内容が専用の退避ファイルに残る
+        let pre =
+            std::fs::read_to_string(dir.path().join("sessions-2026-05.json.pre-v2.bak")).unwrap();
+        assert!(pre.contains("2026-05-20T10:01:00"));
+    }
+
+    #[test]
+    fn pre_migration_backup_survives_later_save() {
+        let (store, dir) = new_store();
+        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
+        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+
+        store.get_sessions("2026-05").unwrap();
+        // 移行後に保存すると write() の .bak は移行後の内容で潰れるが、
+        // 専用の退避ファイルは移行前のままでなければならない
+        store.save_session(sample("later", "2026-05-21")).unwrap();
+
+        let pre =
+            std::fs::read_to_string(dir.path().join("sessions-2026-05.json.pre-v2.bak")).unwrap();
+        assert!(pre.contains("2026-05-20T10:01:00"));
+        assert!(!pre.contains("2026-05-20T10:30:00"));
+    }
+
+    #[test]
+    fn already_v2_file_is_not_migrated() {
+        let (store, dir) = new_store();
+        // version 2 と明記されていれば、合計が食い違っていても触らない
+        let raw = r##"{"version":2,"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
+        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+
+        let got = store.get_sessions("2026-05").unwrap();
+        assert_eq!(
+            got[0].times[0].end_time.as_deref(),
+            Some("2026-05-20T10:01:00")
+        );
+        // 移行が走っていないので退避ファイルも作られない
+        assert!(!dir.path().join("sessions-2026-05.json.pre-v2.bak").exists());
+    }
+
+    #[test]
+    fn migrate_skips_out_of_range_total_time() {
+        // ユーザーが手で壊しうる値。panic せずそのセッションを触らないこと
+        let sessions = vec![session_with(
+            "a",
+            vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:01:00"))],
+            999_999_999_999_999,
+        )];
+        let (migrated, changed) = migrate_sessions(sessions);
+        assert_eq!(changed, 0);
+        assert_eq!(
+            migrated[0].times[0].end_time.as_deref(),
+            Some("2026-05-20T10:01:00")
+        );
     }
 }
