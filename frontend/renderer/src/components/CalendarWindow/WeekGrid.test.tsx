@@ -319,4 +319,21 @@ describe('WeekGrid のホバー詳細', () => {
     await user.hover(chip)
     expect(await screen.findByText('45分')).toBeInTheDocument()
   })
+
+  it('グリッド範囲をはみ出す区間は、クリップ後ではなく記録そのものの時刻と長さを出す', async () => {
+    const user = userEvent.setup()
+    // 18:00–22:00（240分）。グリッドは 8:00〜20:00 までしか描かないため、
+    // 表示上は 20:00 でクリップされるが、ツールチップには記録そのものの時刻・長さを出す
+    const overnight = makeSession({
+      times: [{ startTime: '2026-08-06T18:00:00', endTime: '2026-08-06T22:00:00' }],
+      totalTime: 240,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [overnight] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    await user.hover(block)
+    expect(await screen.findByText('18:00 – 22:00')).toBeInTheDocument()
+    expect(screen.getByText('240分')).toBeInTheDocument()
+  })
 })

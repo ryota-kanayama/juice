@@ -124,8 +124,11 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
                 <span className="break-words text-sm font-medium leading-snug text-foreground">{session.name}</span>
                 {(session.projectCode || session.workCategory) && (
                   <div data-session-meta className="mb-px mt-0.5 flex flex-nowrap gap-1 overflow-hidden">
-                    {session.projectCode && <span className="shrink-0 truncate rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.projectCode}</span>}
-                    {session.workCategory && <span className="min-w-0 truncate rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.workCategory}</span>}
+                    {/* shrink-0 と truncate は両立しない（shrink-0 だと text-ellipsis が発動せず
+                        「…」なしで途中から切れる）。幅が足りないときは両方のチップが均等に縮んで
+                        省略記号を出す。ツールチップの逃げ道が無いぶん title で全文を出す */}
+                    {session.projectCode && <span title={session.projectCode} className="min-w-0 truncate rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.projectCode}</span>}
+                    {session.workCategory && <span title={session.workCategory} className="min-w-0 truncate rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.workCategory}</span>}
                   </div>
                 )}
                 {expandedId === session.id && <SessionIntervals session={session} />}

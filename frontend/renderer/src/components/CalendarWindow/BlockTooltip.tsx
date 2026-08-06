@@ -21,7 +21,8 @@ export function BlockTooltip({ name, timeRange, minutes, projectCode, workCatego
   // でなく複数要素に分かれていると、その非表示コピーが getByText の重複ヒットを生む
   // （実機でも同じ内容が2回読み上げられて冗長になる）ため、要約した aria-label を渡し
   // 非表示コピー側はそちらを使わせる。
-  const summary = [name, timeRange, `${minutes}分`, projectCode, workCategory].filter(Boolean).join(' ')
+  // 半角スペース区切りだと日本語のスクリーンリーダーで一続きに棒読みされるため、読点で区切る
+  const summary = [name, timeRange, `${minutes}分`, projectCode, workCategory].filter(Boolean).join('、')
   return (
     <TooltipProvider delayDuration={250}>
       <Tooltip>

@@ -210,6 +210,9 @@ describe('DayDetail のカードの収まり', () => {
     // truncate（whitespace-nowrap + text-ellipsis）ではなく折り返しで見せる
     expect(name.className).not.toContain('whitespace-nowrap')
     expect(name.className).not.toContain('text-ellipsis')
+    // Tailwind の truncate は上記2つと overflow-hidden を1クラスに畳んだものなので、
+    // 不在チェックだけでは truncate への差し戻しを検出できない。break-words の存在も見る
+    expect(name.className).toContain('break-words')
   })
 
   it('PJコードと作業区分を同じ行に並べる', () => {
@@ -223,5 +226,25 @@ describe('DayDetail のカードの収まり', () => {
     const bare = { ...session, projectCode: '', workCategory: '' }
     const { container } = render(<DayDetail date="2026-02-25" sessions={[bare]} />)
     expect(container.querySelector('[data-session-meta]')).toBeNull()
+  })
+
+  it('長いPJコードと作業区分は両方が縮んで省略され、titleで全文を読める', () => {
+    const long = {
+      ...session,
+      projectCode: 'PROJECT-CODE-とても長いプロジェクトコード',
+      workCategory: '作業区分もとても長い名前になっている',
+    }
+    const { container } = render(<DayDetail date="2026-02-25" sessions={[long]} />)
+    const chips = container.querySelector('[data-session-meta]') as HTMLElement
+    const [codeChip, categoryChip] = Array.from(chips.children) as HTMLElement[]
+    expect(codeChip).toBeTruthy()
+    expect(categoryChip).toBeTruthy()
+    // shrink-0 と truncate は両立しない（shrink-0 があると text-ellipsis が発動せず、
+    // 途中から「…」なしで切られる）。PJコードのチップも他と同じく縮められる必要がある
+    expect(codeChip.className).not.toContain('shrink-0')
+    expect(codeChip.className).toContain('truncate')
+    expect(categoryChip.className).toContain('truncate')
+    expect(codeChip).toHaveAttribute('title', long.projectCode)
+    expect(categoryChip).toHaveAttribute('title', long.workCategory)
   })
 })

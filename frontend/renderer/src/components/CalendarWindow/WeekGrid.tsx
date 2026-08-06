@@ -88,9 +88,11 @@ function toBlocks(sessions: Session[]): Block[] {
         key: `${s.id}-${i}`,
         name: s.name,
         color: resolveJuiceColor(s.color),
+        // ツールチップは「実際に記録された内容」を伝えるものなので、グリッドの表示範囲で
+        // 切り詰めたクリップ後の値ではなく、記録そのものの時刻・長さ（クリップ前）を使う
         label: `${t.startTime.split('T')[1].slice(0, 5)}–${t.endTime.split('T')[1].slice(0, 5)}`,
         span: { start: clippedStart, end: clippedEnd },
-        minutes: Math.max(1, Math.round((clippedEnd - clippedStart))),
+        minutes: Math.max(1, endMin - startMin),
         projectCode: s.projectCode,
         workCategory: s.workCategory,
       })
