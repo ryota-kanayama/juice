@@ -26,6 +26,8 @@ use notif_scheduler::NotificationEngine;
 use session_store::SessionStore;
 use settings_store::SettingsStore;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -147,6 +149,7 @@ pub fn run() {
             commands::get_app_version,
             commands::window_resize,
             commands::open_calendar_window,
+            commands::back_to_main_panel,
             commands::timer_is_running,
             commands::get_launch_at_login,
             commands::set_launch_at_login,
@@ -232,6 +235,10 @@ fn init_panel(app_handle: &AppHandle) {
     });
     delegate.set_listener(Box::new(move |name: String| {
         if name.as_str() == "window_did_resign_key" {
+            // 「戻る」で出した直後は activation policy 切り替えで resign が飛ぶため無視する。
+            if blur_close_suppressed() {
+                return;
+            }
             // ヘッダーをドラッグしてアンカーから動かしていたら閉じない（フローティング維持）。
             if panel_moved_from_anchor(&handle) {
                 return;
@@ -406,6 +413,7 @@ fn open_aux_window(
             win.on_window_event(move |ev| {
                 if matches!(ev, tauri::WindowEvent::Destroyed) {
                     revert_activation_policy_if_no_aux(&handle);
+                    show_panel_if_pending(&handle);
                 }
             });
         }
@@ -440,9 +448,71 @@ fn toggle_panel(app: &AppHandle) {
         panel.order_out(None);
         return;
     }
-    let window = app.get_webview_window("main").unwrap();
+    show_panel(app);
+}
+
+/// 付属ウィンドウを閉じ終えたらパネルを出す、という予約フラグ。
+/// パネルを先に出してからウィンドウを閉じると、キーウィンドウの移動で
+/// windowDidResignKey が飛び blur-to-close で即座に閉じてしまうため、
+/// 「閉じ終えてから出す」順序を守るために使う。
+static PENDING_BACK_TO_PANEL: AtomicBool = AtomicBool::new(false);
+
+/// 次にウィンドウが閉じたらパネルを出すよう予約する。
+pub fn reserve_back_to_panel() {
+    PENDING_BACK_TO_PANEL.store(true, Ordering::SeqCst);
+}
+
+/// 予約されていればパネルを表示し、タイマー画面へ切り替えるよう通知する。
+fn show_panel_if_pending(app: &AppHandle) {
+    if PENDING_BACK_TO_PANEL.swap(false, Ordering::SeqCst) {
+        show_panel_now(app);
+    }
+}
+
+/// この時刻（epoch ミリ秒）までは blur-to-close を無視する。
+/// 「戻る」でパネルを出した直後は、付属ウィンドウが消えたことによる activation policy の
+/// 切り替え（Regular → Accessory）でアプリが非アクティブになり windowDidResignKey が
+/// 飛ぶ。出したそばから閉じてしまうため、この間だけ blur による自動クローズを止める。
+static BLUR_CLOSE_SUPPRESSED_UNTIL_MS: AtomicU64 = AtomicU64::new(0);
+
+/// 表示直後の自動クローズ抑止時間。policy 切り替えが落ち着くまでの猶予。
+const BLUR_CLOSE_SUPPRESS_MS: u64 = 700;
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// 抑止期間中か。
+fn blur_close_suppressed() -> bool {
+    now_ms() < BLUR_CLOSE_SUPPRESSED_UNTIL_MS.load(Ordering::SeqCst)
+}
+
+/// パネルを表示し、新たに表示したときだけタイマー画面へ切り替えるよう通知する。
+pub fn show_panel_now(app: &AppHandle) {
+    BLUR_CLOSE_SUPPRESSED_UNTIL_MS.store(now_ms() + BLUR_CLOSE_SUPPRESS_MS, Ordering::SeqCst);
+    if show_panel(app) {
+        use tauri::Emitter;
+        let _ = app.emit("navigate", "timer");
+    }
+}
+
+/// パネルをカーソル位置に配置して表示する。既に表示中なら false を返す（何もしない）。
+pub fn show_panel(app: &AppHandle) -> bool {
+    let Ok(panel) = app.get_webview_panel("main") else {
+        return false;
+    };
+    if panel.is_visible() {
+        return false;
+    }
+    let Some(window) = app.get_webview_window("main") else {
+        return false;
+    };
     position_native(&window);
     panel.show();
+    true
 }
 
 /// AppKit を直接叩いてパネルを配置する。

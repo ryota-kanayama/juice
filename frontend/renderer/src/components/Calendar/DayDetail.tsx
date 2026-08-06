@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { orderSessions } from '../../../../shared/sessionUtils'
-import { applySessionEdit } from '../../domain/session'
+import { applySessionEdit, dayTimeRange } from '../../domain/session'
 import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
 import { SessionFormDialog, type SessionFormValues } from '../Popover/SessionFormDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { EditPencil } from 'iconoir-react'
 import { resolveJuiceColor } from '../../domain/colors'
 
@@ -16,7 +15,6 @@ interface Props {
   sessionOrder?: string[] | null
   onUpdate?: (session: Session) => Promise<void>
   suggestions?: Suggestions
-  onOpenAnalysis?: () => void
 }
 
 const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
@@ -31,7 +29,7 @@ function formatDateHeading(date: string): string {
   return `${dt.getMonth() + 1}月${dt.getDate()}日(${WEEKDAYS_JA[dt.getDay()]})`
 }
 
-export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, suggestions = EMPTY_SUGGESTIONS, onOpenAnalysis }: Props) {
+export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, suggestions = EMPTY_SUGGESTIONS }: Props) {
   // 編集ダイアログ。開くたびに対象セッションの値で初期化する
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<SessionFormValues>(EMPTY_FORM)
@@ -44,6 +42,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
 
   const sortedSessions = orderSessions(sessions, sessionOrder)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
+  const timeRange = dayTimeRange(sessions)
 
   if (!date) {
     return <div className="px-4 py-8 text-center text-[14px] text-[var(--text-muted)]">日付を選択してください</div>
@@ -89,7 +88,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
       {sessions.length === 0 ? (
         <p className="m-0 flex-1 text-[13px] text-[var(--text-muted)]">この日はジュースを注いでいません</p>
       ) : (
-        <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-2.5 overflow-y-auto p-0">
+        <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-2.5 overflow-y-auto p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {sortedSessions.map(session => (
             <li
               key={session.id}
@@ -121,18 +120,16 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
         </ul>
       )}
 
-      <Card className="mb-2 mt-2 shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]">
-        <CardContent className="flex flex-col gap-2 px-3 py-2 text-[11px]">
-          {sessions.length > 0 && (
+      {sessions.length > 0 && (
+        <Card data-day-summary className="mb-2 mt-2 shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]">
+          <CardContent className="flex flex-col gap-1 px-3 py-2 text-[11px]">
+            {timeRange && (
+              <span>{timeRange.start} – {timeRange.end ?? '稼働中'}</span>
+            )}
             <span>注いだ時間: <strong>{totalMinutes}分</strong></span>
-          )}
-          {onOpenAnalysis && (
-            <Button size="sm" variant="outline" className="w-full" onClick={onOpenAnalysis}>
-              週次分析
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {contextMenu && onUpdate && (
         <div

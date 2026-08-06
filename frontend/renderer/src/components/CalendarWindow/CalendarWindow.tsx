@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavArrowLeft } from 'iconoir-react'
+import { Button } from '@/components/ui/button'
+import { windowRepository } from '../../repositories/windowRepository'
 import { useCalendarWindow } from '../../hooks/useCalendarWindow'
 import { useSuggestions } from '../../hooks/useSuggestions'
 import { useDailyData } from '../../daily/DailyDataContext'
@@ -32,8 +35,20 @@ export function CalendarWindow() {
 
   return (
     <div className="flex h-screen w-full bg-[var(--bg)] font-[var(--font-family)] antialiased">
-      {/* 左サイドバー */}
+      {/* 左サイドバー。最上段はツールバーと同じ高さの行にして「＜」だけを置く */}
       <aside className="flex w-[220px] shrink-0 flex-col gap-3 overflow-hidden p-3">
+        <div className="mb-2 flex shrink-0 items-center border-b border-[var(--glass-border)] pb-1.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            aria-label="戻る"
+            onClick={() => { void windowRepository.backToMain() }}
+          >
+            <NavArrowLeft width={16} height={16} />
+          </Button>
+        </div>
+
         <MiniCalendar
           anchorDate={cal.anchorDate}
           selectedDate={cal.selectedDate}
@@ -52,7 +67,6 @@ export function CalendarWindow() {
             sessionOrder={sessionOrder}
             onUpdate={cal.updateSession}
             suggestions={suggestions}
-            onOpenAnalysis={() => setAnalysisDate(cal.selectedDate)}
           />
         </div>
       </aside>
@@ -66,6 +80,7 @@ export function CalendarWindow() {
           onPrev={cal.goPrev}
           onNext={cal.goNext}
           onChangeView={cal.setView}
+          onOpenAnalysis={() => setAnalysisDate(cal.selectedDate)}
         />
         {cal.view === 'week' ? (
           <WeekGrid

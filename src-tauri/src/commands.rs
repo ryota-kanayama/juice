@@ -361,6 +361,25 @@ pub fn open_calendar_window(app: tauri::AppHandle) {
     crate::open_calendar(&app);
 }
 
+/// カレンダーウィンドウを閉じてポップオーバーへ戻る。
+/// ポップオーバーが隠れていたときだけ表示し、タイマー画面に切り替えるよう通知する。
+/// 既に表示中なら位置も表示中の画面も動かさず、カレンダーウィンドウを閉じるだけにする。
+///
+/// パネルの表示はウィンドウを閉じ終えてから行う（先に出すとキーウィンドウの移動で
+/// blur-to-close が発火し、出した直後に閉じてしまう）。
+#[tauri::command]
+pub fn back_to_main_panel(app: tauri::AppHandle) {
+    use tauri::Manager;
+    match app.get_webview_window("calendar") {
+        Some(win) => {
+            crate::reserve_back_to_panel();
+            let _ = win.close();
+        }
+        // ウィンドウが無ければ閉じる契機も無いので、その場で出す
+        None => crate::show_panel_now(&app),
+    }
+}
+
 /// タイマー稼働中か（再起動前の確認文言切替などに使う）。
 #[tauri::command]
 pub fn timer_is_running(app: tauri::AppHandle) -> bool {

@@ -71,3 +71,36 @@ describe('CalendarWindow', () => {
     })
   })
 })
+
+describe('CalendarWindow の戻るボタン', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 7, 6, 12, 0, 0))
+  })
+
+  it('「戻る」を押すとポップオーバーへ戻るコマンドを呼ぶ', async () => {
+    const backToMainPanel = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('bridge', {
+      getSessions: vi.fn().mockResolvedValue([]),
+      updateSession: vi.fn().mockResolvedValue(undefined),
+      getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
+      setDailyDay: vi.fn().mockResolvedValue(undefined),
+      getHolidays: vi.fn().mockResolvedValue({}),
+      backToMainPanel,
+    })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<CalendarWindow />, { wrapper })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '戻る' })).toBeInTheDocument()
+    })
+    await user.click(screen.getByRole('button', { name: '戻る' }))
+    expect(backToMainPanel).toHaveBeenCalled()
+  })
+
+  it('週次分析ボタンはツールバーに置く', async () => {
+    render(<CalendarWindow />, { wrapper })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '週次分析' })).toBeInTheDocument()
+    })
+  })
+})

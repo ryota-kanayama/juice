@@ -107,3 +107,35 @@ describe('DayDetail', () => {
     expect(screen.getAllByText('会議')).toHaveLength(2)
   })
 })
+
+describe('DayDetail の集計フッター', () => {
+  it('その日の開始時刻と終了時刻を表示する', () => {
+    render(<DayDetail date="2026-02-25" sessions={[session]} />)
+    expect(screen.getByText('10:00 – 10:45')).toBeInTheDocument()
+  })
+
+  it('稼働中の区間があるときは終了時刻を「稼働中」と表示する', () => {
+    const running: Session = {
+      ...session,
+      times: [{ startTime: '2026-02-25T10:00:00', endTime: null }],
+    }
+    render(<DayDetail date="2026-02-25" sessions={[running]} />)
+    expect(screen.getByText('10:00 – 稼働中')).toBeInTheDocument()
+  })
+
+  it('記録がある日はフッターを表示する', () => {
+    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} />)
+    expect(container.querySelector('[data-day-summary]')).not.toBeNull()
+    expect(screen.getByText(/注いだ時間/)).toBeInTheDocument()
+  })
+
+  it('記録が無い日は空のフッターを残さず、要素ごと消す', () => {
+    const { container } = render(<DayDetail date="2026-02-25" sessions={[]} />)
+    expect(container.querySelector('[data-day-summary]')).toBeNull()
+  })
+
+  it('週次分析ボタンはツールバーへ移したのでフッターには置かない', () => {
+    render(<DayDetail date="2026-02-25" sessions={[session]} />)
+    expect(screen.queryByRole('button', { name: '週次分析' })).not.toBeInTheDocument()
+  })
+})

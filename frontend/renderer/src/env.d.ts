@@ -25,6 +25,7 @@ interface Bridge {
   setTheme: (themeId: string) => Promise<void>
   onThemeChanged: (callback: (themeId: string) => void) => () => void
   onElapsedNotificationFired: (callback: () => void) => () => void
+  onNavigate: (callback: (page: string) => void) => () => void
   getIdleSettings: () => Promise<ToggleSettings>
   setIdleSettings: (enabled: boolean, minutes: number) => Promise<void>
   getElapsedSettings: () => Promise<ToggleSettings>
@@ -56,6 +57,7 @@ interface Bridge {
   hideWindow: () => Promise<void>
   resizeWindow: (width: number, height: number) => Promise<void>
   openCalendarWindow: () => Promise<void>
+  backToMainPanel: () => Promise<void>
 
   // auth
   signInWithSlack: () => Promise<void>

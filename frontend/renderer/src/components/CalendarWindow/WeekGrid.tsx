@@ -86,7 +86,7 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
   const cols = `44px repeat(7, minmax(0, 1fr))`
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+    <div className="flex min-h-0 flex-1 flex-col overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {/* 曜日ヘッダー */}
       <div
         className="sticky top-0 z-10 grid shrink-0 rounded-t-[6px] border border-b-0 border-[var(--glass-border)] bg-card"

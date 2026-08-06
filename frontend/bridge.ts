@@ -84,6 +84,7 @@ const bridge = {
   resizeWindow: (width: number, height: number) =>
     invoke("window_resize", { width, height }),
   openCalendarWindow: () => invoke("open_calendar_window"),
+  backToMainPanel: () => invoke("back_to_main_panel"),
 
   // ---- Auth（✅ MAPPED） ----
   signInWithSlack: () => invoke("sign_in_with_slack"),
@@ -116,6 +117,8 @@ const bridge = {
     subscribe<void>("update-prepare-quit", () => cb()),
   onElapsedNotificationFired: (cb: () => void) =>
     subscribe<void>("elapsed-notification-fired", () => cb()),
+  onNavigate: (cb: (page: string) => void) =>
+    subscribe<string>("navigate", cb),
 };
 
 // レンダラーが参照する window.bridge を提供する。

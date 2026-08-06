@@ -61,3 +61,20 @@ describe('CalendarToolbar', () => {
     expect(screen.getByRole('button', { name: '月' })).toHaveAttribute('aria-pressed', 'false')
   })
 })
+
+describe('CalendarToolbar の週次分析ボタン', () => {
+  it('週次分析ボタンを表示し、押すと onOpenAnalysis が呼ばれる', async () => {
+    const onOpenAnalysis = vi.fn()
+    render(<CalendarToolbar {...baseProps} onOpenAnalysis={onOpenAnalysis} />)
+    await userEvent.click(screen.getByRole('button', { name: '週次分析' }))
+    expect(onOpenAnalysis).toHaveBeenCalled()
+  })
+
+  it('週次分析ボタンは月・週の切替ボタンより左に置く', () => {
+    render(<CalendarToolbar {...baseProps} onOpenAnalysis={vi.fn()} />)
+    const analysis = screen.getByRole('button', { name: '週次分析' })
+    const month = screen.getByRole('button', { name: '月' })
+    // DOCUMENT_POSITION_FOLLOWING(4) が立っていれば analysis が month より前にある
+    expect(analysis.compareDocumentPosition(month) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

@@ -71,7 +71,7 @@ export function MiniCalendar({
             <button
               key={dateStr}
               className={[
-                'relative cursor-pointer rounded-full border-0 py-[3px] transition-colors',
+                'relative cursor-pointer rounded-[4px] border-0 py-[3px] transition-colors',
                 isSelected
                   ? 'bg-[var(--accent)] font-bold'
                   : inWeek

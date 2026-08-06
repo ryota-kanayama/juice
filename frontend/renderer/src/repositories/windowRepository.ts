@@ -17,4 +17,8 @@ export const windowRepository = {
   openCalendar(): Promise<void> {
     return window.bridge.openCalendarWindow()
   },
+  /** カレンダーウィンドウを閉じてポップオーバーへ戻る */
+  backToMain(): Promise<void> {
+    return window.bridge.backToMainPanel()
+  },
 }

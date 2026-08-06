@@ -95,6 +95,13 @@ function PopoverView() {
     if (tab) setCurrentPage(tab)
   }, [tour.index, tour.step])
 
+  // カレンダーウィンドウの「戻る」でパネルを開いたときは、タイマー画面から始める
+  useEffect(() => {
+    return window.bridge.onNavigate(page => {
+      if (page === 'timer' || page === 'attendance') setCurrentPage(page)
+    })
+  }, [])
+
   const sessions = useSessions()
   const workday = useWorkday(sessions.today)
   const update = useUpdate()

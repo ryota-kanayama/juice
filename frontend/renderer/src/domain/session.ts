@@ -81,3 +81,36 @@ export function appendRunningInterval(session: Session): Session {
 export function hasRunningInterval(session: Session): boolean {
   return session.times.some(t => t.endTime === null)
 }
+
+/** その日の作業時間帯（"HH:mm"）。稼働中の区間があるときは end が null。 */
+export interface DayTimeRange {
+  start: string
+  end: string | null
+}
+
+/** "YYYY-MM-DDTHH:mm:ss" から "HH:mm" を取り出す。 */
+function timeOf(localDateTime: string): string {
+  return localDateTime.slice(11, 16)
+}
+
+/**
+ * その日のセッション群から、最も早い開始時刻と最も遅い終了時刻を求める。
+ * 区間が1つも無ければ null。稼働中の区間があれば終了時刻は未確定として null を返す。
+ */
+export function dayTimeRange(sessions: Session[]): DayTimeRange | null {
+  const intervals = sessions.flatMap(s => s.times)
+  if (intervals.length === 0) return null
+
+  const start = intervals.reduce<string>(
+    (earliest, t) => (t.startTime < earliest ? t.startTime : earliest),
+    intervals[0].startTime
+  )
+
+  if (intervals.some(t => !t.endTime)) return { start: timeOf(start), end: null }
+
+  const end = intervals.reduce<string>(
+    (latest, t) => (t.endTime! > latest ? t.endTime! : latest),
+    intervals[0].endTime!
+  )
+  return { start: timeOf(start), end: timeOf(end) }
+}
