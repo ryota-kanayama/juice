@@ -5,6 +5,8 @@ import {
   appendRunningInterval,
   hasRunningInterval,
   dayTimeRange,
+  totalMinutesOf,
+  hasReliableTimes,
 } from './session'
 import type { Session } from '../types/session'
 import { JUICE_COLOR_KEYS } from './colors'
@@ -239,5 +241,80 @@ describe('dayTimeRange', () => {
 
   it('区間を持たない手動追加セッションだけなら null', () => {
     expect(dayTimeRange([makeSession({ times: [] })])).toBeNull()
+  })
+})
+
+describe('totalMinutesOf', () => {
+  it('単一区間の分を返す', () => {
+    expect(totalMinutesOf([
+      { startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:45:00' },
+    ])).toBe(45)
+  })
+
+  it('複数区間を合算する', () => {
+    expect(totalMinutesOf([
+      { startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:00:00' },
+      { startTime: '2026-05-20T13:00:00', endTime: '2026-05-20T14:30:00' },
+    ])).toBe(150)
+  })
+
+  it('稼働中の区間は合計に含めない', () => {
+    expect(totalMinutesOf([
+      { startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:00:00' },
+      { startTime: '2026-05-20T11:00:00', endTime: null },
+    ])).toBe(60)
+  })
+
+  it('区間が無ければ 0', () => {
+    expect(totalMinutesOf([])).toBe(0)
+  })
+
+  it('すべて稼働中なら 0', () => {
+    expect(totalMinutesOf([
+      { startTime: '2026-05-20T11:00:00', endTime: null },
+    ])).toBe(0)
+  })
+
+  it('秒は四捨五入する', () => {
+    // 90秒 → 1.5分 → 2分
+    expect(totalMinutesOf([
+      { startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:01:30' },
+    ])).toBe(2)
+  })
+
+  it('1分未満でも完了区間があれば最低1分', () => {
+    expect(totalMinutesOf([
+      { startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:00:10' },
+    ])).toBe(1)
+  })
+})
+
+describe('hasReliableTimes', () => {
+  it('区間が無ければ false', () => {
+    expect(hasReliableTimes(makeSession({ times: [], totalTime: 45 }))).toBe(false)
+  })
+
+  it('合計が totalTime と一致すれば true', () => {
+    expect(hasReliableTimes(makeSession({
+      times: [{ startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:30:00' }],
+      totalTime: 30,
+    }))).toBe(true)
+  })
+
+  it('合計が totalTime と食い違えば false', () => {
+    expect(hasReliableTimes(makeSession({
+      times: [{ startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:01:00' }],
+      totalTime: 30,
+    }))).toBe(false)
+  })
+
+  it('稼働中の区間を持つセッションは食い違っていても true', () => {
+    expect(hasReliableTimes(makeSession({
+      times: [
+        { startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:30:00' },
+        { startTime: '2026-05-20T11:00:00', endTime: null },
+      ],
+      totalTime: 30,
+    }))).toBe(true)
   })
 })

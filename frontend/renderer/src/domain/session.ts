@@ -1,4 +1,4 @@
-import type { Session, WorkLocation } from '../types/session'
+import type { Session, TimeInterval, WorkLocation } from '../types/session'
 import { formatLocalDate, formatLocalDateTime } from '../../../shared/sessionUtils'
 import { randomColor } from './colors'
 
@@ -113,4 +113,32 @@ export function dayTimeRange(sessions: Session[]): DayTimeRange | null {
     intervals[0].endTime!
   )
   return { start: timeOf(start), end: timeOf(end) }
+}
+
+/**
+ * 完了区間の合計分。稼働中（endTime=null）の区間は含めない。
+ * Rust の total_time_from_intervals と同じ丸め方をするが、区間が無い／すべて稼働中の
+ * ときは 0 を返す（Rust 側は totalTime 欠落時のフォールバック専用で最低1分を返す）。
+ */
+export function totalMinutesOf(times: TimeInterval[]): number {
+  let ms = 0
+  let completed = 0
+  for (const t of times) {
+    if (!t.endTime) continue
+    completed += 1
+    ms += new Date(t.endTime).getTime() - new Date(t.startTime).getTime()
+  }
+  if (completed === 0) return 0
+  return Math.max(1, Math.round(ms / 60000))
+}
+
+/**
+ * 週表示の時間軸グリッドに出してよい記録か。
+ * 区間を持ち、その合計が totalTime と一致していれば時刻を信用できる。
+ * 稼働中の区間があるセッションは合計に経過が含まれず必ず食い違うため、常に信用する。
+ */
+export function hasReliableTimes(session: Session): boolean {
+  if (session.times.length === 0) return false
+  if (hasRunningInterval(session)) return true
+  return totalMinutesOf(session.times) === session.totalTime
 }
