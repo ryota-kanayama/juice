@@ -2,6 +2,7 @@ import type { Session } from '../../types/session'
 import { resolveJuiceColor } from '../../domain/colors'
 import { hasReliableTimes } from '../../domain/session'
 import { layoutOverlaps, type Span } from '../../domain/overlapLayout'
+import { BlockTooltip } from './BlockTooltip'
 
 interface Props {
   /** 日曜〜土曜の7日 "YYYY-MM-DD" */
@@ -57,12 +58,24 @@ interface Block {
   label: string
   left: number
   width: number
+  minutes: number
+  projectCode: string
+  workCategory: string
 }
 
 /** 1日ぶんの区間を、グリッド座標のブロックに変換する（範囲外はクリップ、稼働中は除外）。 */
 function toBlocks(sessions: Session[]): Block[] {
   // 先にクリップ済みの区間を集め、重なりの配置をまとめて計算する
-  const clipped: { key: string; name: string; color: string; label: string; span: Span }[] = []
+  const clipped: {
+    key: string
+    name: string
+    color: string
+    label: string
+    span: Span
+    minutes: number
+    projectCode: string
+    workCategory: string
+  }[] = []
   for (const s of sessions) {
     s.times.forEach((t, i) => {
       if (!t.endTime) return
@@ -77,6 +90,9 @@ function toBlocks(sessions: Session[]): Block[] {
         color: resolveJuiceColor(s.color),
         label: `${t.startTime.split('T')[1].slice(0, 5)}–${t.endTime.split('T')[1].slice(0, 5)}`,
         span: { start: clippedStart, end: clippedEnd },
+        minutes: Math.max(1, Math.round((clippedEnd - clippedStart))),
+        projectCode: s.projectCode,
+        workCategory: s.workCategory,
       })
     })
   }
@@ -97,6 +113,9 @@ function toBlocks(sessions: Session[]): Block[] {
       height,
       left: placements[i].left,
       width: placements[i].width,
+      minutes: c.minutes,
+      projectCode: c.projectCode,
+      workCategory: c.workCategory,
     }
   })
 }
@@ -159,16 +178,22 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
               onClick={() => onSelectDate(date)}
             >
               {untimedByDate[date].map(s => (
-                <div
+                <BlockTooltip
                   key={s.id}
-                  data-untimed-chip
-                  className="cursor-pointer truncate rounded-[3px] px-1 text-[9px] leading-[1.5] text-white"
-                  style={{ background: resolveJuiceColor(s.color) }}
-                  title={`${s.name} ${s.totalTime}分`}
-                  onDoubleClick={() => onEditSession?.(s)}
+                  name={s.name}
+                  minutes={s.totalTime}
+                  projectCode={s.projectCode}
+                  workCategory={s.workCategory}
                 >
-                  {s.name}
-                </div>
+                  <div
+                    data-untimed-chip
+                    className="cursor-pointer truncate rounded-[3px] px-1 text-[9px] leading-[1.5] text-white"
+                    style={{ background: resolveJuiceColor(s.color) }}
+                    onDoubleClick={() => onEditSession?.(s)}
+                  >
+                    {s.name}
+                  </div>
+                </BlockTooltip>
               ))}
             </div>
           ))}
@@ -212,26 +237,33 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
               {...(isSelected ? { 'data-selected': date } : {})}
             >
               {toBlocks((sessionsByDate[date] ?? []).filter(hasReliableTimes)).map(b => (
-                <div
+                <BlockTooltip
                   key={b.key}
-                  data-event-block
-                  className="absolute overflow-hidden rounded-[3px] py-0.5 pl-1 pr-1.5 text-[9px] leading-tight text-white shadow-sm"
-                  style={{
-                    top: pct(b.top),
-                    height: pct(b.height),
-                    left: pct(b.left),
-                    width: pct(b.width),
-                    // 隣の列と接して見えないよう、透明ボーダーで内側に寄せる
-                    borderLeft: '2px solid transparent',
-                    borderRight: '2px solid transparent',
-                    background: b.color,
-                    backgroundClip: 'padding-box',
-                  }}
-                  title={`${b.name} ${b.label}`}
+                  name={b.name}
+                  timeRange={b.label.replace('–', ' – ')}
+                  minutes={b.minutes}
+                  projectCode={b.projectCode}
+                  workCategory={b.workCategory}
                 >
-                  <div className="truncate font-semibold">{b.name}</div>
-                  {b.height >= COMPACT_BLOCK_PCT && <div className="truncate opacity-85">{b.label}</div>}
-                </div>
+                  <div
+                    data-event-block
+                    className="absolute overflow-hidden rounded-[3px] py-0.5 pl-1 pr-1.5 text-[9px] leading-tight text-white shadow-sm"
+                    style={{
+                      top: pct(b.top),
+                      height: pct(b.height),
+                      left: pct(b.left),
+                      width: pct(b.width),
+                      // 隣の列と接して見えないよう、透明ボーダーで内側に寄せる
+                      borderLeft: '2px solid transparent',
+                      borderRight: '2px solid transparent',
+                      background: b.color,
+                      backgroundClip: 'padding-box',
+                    }}
+                  >
+                    <div className="truncate font-semibold">{b.name}</div>
+                    {b.height >= COMPACT_BLOCK_PCT && <div className="truncate opacity-85">{b.label}</div>}
+                  </div>
+                </BlockTooltip>
               ))}
             </div>
           )

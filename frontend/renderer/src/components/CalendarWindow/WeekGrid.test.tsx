@@ -294,3 +294,29 @@ describe('WeekGrid の重なり配置', () => {
     for (const el of blocks) expect(parseFloat(el.style.width)).toBeCloseTo(100, 3)
   })
 })
+
+describe('WeekGrid のホバー詳細', () => {
+  it('ブロックにカーソルを合わせると作業名と時刻が出る', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [makeSession()] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    await user.hover(block)
+    // makeSession は 10:00–12:00 / 120分 / レビュー / P001 / 開発
+    expect(await screen.findByText('10:00 – 12:00')).toBeInTheDocument()
+    expect(screen.getByText('120分')).toBeInTheDocument()
+    expect(screen.getByText('P001')).toBeInTheDocument()
+  })
+
+  it('時刻なし帯のチップにカーソルを合わせても詳細が出る', async () => {
+    const user = userEvent.setup()
+    const untimed = makeSession({ times: [], totalTime: 45 })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [untimed] }} />
+    )
+    const chip = container.querySelector('[data-untimed-chip]') as HTMLElement
+    await user.hover(chip)
+    expect(await screen.findByText('45分')).toBeInTheDocument()
+  })
+})

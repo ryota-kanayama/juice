@@ -198,3 +198,30 @@ describe('DayDetail の展開表示', () => {
     expect(container.querySelector('[data-session-intervals]')).toBeNull()
   })
 })
+
+describe('DayDetail のカードの収まり', () => {
+  it('作業名を省略記号で切らず折り返す', () => {
+    const long = {
+      ...session,
+      name: 'とても長い作業名がここに入っていて一行では収まらない',
+    }
+    render(<DayDetail date="2026-02-25" sessions={[long]} />)
+    const name = screen.getByText('とても長い作業名がここに入っていて一行では収まらない')
+    // truncate（whitespace-nowrap + text-ellipsis）ではなく折り返しで見せる
+    expect(name.className).not.toContain('whitespace-nowrap')
+    expect(name.className).not.toContain('text-ellipsis')
+  })
+
+  it('PJコードと作業区分を同じ行に並べる', () => {
+    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} />)
+    const chips = container.querySelector('[data-session-meta]')
+    expect(chips).not.toBeNull()
+    expect(chips?.className).toContain('flex-nowrap')
+  })
+
+  it('PJコードも作業区分も無ければメタ行を出さない', () => {
+    const bare = { ...session, projectCode: '', workCategory: '' }
+    const { container } = render(<DayDetail date="2026-02-25" sessions={[bare]} />)
+    expect(container.querySelector('[data-session-meta]')).toBeNull()
+  })
+})

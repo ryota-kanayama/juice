@@ -91,7 +91,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2.5">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1 pt-2.5">
       <div className="mb-3 flex items-center gap-2">
         <h3 className="m-0 text-[15px] font-bold text-[var(--text-primary)]">{formatDateHeading(date)}</h3>
       </div>
@@ -121,11 +121,11 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
             >
               <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: resolveJuiceColor(session.color) }} aria-hidden="true" />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-foreground">{session.name}</span>
+                <span className="break-words text-sm font-medium leading-snug text-foreground">{session.name}</span>
                 {(session.projectCode || session.workCategory) && (
-                  <div className="mb-px mt-0.5 flex flex-wrap gap-1">
-                    {session.projectCode && <span className="rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.projectCode}</span>}
-                    {session.workCategory && <span className="rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.workCategory}</span>}
+                  <div data-session-meta className="mb-px mt-0.5 flex flex-nowrap gap-1 overflow-hidden">
+                    {session.projectCode && <span className="shrink-0 truncate rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.projectCode}</span>}
+                    {session.workCategory && <span className="min-w-0 truncate rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.workCategory}</span>}
                   </div>
                 )}
                 {expandedId === session.id && <SessionIntervals session={session} />}
