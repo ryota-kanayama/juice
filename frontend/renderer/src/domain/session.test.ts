@@ -171,6 +171,22 @@ describe('applySessionEdit', () => {
     expect(session.times[1].endTime).toBeNull()
   })
 
+  it('1分未満の完了区間と稼働中の区間が同居するとき totalTime は 1 になる', () => {
+    const running = makeSession({
+      times: [
+        { startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T09:00:10' },
+        { startTime: '2026-05-20T11:00:00', endTime: null },
+      ],
+      totalTime: 0,
+    })
+    const { session } = applySessionEdit(running, {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: running.times, totalMinutes: null,
+    })
+    expect(session.totalTime).toBe(1)
+    expect(session.times[1].endTime).toBeNull()
+  })
+
   it('稼働中区間の開始を変えると adjustedStartMs を返す', () => {
     const running = makeSession({
       times: [{ startTime: '2026-05-20T11:00:00', endTime: null }],

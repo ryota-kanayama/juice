@@ -48,7 +48,9 @@ export function applySessionEdit(
   const updated: Session = {
     ...base,
     times,
-    // 稼働中なら経過は含めないので 0 分もありうる
+    // completed は totalMinutesOf のルール通り: 完了区間が1つも無ければ0、
+    // 1つでもあれば max(1, ...) が効くので下限1分。稼働中でも0になるのは
+    // 「完了区間が無く稼働中区間だけ」のときだけ。
     totalTime: running ? completed : Math.max(1, completed),
   }
 
