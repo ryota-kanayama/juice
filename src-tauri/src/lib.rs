@@ -448,7 +448,7 @@ fn toggle_panel(app: &AppHandle) {
         panel.order_out(None);
         return;
     }
-    show_panel(app);
+    show_panel(app, PanelPlacement::Cursor);
 }
 
 /// 付属ウィンドウを閉じ終えたらパネルを出す、という予約フラグ。
@@ -490,17 +490,25 @@ fn blur_close_suppressed() -> bool {
     now_ms() < BLUR_CLOSE_SUPPRESSED_UNTIL_MS.load(Ordering::SeqCst)
 }
 
-/// パネルを表示し、新たに表示したときだけタイマー画面へ切り替えるよう通知する。
+/// パネルを前回の位置に出し、新たに表示したときだけタイマー画面へ切り替えるよう通知する。
 pub fn show_panel_now(app: &AppHandle) {
     BLUR_CLOSE_SUPPRESSED_UNTIL_MS.store(now_ms() + BLUR_CLOSE_SUPPRESS_MS, Ordering::SeqCst);
-    if show_panel(app) {
+    if show_panel(app, PanelPlacement::LastAnchor) {
         use tauri::Emitter;
         let _ = app.emit("navigate", "timer");
     }
 }
 
-/// パネルをカーソル位置に配置して表示する。既に表示中なら false を返す（何もしない）。
-pub fn show_panel(app: &AppHandle) -> bool {
+/// パネルをどこに出すか。
+pub enum PanelPlacement {
+    /// カーソルのいる画面のメニューバー直下（トレイクリックと同じ挙動）
+    Cursor,
+    /// 前回出した位置に戻す。記録が無ければ Cursor と同じ扱い
+    LastAnchor,
+}
+
+/// パネルを配置して表示する。既に表示中なら false を返す（何もしない）。
+pub fn show_panel(app: &AppHandle, placement: PanelPlacement) -> bool {
     let Ok(panel) = app.get_webview_panel("main") else {
         return false;
     };
@@ -510,8 +518,33 @@ pub fn show_panel(app: &AppHandle) -> bool {
     let Some(window) = app.get_webview_window("main") else {
         return false;
     };
-    position_native(&window);
+    let restored = matches!(placement, PanelPlacement::LastAnchor) && restore_panel_position(&window);
+    if !restored {
+        position_native(&window);
+    }
     panel.show();
+    true
+}
+
+/// 前回パネルを出した位置（アンカー）へ戻す。記録が無ければ false。
+#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
+fn restore_panel_position(window: &WebviewWindow) -> bool {
+    let anchor = {
+        let g = window.state::<AnchorPos>();
+        let v = *g.0.lock().unwrap_or_else(|e| e.into_inner());
+        v
+    };
+    let Some((x, y)) = anchor else {
+        return false;
+    };
+    let ns_window = match window.ns_window() {
+        Ok(ptr) => ptr as id,
+        Err(_) => return false,
+    };
+    eprintln!("[juice] native place: restore anchor -> origin=({x:.0},{y:.0})");
+    unsafe {
+        let _: () = msg_send![ns_window, setFrameOrigin: NSPoint { x, y }];
+    }
     true
 }
 
