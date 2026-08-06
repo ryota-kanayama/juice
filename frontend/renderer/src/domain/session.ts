@@ -6,65 +6,79 @@ export interface SessionEdit {
   name: string
   projectCode: string
   workCategory: string
-  /** 編集後の合計分。null なら時間は変更しない */
+  /** 編集後の区間。時刻を持たないまま編集する（レガシー）なら null */
+  times: TimeInterval[] | null
+  /** times が null のときだけ使う合計分 */
   totalMinutes: number | null
 }
 
+/** 稼働中（endTime=null）の区間を返す。無ければ undefined。 */
+function runningIntervalOf(times: TimeInterval[]): TimeInterval | undefined {
+  return times.find(t => t.endTime === null)
+}
+
 /**
- * セッションの編集内容を適用する。稼働中セッションの合計時間を変更した場合は
- * 最後の区間の開始時刻を巻き戻し、その新しい開始時刻（ms）を adjustedStartMs で返す。
+ * セッションの編集内容を適用する。
+ * 区間を差し替えた場合は totalTime も区間の合計に合わせる（稼働中の区間は含めない）。
+ * 稼働中区間の開始時刻を動かした場合は、その新しい開始時刻（ms）を adjustedStartMs で返す。
  */
 export function applySessionEdit(
   session: Session,
   edit: SessionEdit
 ): { session: Session; adjustedStartMs?: number } {
-  let updated: Session = {
+  const base: Session = {
     ...session,
     name: edit.name,
     projectCode: edit.projectCode,
     workCategory: edit.workCategory,
   }
 
-  const { totalMinutes } = edit
-  if (totalMinutes != null && totalMinutes >= 1) {
-    const lastInterval = session.times[session.times.length - 1]
-    if (lastInterval && !lastInterval.endTime) {
-      // 稼働中: 合計が指定値になるよう最後の区間の開始時刻を調整
-      const desiredElapsed = Math.max(1, totalMinutes - session.totalTime)
-      const newStartMs = Date.now() - desiredElapsed * 60000
-      updated = {
-        ...updated,
-        times: session.times.map(t =>
-          t === lastInterval ? { ...t, startTime: formatLocalDateTime(newStartMs) } : t
-        ),
-      }
-      return { session: updated, adjustedStartMs: newStartMs }
+  // レガシー: 時刻を持たないまま合計だけ編集する
+  if (edit.times === null) {
+    const { totalMinutes } = edit
+    if (totalMinutes != null && totalMinutes >= 1) {
+      return { session: { ...base, totalTime: totalMinutes } }
     }
-    updated = { ...updated, totalTime: totalMinutes }
+    return { session: base }
   }
 
+  const times = edit.times
+  const running = runningIntervalOf(times)
+  const completed = totalMinutesOf(times)
+  const updated: Session = {
+    ...base,
+    times,
+    // 稼働中なら経過は含めないので 0 分もありうる
+    totalTime: running ? completed : Math.max(1, completed),
+  }
+
+  const prevRunning = runningIntervalOf(session.times)
+  if (running && prevRunning && running.startTime !== prevRunning.startTime) {
+    return { session: updated, adjustedStartMs: new Date(running.startTime).getTime() }
+  }
   return { session: updated }
 }
 
-/** 手動追加用の新規セッションを組み立てる（区間なしの確定済みセッション） */
+/** 手動追加用の新規セッションを組み立てる。日付は最初の区間から決まる。 */
 export function createManualSession(params: {
   name: string
   projectCode: string
   workCategory: string
-  totalMinutes: number
+  times: TimeInterval[]
   workLocation?: WorkLocation
 }): Session {
   const id = crypto.randomUUID()
+  const first = params.times[0]
   return {
     id,
     taskId: id,
     name: params.name,
     projectCode: params.projectCode,
     workCategory: params.workCategory,
-    times: [],
-    date: formatLocalDate(Date.now()),
+    times: params.times,
+    date: first ? first.startTime.slice(0, 10) : formatLocalDate(Date.now()),
     color: randomColor(),
-    totalTime: Math.max(1, params.totalMinutes),
+    totalTime: Math.max(1, totalMinutesOf(params.times)),
     ...(params.workLocation === 'telework' ? { workLocation: 'telework' as const } : {}),
   }
 }

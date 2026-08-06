@@ -36,134 +36,185 @@ const makeSession = (overrides: Partial<Session> = {}): Session => ({
   ...overrides,
 })
 
-describe('applySessionEdit', () => {
-  it('name / projectCode / workCategory を更新する', () => {
-    const { session, adjustedStartMs } = applySessionEdit(makeSession(), {
-      name: '作業B',
-      projectCode: 'Q',
-      workCategory: '設計',
-      totalMinutes: null,
+describe('createManualSession', () => {
+  it('区間から totalTime を算出する', () => {
+    const s = createManualSession({
+      name: '設計',
+      projectCode: 'P001',
+      workCategory: '開発',
+      times: [{ startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:30:00' }],
     })
-    expect(session.name).toBe('作業B')
-    expect(session.projectCode).toBe('Q')
-    expect(session.workCategory).toBe('設計')
-    expect(session.totalTime).toBe(30)
-    expect(adjustedStartMs).toBeUndefined()
+    expect(s.totalTime).toBe(90)
+    expect(s.times).toEqual([{ startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:30:00' }])
   })
 
-  it('totalMinutes=null の場合は時間を変更しない', () => {
-    const { session } = applySessionEdit(makeSession({ totalTime: 45 }), {
-      name: '作業A', projectCode: 'P', workCategory: '開発',
-      totalMinutes: null,
+  it('date は最初の区間の日付から決まる', () => {
+    const s = createManualSession({
+      name: '設計', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-05-18T09:00:00', endTime: '2026-05-18T09:30:00' }],
     })
-    expect(session.totalTime).toBe(45)
+    expect(s.date).toBe('2026-05-18')
   })
 
-  it('完了セッションでは totalTime を直接書き換える', () => {
-    const { session, adjustedStartMs } = applySessionEdit(makeSession(), {
-      name: '作業A', projectCode: 'P', workCategory: '開発',
-      totalMinutes: 60,
-    })
-    expect(session.totalTime).toBe(60)
-    expect(session.times[0]).toEqual({
-      startTime: '2026-05-20T10:00:00',
-      endTime: '2026-05-20T10:30:00',
-    })
-    expect(adjustedStartMs).toBeUndefined()
-  })
-
-  it('稼働中セッションでは最後の区間の開始時刻を調整し adjustedStartMs を返す', () => {
-    // 元のセッション: 完了区間30分 + 稼働中（合計 totalTime=30）。
-    // 「合計45分にしたい」→ 差分15分が新区間として必要 → 開始時刻は now-15分。
-    const running = makeSession({
+  it('複数区間を合算する', () => {
+    const s = createManualSession({
+      name: '設計', projectCode: '', workCategory: '',
       times: [
-        { startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:30:00' },
-        { startTime: '2026-05-20T11:55:00', endTime: null },
+        { startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:00:00' },
+        { startTime: '2026-05-20T13:00:00', endTime: '2026-05-20T14:00:00' },
       ],
     })
-    const { session, adjustedStartMs } = applySessionEdit(running, {
-      name: '作業A', projectCode: 'P', workCategory: '開発',
-      totalMinutes: 45,
-    })
-    const expectedStartMs = NOW_MS - 15 * 60000
-    expect(adjustedStartMs).toBe(expectedStartMs)
-    // ISO 風 "YYYY-MM-DDTHH:mm:ss" のローカル文字列で比較
-    expect(session.times[1].startTime).toBe('2026-05-20T11:45:00')
-    // 完了区間は不変
-    expect(session.times[0]).toEqual({
-      startTime: '2026-05-20T10:00:00',
-      endTime: '2026-05-20T10:30:00',
-    })
+    expect(s.totalTime).toBe(120)
   })
 
-  it('稼働中で「合計が現在以下」を指定しても、新区間は最低1分とみなす', () => {
-    // totalTime=30 のとき totalMinutes=30 を指定 → desiredElapsed=max(1, 0)=1分
-    const running = makeSession({
-      times: [{ startTime: '2026-05-20T11:55:00', endTime: null }],
-      totalTime: 30,
+  it('id と taskId が同じ値になる', () => {
+    const s = createManualSession({
+      name: '設計', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T09:30:00' }],
     })
-    const { adjustedStartMs } = applySessionEdit(running, {
-      name: '作業A', projectCode: 'P', workCategory: '開発',
-      totalMinutes: 30,
-    })
-    expect(adjustedStartMs).toBe(NOW_MS - 1 * 60000)
+    expect(s.taskId).toBe(s.id)
   })
 
-  it('totalMinutes < 1 は無視する（時間を変更しない）', () => {
-    const { session, adjustedStartMs } = applySessionEdit(makeSession({ totalTime: 30 }), {
-      name: '作業A', projectCode: 'P', workCategory: '開発',
-      totalMinutes: 0,
+  it('色はパレットから選ばれる', () => {
+    const s = createManualSession({
+      name: '設計', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T09:30:00' }],
     })
-    expect(session.totalTime).toBe(30)
-    expect(adjustedStartMs).toBeUndefined()
+    expect(JUICE_COLOR_KEYS).toContain(s.color)
   })
 
-  it('times が空のセッション（手動追加）でも totalTime を変更できる', () => {
-    const manual = makeSession({ times: [], totalTime: 60 })
-    const { session, adjustedStartMs } = applySessionEdit(manual, {
-      name: '作業A', projectCode: 'P', workCategory: '開発',
-      totalMinutes: 90,
+  it('telework を渡すと workLocation が付く', () => {
+    const s = createManualSession({
+      name: '設計', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T09:30:00' }],
+      workLocation: 'telework',
     })
-    expect(session.totalTime).toBe(90)
-    expect(session.times).toEqual([])
-    expect(adjustedStartMs).toBeUndefined()
-  })
-})
-
-describe('createManualSession', () => {
-  it('区間なし・本日付・totalTime を持つセッションを生成する', () => {
-    const session = createManualSession({
-      name: '会議', projectCode: 'P', workCategory: '打合せ', totalMinutes: 45,
-    })
-    expect(session.name).toBe('会議')
-    expect(session.projectCode).toBe('P')
-    expect(session.workCategory).toBe('打合せ')
-    expect(session.totalTime).toBe(45)
-    expect(session.times).toEqual([])
-    expect(session.date).toBe('2026-05-20')
-    // id === taskId（新規セッション）
-    expect(session.id).toBe(session.taskId)
-    // 色はパレットのキーから1つ
-    expect(JUICE_COLOR_KEYS).toContain(session.color)
-  })
-
-  it('totalMinutes < 1 は最低1分にクランプする', () => {
-    const session = createManualSession({
-      name: 'X', projectCode: '', workCategory: '', totalMinutes: 0,
-    })
-    expect(session.totalTime).toBe(1)
-  })
-})
-
-describe('createManualSession: 勤務場所', () => {
-  it('workLocation=telework を渡すと保持する', () => {
-    const s = createManualSession({ name: 'a', projectCode: 'ZZ', workCategory: '開発', totalMinutes: 30, workLocation: 'telework' })
     expect(s.workLocation).toBe('telework')
   })
 
-  it('workLocation=office は保持しない（undefined）', () => {
-    const s = createManualSession({ name: 'a', projectCode: 'ZZ', workCategory: '開発', totalMinutes: 30, workLocation: 'office' })
+  it('office を渡すと workLocation は付かない', () => {
+    const s = createManualSession({
+      name: '設計', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T09:30:00' }],
+      workLocation: 'office',
+    })
     expect(s.workLocation).toBeUndefined()
+  })
+})
+
+describe('applySessionEdit', () => {
+  it('名前・PJコード・作業区分を差し替える', () => {
+    const { session } = applySessionEdit(makeSession(), {
+      name: '設計レビュー', projectCode: 'P002', workCategory: 'レビュー',
+      times: [{ startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T10:30:00' }],
+      totalMinutes: null,
+    })
+    expect(session.name).toBe('設計レビュー')
+    expect(session.projectCode).toBe('P002')
+    expect(session.workCategory).toBe('レビュー')
+  })
+
+  it('区間を差し替えると totalTime も追従する', () => {
+    const { session } = applySessionEdit(makeSession(), {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: [{ startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T12:00:00' }],
+      totalMinutes: null,
+    })
+    expect(session.times).toHaveLength(1)
+    expect(session.totalTime).toBe(120)
+  })
+
+  it('区間を増やすと合計に反映される', () => {
+    const { session } = applySessionEdit(makeSession(), {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: [
+        { startTime: '2026-05-20T10:00:00', endTime: '2026-05-20T11:00:00' },
+        { startTime: '2026-05-20T13:00:00', endTime: '2026-05-20T13:30:00' },
+      ],
+      totalMinutes: null,
+    })
+    expect(session.totalTime).toBe(90)
+  })
+
+  it('times が null なら totalTime だけ差し替える（レガシー）', () => {
+    const legacy = makeSession({ times: [], totalTime: 45 })
+    const { session } = applySessionEdit(legacy, {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: null, totalMinutes: 90,
+    })
+    expect(session.totalTime).toBe(90)
+    expect(session.times).toEqual([])
+  })
+
+  it('レガシーで totalMinutes が 0 以下なら totalTime を変えない', () => {
+    const legacy = makeSession({ times: [], totalTime: 45 })
+    const { session } = applySessionEdit(legacy, {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: null, totalMinutes: 0,
+    })
+    expect(session.totalTime).toBe(45)
+  })
+
+  it('稼働中の区間は totalTime に含めない', () => {
+    const running = makeSession({
+      times: [
+        { startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:00:00' },
+        { startTime: '2026-05-20T11:00:00', endTime: null },
+      ],
+      totalTime: 60,
+    })
+    const { session } = applySessionEdit(running, {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: running.times, totalMinutes: null,
+    })
+    expect(session.totalTime).toBe(60)
+    expect(session.times[1].endTime).toBeNull()
+  })
+
+  it('稼働中区間の開始を変えると adjustedStartMs を返す', () => {
+    const running = makeSession({
+      times: [{ startTime: '2026-05-20T11:00:00', endTime: null }],
+      totalTime: 0,
+    })
+    const { adjustedStartMs } = applySessionEdit(running, {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: [{ startTime: '2026-05-20T10:30:00', endTime: null }],
+      totalMinutes: null,
+    })
+    expect(adjustedStartMs).toBe(new Date('2026-05-20T10:30:00').getTime())
+  })
+
+  it('稼働中区間の開始が変わらなければ adjustedStartMs は返さない', () => {
+    const running = makeSession({
+      times: [{ startTime: '2026-05-20T11:00:00', endTime: null }],
+      totalTime: 0,
+    })
+    const { adjustedStartMs } = applySessionEdit(running, {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: [{ startTime: '2026-05-20T11:00:00', endTime: null }],
+      totalMinutes: null,
+    })
+    expect(adjustedStartMs).toBeUndefined()
+  })
+
+  it('停止済みセッションでは adjustedStartMs を返さない', () => {
+    const { adjustedStartMs } = applySessionEdit(makeSession(), {
+      name: '作業A', projectCode: 'P', workCategory: '開発',
+      times: [{ startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:00:00' }],
+      totalMinutes: null,
+    })
+    expect(adjustedStartMs).toBeUndefined()
+  })
+
+  it('元の session は書き換えない', () => {
+    const original = makeSession()
+    applySessionEdit(original, {
+      name: '別名', projectCode: 'X', workCategory: 'Y',
+      times: [{ startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T12:00:00' }],
+      totalMinutes: null,
+    })
+    expect(original.name).toBe('作業A')
+    expect(original.totalTime).toBe(30)
   })
 })
 
