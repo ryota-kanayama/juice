@@ -215,16 +215,17 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
                 <div
                   key={b.key}
                   data-event-block
-                  className="absolute overflow-hidden rounded-[3px] py-0.5 pl-1 text-[9px] leading-tight text-white shadow-sm"
+                  className="absolute overflow-hidden rounded-[3px] py-0.5 pl-1 pr-1.5 text-[9px] leading-tight text-white shadow-sm"
                   style={{
                     top: pct(b.top),
                     height: pct(b.height),
                     left: pct(b.left),
                     width: pct(b.width),
-                    // 隣の列と接して見えないよう内側へ寄せる
-                    transform: 'translateX(2px)',
-                    paddingRight: '6px',
+                    // 隣の列と接して見えないよう、透明ボーダーで内側に寄せる
+                    borderLeft: '2px solid transparent',
+                    borderRight: '2px solid transparent',
                     background: b.color,
+                    backgroundClip: 'padding-box',
                   }}
                   title={`${b.name} ${b.label}`}
                 >
