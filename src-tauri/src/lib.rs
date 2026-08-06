@@ -26,6 +26,8 @@ use notif_scheduler::NotificationEngine;
 use session_store::SessionStore;
 use settings_store::SettingsStore;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -146,6 +148,8 @@ pub fn run() {
             commands::open_url,
             commands::get_app_version,
             commands::window_resize,
+            commands::open_calendar_window,
+            commands::back_to_main_panel,
             commands::timer_is_running,
             commands::get_launch_at_login,
             commands::set_launch_at_login,
@@ -191,7 +195,7 @@ pub fn run() {
             build_tray(handle)?;
             // 初回起動（セットアップ未完了）はセットアップ窓を出す（Electron 版と同じ）
             if !handle.state::<SettingsStore>().is_setup_completed() {
-                open_aux_window(handle, "setup", "setup", "Juice — セットアップ", 480.0, 600.0);
+                open_aux_window(handle, "setup", "setup", "Juice — セットアップ", 480.0, 600.0, false);
             }
             Ok(())
         })
@@ -231,6 +235,10 @@ fn init_panel(app_handle: &AppHandle) {
     });
     delegate.set_listener(Box::new(move |name: String| {
         if name.as_str() == "window_did_resign_key" {
+            // 「戻る」で出した直後は activation policy 切り替えで resign が飛ぶため無視する。
+            if blur_close_suppressed() {
+                return;
+            }
             // ヘッダーをドラッグしてアンカーから動かしていたら閉じない（フローティング維持）。
             if panel_moved_from_anchor(&handle) {
                 return;
@@ -295,9 +303,25 @@ fn install_global_mouse_monitor(app_handle: &AppHandle) {
 fn install_local_focus_reclaim_monitor(app_handle: &AppHandle) {
     let handle = app_handle.to_owned();
     let block = ConcreteBlock::new(move |event: id| -> id {
-        if let Ok(panel) = handle.get_webview_panel("main") {
-            if panel.is_visible() {
-                panel.make_key_window();
+        // イベントの発生元が main パネル自身のときだけ奪還する。
+        // カレンダー窓など他ウィンドウのクリックで奪い返すと、そちらの
+        // キーボード入力が効かなくなる（#131）。
+        // 比較には Tauri 公式の ns_window()（NSWindow* を返す）を使う。
+        let main_ns_window = handle
+            .get_webview_window("main")
+            .and_then(|w| w.ns_window().ok());
+        let is_panel_event = match main_ns_window {
+            Some(ptr) => unsafe {
+                let event_window: id = msg_send![event, window];
+                !event_window.is_null() && event_window as *mut std::ffi::c_void == ptr
+            },
+            None => false,
+        };
+        if is_panel_event {
+            if let Ok(panel) = handle.get_webview_panel("main") {
+                if panel.is_visible() {
+                    panel.make_key_window();
+                }
             }
         }
         event
@@ -361,7 +385,15 @@ fn build_tray(app_handle: &AppHandle) -> tauri::Result<()> {
 /// 設定 / セットアップ用の通常ウィンドウを開く（既にあれば前面化）。
 /// メインは Accessory(Dock 非表示) の NSPanel だが、付属ウィンドウは前面化・フォーカスを
 /// 効かせるため一時的に Regular に切替える。全付属ウィンドウを閉じたら Accessory に戻す。
-fn open_aux_window(app: &AppHandle, label: &str, hash: &str, title: &str, w: f64, h: f64) {
+fn open_aux_window(
+    app: &AppHandle,
+    label: &str,
+    hash: &str,
+    title: &str,
+    w: f64,
+    h: f64,
+    resizable: bool,
+) {
     if let Some(win) = app.get_webview_window(label) {
         let _ = win.show();
         let _ = win.set_focus();
@@ -372,7 +404,7 @@ fn open_aux_window(app: &AppHandle, label: &str, hash: &str, title: &str, w: f64
     match tauri::WebviewWindowBuilder::new(app, label, url)
         .title(title)
         .inner_size(w, h)
-        .resizable(false)
+        .resizable(resizable)
         .build()
     {
         Ok(win) => {
@@ -381,6 +413,7 @@ fn open_aux_window(app: &AppHandle, label: &str, hash: &str, title: &str, w: f64
             win.on_window_event(move |ev| {
                 if matches!(ev, tauri::WindowEvent::Destroyed) {
                     revert_activation_policy_if_no_aux(&handle);
+                    show_panel_if_pending(&handle);
                 }
             });
         }
@@ -390,8 +423,9 @@ fn open_aux_window(app: &AppHandle, label: &str, hash: &str, title: &str, w: f64
 
 /// 付属ウィンドウ（settings/setup）が1つも無ければ Accessory（Dock 非表示）に戻す。
 fn revert_activation_policy_if_no_aux(app: &AppHandle) {
-    let has_aux =
-        app.get_webview_window("settings").is_some() || app.get_webview_window("setup").is_some();
+    let has_aux = app.get_webview_window("settings").is_some()
+        || app.get_webview_window("setup").is_some()
+        || app.get_webview_window("calendar").is_some();
     if !has_aux {
         let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
     }
@@ -399,7 +433,12 @@ fn revert_activation_policy_if_no_aux(app: &AppHandle) {
 
 /// 設定ウィンドウを開く（トレイ「設定」から）。
 pub fn open_settings(app: &AppHandle) {
-    open_aux_window(app, "settings", "settings", "Juice 設定", 440.0, 500.0);
+    open_aux_window(app, "settings", "settings", "Juice 設定", 440.0, 500.0, false);
+}
+
+/// カレンダーウィンドウを開く。通常のアプリウィンドウ（リサイズ可）。
+pub fn open_calendar(app: &AppHandle) {
+    open_aux_window(app, "calendar", "calendar", "Juice カレンダー", 1000.0, 680.0, true);
 }
 
 /// トレイアイコンの真下にパネルを表示／非表示でトグルする。
@@ -409,9 +448,104 @@ fn toggle_panel(app: &AppHandle) {
         panel.order_out(None);
         return;
     }
-    let window = app.get_webview_window("main").unwrap();
-    position_native(&window);
+    show_panel(app, PanelPlacement::Cursor);
+}
+
+/// 付属ウィンドウを閉じ終えたらパネルを出す、という予約フラグ。
+/// パネルを先に出してからウィンドウを閉じると、キーウィンドウの移動で
+/// windowDidResignKey が飛び blur-to-close で即座に閉じてしまうため、
+/// 「閉じ終えてから出す」順序を守るために使う。
+static PENDING_BACK_TO_PANEL: AtomicBool = AtomicBool::new(false);
+
+/// 次にウィンドウが閉じたらパネルを出すよう予約する。
+pub fn reserve_back_to_panel() {
+    PENDING_BACK_TO_PANEL.store(true, Ordering::SeqCst);
+}
+
+/// 予約されていればパネルを表示し、タイマー画面へ切り替えるよう通知する。
+fn show_panel_if_pending(app: &AppHandle) {
+    if PENDING_BACK_TO_PANEL.swap(false, Ordering::SeqCst) {
+        show_panel_now(app);
+    }
+}
+
+/// この時刻（epoch ミリ秒）までは blur-to-close を無視する。
+/// 「戻る」でパネルを出した直後は、付属ウィンドウが消えたことによる activation policy の
+/// 切り替え（Regular → Accessory）でアプリが非アクティブになり windowDidResignKey が
+/// 飛ぶ。出したそばから閉じてしまうため、この間だけ blur による自動クローズを止める。
+static BLUR_CLOSE_SUPPRESSED_UNTIL_MS: AtomicU64 = AtomicU64::new(0);
+
+/// 表示直後の自動クローズ抑止時間。policy 切り替えが落ち着くまでの猶予。
+const BLUR_CLOSE_SUPPRESS_MS: u64 = 700;
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// 抑止期間中か。
+fn blur_close_suppressed() -> bool {
+    now_ms() < BLUR_CLOSE_SUPPRESSED_UNTIL_MS.load(Ordering::SeqCst)
+}
+
+/// パネルを前回の位置に出し、新たに表示したときだけタイマー画面へ切り替えるよう通知する。
+pub fn show_panel_now(app: &AppHandle) {
+    BLUR_CLOSE_SUPPRESSED_UNTIL_MS.store(now_ms() + BLUR_CLOSE_SUPPRESS_MS, Ordering::SeqCst);
+    if show_panel(app, PanelPlacement::LastAnchor) {
+        use tauri::Emitter;
+        let _ = app.emit("navigate", "timer");
+    }
+}
+
+/// パネルをどこに出すか。
+pub enum PanelPlacement {
+    /// カーソルのいる画面のメニューバー直下（トレイクリックと同じ挙動）
+    Cursor,
+    /// 前回出した位置に戻す。記録が無ければ Cursor と同じ扱い
+    LastAnchor,
+}
+
+/// パネルを配置して表示する。既に表示中なら false を返す（何もしない）。
+pub fn show_panel(app: &AppHandle, placement: PanelPlacement) -> bool {
+    let Ok(panel) = app.get_webview_panel("main") else {
+        return false;
+    };
+    if panel.is_visible() {
+        return false;
+    }
+    let Some(window) = app.get_webview_window("main") else {
+        return false;
+    };
+    let restored = matches!(placement, PanelPlacement::LastAnchor) && restore_panel_position(&window);
+    if !restored {
+        position_native(&window);
+    }
     panel.show();
+    true
+}
+
+/// 前回パネルを出した位置（アンカー）へ戻す。記録が無ければ false。
+#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
+fn restore_panel_position(window: &WebviewWindow) -> bool {
+    let anchor = {
+        let g = window.state::<AnchorPos>();
+        let v = *g.0.lock().unwrap_or_else(|e| e.into_inner());
+        v
+    };
+    let Some((x, y)) = anchor else {
+        return false;
+    };
+    let ns_window = match window.ns_window() {
+        Ok(ptr) => ptr as id,
+        Err(_) => return false,
+    };
+    eprintln!("[juice] native place: restore anchor -> origin=({x:.0},{y:.0})");
+    unsafe {
+        let _: () = msg_send![ns_window, setFrameOrigin: NSPoint { x, y }];
+    }
+    true
 }
 
 /// AppKit を直接叩いてパネルを配置する。

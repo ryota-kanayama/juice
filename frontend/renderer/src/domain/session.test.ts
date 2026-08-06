@@ -4,6 +4,7 @@ import {
   createManualSession,
   appendRunningInterval,
   hasRunningInterval,
+  dayTimeRange,
 } from './session'
 import type { Session } from '../types/session'
 import { JUICE_COLOR_KEYS } from './colors'
@@ -191,5 +192,52 @@ describe('hasRunningInterval', () => {
 
   it('区間が空なら false', () => {
     expect(hasRunningInterval(makeSession({ times: [] }))).toBe(false)
+  })
+})
+
+describe('dayTimeRange', () => {
+  it('区間が1つならその開始と終了を返す', () => {
+    expect(dayTimeRange([makeSession()])).toEqual({ start: '10:00', end: '10:30' })
+  })
+
+  it('複数セッションをまたいで最も早い開始と最も遅い終了を返す', () => {
+    const morning = makeSession({
+      id: 's1',
+      times: [{ startTime: '2026-05-20T09:15:00', endTime: '2026-05-20T11:00:00' }],
+    })
+    const evening = makeSession({
+      id: 's2',
+      times: [{ startTime: '2026-05-20T13:00:00', endTime: '2026-05-20T18:30:00' }],
+    })
+    // 並び順に依存せず同じ結果になること
+    expect(dayTimeRange([evening, morning])).toEqual({ start: '09:15', end: '18:30' })
+  })
+
+  it('1セッションの複数区間も範囲に含める', () => {
+    const multi = makeSession({
+      times: [
+        { startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:00:00' },
+        { startTime: '2026-05-20T14:00:00', endTime: '2026-05-20T15:30:00' },
+      ],
+    })
+    expect(dayTimeRange([multi])).toEqual({ start: '09:00', end: '15:30' })
+  })
+
+  it('稼働中の区間があると終了は null になる', () => {
+    const running = makeSession({
+      times: [
+        { startTime: '2026-05-20T09:00:00', endTime: '2026-05-20T10:00:00' },
+        { startTime: '2026-05-20T11:00:00', endTime: null },
+      ],
+    })
+    expect(dayTimeRange([running])).toEqual({ start: '09:00', end: null })
+  })
+
+  it('セッションが無ければ null', () => {
+    expect(dayTimeRange([])).toBeNull()
+  })
+
+  it('区間を持たない手動追加セッションだけなら null', () => {
+    expect(dayTimeRange([makeSession({ times: [] })])).toBeNull()
   })
 })

@@ -1,15 +1,11 @@
 import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { orderSessions } from '../../../../shared/sessionUtils'
-import { applySessionEdit } from '../../domain/session'
+import { applySessionEdit, dayTimeRange } from '../../domain/session'
 import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
-import { PageIndicator } from '../PageIndicator/PageIndicator'
 import { SessionFormDialog, type SessionFormValues } from '../Popover/SessionFormDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
-import { usePagination } from '../../hooks/usePagination'
 import { Card, CardContent } from '@/components/ui/card'
-import { Hint } from '@/components/ui/hint'
-import { Button } from '@/components/ui/button'
 import { EditPencil } from 'iconoir-react'
 import { resolveJuiceColor } from '../../domain/colors'
 
@@ -18,14 +14,22 @@ interface Props {
   sessions: Session[]
   sessionOrder?: string[] | null
   onUpdate?: (session: Session) => Promise<void>
-  onBack?: () => void
   suggestions?: Suggestions
-  onOpenAnalysis?: () => void
 }
 
 const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
 
-export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBack, suggestions = EMPTY_SUGGESTIONS, onOpenAnalysis }: Props) {
+const WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土']
+
+/** "YYYY-MM-DD" を「8月5日(水)」形式に整形する。年は省略（タイムゾーンずれを避けるため
+ *  文字列を分解して new Date(y, m-1, d) で組み立てる。 calendarRange.ts と同じ流儀）。 */
+function formatDateHeading(date: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return `${dt.getMonth() + 1}月${dt.getDate()}日(${WEEKDAYS_JA[dt.getDay()]})`
+}
+
+export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, suggestions = EMPTY_SUGGESTIONS }: Props) {
   // 編集ダイアログ。開くたびに対象セッションの値で初期化する
   const [editTargetId, setEditTargetId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<SessionFormValues>(EMPTY_FORM)
@@ -38,7 +42,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBac
 
   const sortedSessions = orderSessions(sessions, sessionOrder)
   const totalMinutes = sessions.reduce((acc, s) => acc + s.totalTime, 0)
-  const { page, totalPages, pagedItems: pagedSessions, animKey, changePage } = usePagination(sortedSessions, 4)
+  const timeRange = dayTimeRange(sessions)
 
   if (!date) {
     return <div className="px-4 py-8 text-center text-[14px] text-[var(--text-muted)]">日付を選択してください</div>
@@ -78,25 +82,14 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBac
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2.5">
       <div className="mb-3 flex items-center gap-2">
-        {onBack && (
-          <Button variant="ghost" size="icon" onClick={onBack} aria-label="戻る">←</Button>
-        )}
-        <h3 className="m-0 text-[15px] font-bold text-[var(--text-primary)]">{date}</h3>
+        <h3 className="m-0 text-[15px] font-bold text-[var(--text-primary)]">{formatDateHeading(date)}</h3>
       </div>
 
       {sessions.length === 0 ? (
         <p className="m-0 flex-1 text-[13px] text-[var(--text-muted)]">この日はジュースを注いでいません</p>
       ) : (
-        <ul
-          className="m-0 flex min-h-0 flex-1 list-none animate-slide-up flex-col gap-2.5 p-0"
-          key={animKey}
-          onWheel={e => {
-            if (totalPages <= 1) return
-            if (e.deltaY > 0 && page < totalPages - 1) changePage(page + 1)
-            if (e.deltaY < 0 && page > 0) changePage(page - 1)
-          }}
-        >
-          {pagedSessions.map(session => (
+        <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-2.5 overflow-y-auto p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {sortedSessions.map(session => (
             <li
               key={session.id}
               data-session-item
@@ -127,23 +120,16 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, onBac
         </ul>
       )}
 
-      <PageIndicator totalPages={totalPages} currentPage={page} onChangePage={changePage} />
-
-      <Hint label={onOpenAnalysis ? 'ダブルクリックで週次分析を表示' : undefined}>
-        <Card
-          className={`mb-2 mt-2 shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]${onOpenAnalysis ? ' cursor-pointer' : ''}`}
-          onDoubleClick={onOpenAnalysis}
-        >
-          <CardContent className="flex items-center justify-between px-3 py-2 text-[11px]">
-            {onOpenAnalysis && (
-              <span className="text-[var(--text-muted)]">ダブルクリックで週次分析を開く</span>
+      {sessions.length > 0 && (
+        <Card data-day-summary className="mb-2 mt-2 shrink-0 border-[var(--glass-border)] bg-[var(--glass-bg)] text-[var(--text-secondary)]">
+          <CardContent className="flex flex-col gap-1 px-3 py-2 text-[11px]">
+            {timeRange && (
+              <span>{timeRange.start} – {timeRange.end ?? '稼働中'}</span>
             )}
-            {sessions.length > 0 && (
-              <span className="ml-auto text-right">注いだ時間: <strong>{totalMinutes}分</strong></span>
-            )}
+            <span>注いだ時間: <strong>{totalMinutes}分</strong></span>
           </CardContent>
         </Card>
-      </Hint>
+      )}
 
       {contextMenu && onUpdate && (
         <div

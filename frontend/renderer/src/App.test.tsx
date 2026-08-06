@@ -16,6 +16,8 @@ vi.stubGlobal('bridge', {
   readyToQuit: vi.fn().mockResolvedValue(undefined),
   // useTimer が呼ぶ IPC モック
   onElapsedNotificationFired: vi.fn().mockReturnValue(() => {}),
+  // カレンダータブが呼ぶ IPC モック
+  openCalendarWindow: vi.fn().mockResolvedValue(undefined),
 })
 
 function stubSessions(): SessionsState {

@@ -8,7 +8,7 @@ import styles from './App.module.css'
 import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
 import { SetupView } from './components/Setup/SetupView'
-import { CalendarPage } from './components/Calendar/CalendarPage'
+import { CalendarWindow } from './components/CalendarWindow/CalendarWindow'
 import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
 import { UsageGuideButton } from './components/UsageGuide/UsageGuideButton'
 import { UsageGuidePanel } from './components/UsageGuide/UsageGuidePanel'
@@ -30,7 +30,7 @@ import { WorkLocationSwitch } from './components/Popover/WorkLocationSwitch'
 import { Hint } from './components/ui/hint'
 import { updateRepository } from './repositories/updateRepository'
 
-type Page = 'timer' | 'calendar' | 'attendance'
+type Page = 'timer' | 'attendance'
 
 function isSetupRoute(): boolean {
   return window.location.hash === '#setup'
@@ -40,9 +40,20 @@ function isSettingsRoute(): boolean {
   return window.location.hash === '#settings'
 }
 
+function isCalendarRoute(): boolean {
+  return window.location.hash === '#calendar'
+}
+
 export default function App() {
   if (isSetupRoute()) return <SetupView />
   if (isSettingsRoute()) return <SettingsView />
+  if (isCalendarRoute()) {
+    return (
+      <DailyDataProvider>
+        <CalendarWindow />
+      </DailyDataProvider>
+    )
+  }
   return (
     <DailyDataProvider>
       <PopoverView />
@@ -83,6 +94,13 @@ function PopoverView() {
     const tab = tour.step?.scene?.tab
     if (tab) setCurrentPage(tab)
   }, [tour.index, tour.step])
+
+  // カレンダーウィンドウの「戻る」でパネルを開いたときは、タイマー画面から始める
+  useEffect(() => {
+    return window.bridge.onNavigate(page => {
+      if (page === 'timer' || page === 'attendance') setCurrentPage(page)
+    })
+  }, [])
 
   const sessions = useSessions()
   const workday = useWorkday(sessions.today)
@@ -190,7 +208,6 @@ function PopoverView() {
         <div className={styles.page} style={{ display: currentPage === 'timer' ? 'flex' : 'none' }}>
           <TimerPage sessions={sessions} tourDemo={tour.isActive && tour.step?.scene?.demo === true} />
         </div>
-        {currentPage === 'calendar' && <CalendarPage todaySessions={sessions.todaySessions} today={sessions.today} />}
         {currentPage === 'attendance' && (
           <div className={styles.attendanceContent}>
             <AttendanceReport sessions={sessions.todaySessions} today={sessions.today} />
@@ -214,8 +231,8 @@ function PopoverView() {
         </button>
         <button
           data-tour="tab-calendar"
-          onClick={() => { setHelpOpen(false); setCurrentPage('calendar') }}
-          className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] transition-colors ${currentPage === 'calendar' ? 'bg-[var(--accent-light)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--bg-hover)]'}`}
+          onClick={() => { setHelpOpen(false); void windowRepository.openCalendar() }}
+          className="flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-[var(--bg-hover)]"
         >
           <Calendar width={18} height={18} />
           カレンダー
