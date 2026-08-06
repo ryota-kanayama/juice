@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SessionList } from './SessionList'
 import { DailyDataProvider } from '../../daily/DailyDataContext'
@@ -123,7 +123,8 @@ describe('SessionList — 編集', () => {
     expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('企画書作業')
     expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P001')
     expect(screen.getByPlaceholderText('作業区分')).toHaveValue('設計')
-    expect(screen.getByPlaceholderText('分')).toHaveValue(45)
+    expect(within(screen.getByLabelText('開始時刻')).getByLabelText('時')).toHaveValue('10')
+    expect(within(screen.getByLabelText('終了時刻')).getByLabelText('分')).toHaveValue('45')
   })
 
   it('編集ボタンは表示されない（ダブルクリックと右クリックメニューに移行）', () => {
@@ -161,10 +162,22 @@ describe('SessionList — 編集', () => {
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: '新しい名前' }))
   })
 
-  it('時間を変更して保存するとtotalTimeが反映される', async () => {
+  it('区間を変更して保存するとtotalTimeが反映される', async () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={onUpdate} />)
+    await user.dblClick(screen.getByText('企画書作業'))
+    // makeSession の区間は 2026-02-25T10:00:00–10:45:00（45分）。終了の「時」を 12 にして 165分にする
+    const endGroup = screen.getByLabelText('終了時刻')
+    fireEvent.change(within(endGroup).getByLabelText('時'), { target: { value: '12' } })
+    await user.click(screen.getByRole('button', { name: '保存' }))
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ totalTime: 165 }))
+  })
+
+  it('時刻を持たない記録は分を変更して保存するとtotalTimeが反映される', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(undefined)
+    renderWithProvider(<SessionList sessions={[makeSession({ times: [] })]} onUpdate={onUpdate} />)
     await user.dblClick(screen.getByText('企画書作業'))
     await user.clear(screen.getByPlaceholderText('分'))
     await user.type(screen.getByPlaceholderText('分'), '90')
@@ -286,12 +299,65 @@ describe('SessionList — 追加フォームの初期化', () => {
 
     await openAddDialog(container, user)
     await user.type(screen.getByPlaceholderText('作業名（必須）'), '実装')
-    await user.type(screen.getByPlaceholderText('分'), '30')
+    const startGroup = screen.getByLabelText('開始時刻')
+    fireEvent.change(within(startGroup).getByLabelText('時'), { target: { value: '09' } })
+    fireEvent.change(within(startGroup).getByLabelText('分'), { target: { value: '00' } })
+    const endGroup = screen.getByLabelText('終了時刻')
+    fireEvent.change(within(endGroup).getByLabelText('時'), { target: { value: '09' } })
+    fireEvent.change(within(endGroup).getByLabelText('分'), { target: { value: '30' } })
     await user.click(screen.getByRole('button', { name: '追加' }))
     expect(onAdd).toHaveBeenCalledTimes(1)
 
     await openAddDialog(container, user)
     expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('')
+  })
+
+  it('onAdd には今日の日付と結合した区間が渡る', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    const { container } = renderWithProvider(<SessionList sessions={[]} today="2026-02-25" onAdd={onAdd} />)
+
+    await openAddDialog(container, user)
+    await user.type(screen.getByPlaceholderText('作業名（必須）'), '実装')
+    const startGroup = screen.getByLabelText('開始時刻')
+    fireEvent.change(within(startGroup).getByLabelText('時'), { target: { value: '09' } })
+    fireEvent.change(within(startGroup).getByLabelText('分'), { target: { value: '00' } })
+    const endGroup = screen.getByLabelText('終了時刻')
+    fireEvent.change(within(endGroup).getByLabelText('時'), { target: { value: '09' } })
+    fireEvent.change(within(endGroup).getByLabelText('分'), { target: { value: '30' } })
+    await user.click(screen.getByRole('button', { name: '追加' }))
+
+    expect(onAdd).toHaveBeenCalledWith({
+      name: '実装',
+      projectCode: '',
+      workCategory: '',
+      times: [{ startTime: '2026-02-25T09:00:00', endTime: '2026-02-25T09:30:00' }],
+    })
+  })
+
+  it('追加ダイアログの開始時刻はその日の最後の記録の終了時刻で埋まる', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWithProvider(
+      <SessionList sessions={sessions} today="2026-02-25" workStart="09:00" onAdd={vi.fn()} />
+    )
+
+    await openAddDialog(container, user)
+    // sessions の最後の区間は 11:00–11:20
+    const startGroup = screen.getByLabelText('開始時刻')
+    expect(within(startGroup).getByLabelText('時')).toHaveValue('11')
+    expect(within(startGroup).getByLabelText('分')).toHaveValue('20')
+  })
+
+  it('記録が無い日の追加ダイアログは勤務開始時刻で埋まる', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWithProvider(
+      <SessionList sessions={[]} today="2026-02-25" workStart="09:15" onAdd={vi.fn()} />
+    )
+
+    await openAddDialog(container, user)
+    const startGroup = screen.getByLabelText('開始時刻')
+    expect(within(startGroup).getByLabelText('時')).toHaveValue('09')
+    expect(within(startGroup).getByLabelText('分')).toHaveValue('15')
   })
 })
 

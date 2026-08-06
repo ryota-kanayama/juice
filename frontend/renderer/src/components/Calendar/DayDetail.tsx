@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit, dayTimeRange } from '../../domain/session'
+import { toIntervalDrafts, toTimeIntervals } from '../../domain/intervalDraft'
 import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
 import { SessionFormDialog, type SessionFormValues } from '../Popover/SessionFormDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
@@ -17,7 +18,11 @@ interface Props {
   suggestions?: Suggestions
 }
 
-const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
+const EMPTY_FORM: SessionFormValues = {
+  name: '', projectCode: '', workCategory: '',
+  intervals: [{ start: '', end: '', running: false }],
+  totalTime: '',
+}
 
 const WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -54,6 +59,8 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
       name: session.name,
       projectCode: session.projectCode,
       workCategory: session.workCategory,
+      // 時刻を持たない記録はレガシーモード（「分」入力）で開く
+      intervals: session.times.length > 0 ? toIntervalDrafts(session.times) : null,
       totalTime: String(session.totalTime),
     })
   }
@@ -68,6 +75,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
       name: editDraft.name.trim(),
       projectCode: editDraft.projectCode.trim(),
       workCategory: editDraft.workCategory.trim(),
+      times: editDraft.intervals ? toTimeIntervals(editDraft.intervals, session.date) : null,
       totalMinutes: isNaN(parsed) ? null : parsed,
     })
 

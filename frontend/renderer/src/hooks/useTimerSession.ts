@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useTimer } from './useTimer'
 import type { SessionsState } from './useSessions'
-import type { Session, WorkLocation } from '../types/session'
+import type { Session, TimeInterval, WorkLocation } from '../types/session'
 
 export interface TimerSessionState {
   isRunning: boolean
@@ -28,7 +28,7 @@ export interface TimerSessionState {
   pause: () => void
   resume: () => void
   update: (session: Session) => Promise<void>
-  add: (params: { name: string; projectCode: string; workCategory: string; totalTime: string }, workLocation?: WorkLocation) => Promise<void>
+  add: (params: { name: string; projectCode: string; workCategory: string; times: TimeInterval[] }, workLocation?: WorkLocation) => Promise<void>
   remove: (sessionId: string) => Promise<void>
   startTelework: () => Promise<void>
   dismissMidnightSession: () => void

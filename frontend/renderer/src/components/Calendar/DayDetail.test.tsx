@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DayDetail } from './DayDetail'
 import type { Session } from '../../types/session'
@@ -36,7 +36,8 @@ describe('DayDetail', () => {
     expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('企画書作業')
     expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P001')
     expect(screen.getByPlaceholderText('作業区分')).toHaveValue('設計')
-    expect(screen.getByPlaceholderText('分')).toHaveValue(45)
+    expect(within(screen.getByLabelText('開始時刻')).getByLabelText('時')).toHaveValue('10')
+    expect(within(screen.getByLabelText('終了時刻')).getByLabelText('分')).toHaveValue('45')
   })
 
   it('編集ボタンは表示されない（ダブルクリックと右クリックメニューに移行）', () => {
@@ -63,10 +64,11 @@ describe('DayDetail', () => {
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: '新しい作業名' }))
   })
 
-  it('時間を変更して保存するとtotalTimeが反映される', async () => {
+  it('時刻を持たない記録は分を変更して保存するとtotalTimeが反映される', async () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
+    const legacy = { ...session, times: [] }
+    render(<DayDetail date="2026-02-25" sessions={[legacy]} onUpdate={onUpdate} />)
     await user.dblClick(screen.getByText('企画書作業'))
     await user.clear(screen.getByPlaceholderText('分'))
     await user.type(screen.getByPlaceholderText('分'), '90')
@@ -137,5 +139,37 @@ describe('DayDetail の集計フッター', () => {
   it('週次分析ボタンはツールバーへ移したのでフッターには置かない', () => {
     render(<DayDetail date="2026-02-25" sessions={[session]} />)
     expect(screen.queryByRole('button', { name: '週次分析' })).not.toBeInTheDocument()
+  })
+})
+
+describe('DayDetail の区間編集', () => {
+  it('編集ダイアログに既存の区間が入る', async () => {
+    const user = userEvent.setup()
+    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
+    await user.dblClick(screen.getByText('企画書作業'))
+    expect(screen.getByText('合計: 45分')).toBeInTheDocument()
+  })
+
+  it('区間を編集して保存すると times と totalTime の両方が更新される', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(undefined)
+    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
+    await user.dblClick(screen.getByText('企画書作業'))
+    // 終了時刻の「時」を 12 に変える（10:45 → 12:45）。
+    // TimeField は role="group" + aria-label を持つ div の中に「時」「分」の input を持つ
+    const endGroup = screen.getByLabelText('終了時刻')
+    fireEvent.change(within(endGroup).getByLabelText('時'), { target: { value: '12' } })
+    await user.click(screen.getByRole('button', { name: '保存' }))
+    const updated = onUpdate.mock.calls[0][0]
+    expect(updated.times[0].endTime).toBe('2026-02-25T12:45:00')
+    expect(updated.totalTime).toBe(165)
+  })
+
+  it('時刻を持たない記録はレガシーモードで開く', async () => {
+    const user = userEvent.setup()
+    const legacy = { ...session, times: [] }
+    render(<DayDetail date="2026-02-25" sessions={[legacy]} onUpdate={vi.fn()} />)
+    await user.dblClick(screen.getByText('企画書作業'))
+    expect(screen.getByPlaceholderText('分')).toBeInTheDocument()
   })
 })
