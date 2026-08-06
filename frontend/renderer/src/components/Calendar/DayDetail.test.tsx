@@ -173,3 +173,28 @@ describe('DayDetail の区間編集', () => {
     expect(screen.getByPlaceholderText('分')).toBeInTheDocument()
   })
 })
+
+describe('DayDetail の展開表示', () => {
+  it('初期状態では区間を出さない', () => {
+    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} />)
+    expect(container.querySelector('[data-session-intervals]')).toBeNull()
+  })
+
+  it('行をクリックすると区間が出る', async () => {
+    const user = userEvent.setup()
+    render(<DayDetail date="2026-02-25" sessions={[session]} />)
+    await user.click(screen.getByText('企画書作業'))
+    // 日次フッターにも同じ "10:00 – 10:45" が出るため、行の中に絞って検証する
+    // （フッターは常時表示のため screen.getByText だと複数ヒットする）
+    const row = screen.getByText('企画書作業').closest('li')!
+    expect(within(row).getByText('10:00 – 10:45')).toBeInTheDocument()
+  })
+
+  it('もう一度クリックすると閉じる', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} />)
+    await user.click(screen.getByText('企画書作業'))
+    await user.click(screen.getByText('企画書作業'))
+    expect(container.querySelector('[data-session-intervals]')).toBeNull()
+  })
+})

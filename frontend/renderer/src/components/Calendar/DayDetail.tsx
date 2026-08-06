@@ -6,6 +6,8 @@ import { toIntervalDrafts, toTimeIntervals } from '../../domain/intervalDraft'
 import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
 import { SessionFormDialog, type SessionFormValues } from '../Popover/SessionFormDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
+import { useExpandedItem } from '../../hooks/useExpandedItem'
+import { SessionIntervals } from '../Popover/SessionIntervals'
 import { Card, CardContent } from '@/components/ui/card'
 import { EditPencil } from 'iconoir-react'
 import { resolveJuiceColor } from '../../domain/colors'
@@ -40,6 +42,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
   const [editDraft, setEditDraft] = useState<SessionFormValues>(EMPTY_FORM)
 
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
+  const { expandedId, setExpandedId } = useExpandedItem()
 
   useEffect(() => {
     setEditTargetId(null)
@@ -102,6 +105,10 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
               key={session.id}
               data-session-item
               className="group flex items-start gap-2 rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2.5 py-2 transition-all [backdrop-filter:blur(8px)] hover:-translate-y-px hover:bg-[var(--bg-hover)] hover:shadow-[var(--shadow-glass)]"
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('button, input, [role="listbox"]')) return
+                setExpandedId(prev => (prev === session.id ? null : session.id))
+              }}
               onDoubleClick={(e) => {
                 if ((e.target as HTMLElement).closest('button, input, [role="listbox"]')) return
                 if (onUpdate) handleEditStart(session)
@@ -121,6 +128,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
                     {session.workCategory && <span className="rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.workCategory}</span>}
                   </div>
                 )}
+                {expandedId === session.id && <SessionIntervals session={session} />}
               </div>
               <span className="ml-auto shrink-0 text-sm font-semibold text-[var(--accent)]">{session.totalTime}分</span>
             </li>

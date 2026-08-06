@@ -3,6 +3,7 @@ import type { Session } from '../../types/session'
 import { resolveJuiceColor } from '../../domain/colors'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { Play } from 'iconoir-react'
+import { SessionIntervals } from './SessionIntervals'
 
 interface Props {
   session: Session
@@ -51,6 +52,7 @@ export function SessionItem({
             {session.workCategory && <span className="rounded-[6px] border border-border bg-muted px-1.5 text-[11px] leading-[1.6] text-muted-foreground">{session.workCategory}</span>}
           </div>
         )}
+        {expanded && <SessionIntervals session={session} />}
       </div>
       <span className="shrink-0 text-[13px] font-semibold text-[var(--accent)]">{session.totalTime}分</span>
       {!isRunning && onStartMore && (
