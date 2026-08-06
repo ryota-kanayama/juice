@@ -226,3 +226,71 @@ describe('WeekGrid の時刻なし帯', () => {
     expect(onEditSession).toHaveBeenCalledWith(untimed)
   })
 })
+
+describe('WeekGrid の重なり配置', () => {
+  it('重ならない記録は全幅で描く', () => {
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [makeSession()] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    expect(parseFloat(block.style.left)).toBeCloseTo(0, 3)
+    expect(parseFloat(block.style.width)).toBeCloseTo(100, 3)
+  })
+
+  it('重なる2件は左右に分かれる', () => {
+    const a = makeSession({
+      id: 'a', taskId: 'a',
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T12:00:00' }],
+      totalTime: 120,
+    })
+    const b = makeSession({
+      id: 'b', taskId: 'b',
+      times: [{ startTime: '2026-08-06T11:00:00', endTime: '2026-08-06T13:00:00' }],
+      totalTime: 120,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [a, b] }} />
+    )
+    const blocks = Array.from(container.querySelectorAll('[data-event-block]')) as HTMLElement[]
+    expect(blocks).toHaveLength(2)
+    const lefts = blocks.map(el => parseFloat(el.style.left)).sort((x, y) => x - y)
+    expect(lefts[0]).toBeCloseTo(0, 3)
+    expect(lefts[1]).toBeCloseTo(50, 3)
+    for (const el of blocks) expect(parseFloat(el.style.width)).toBeCloseTo(50, 3)
+  })
+
+  it('1セッションの複数区間も重なれば横に分かれる', () => {
+    const multi = makeSession({
+      times: [
+        { startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T12:00:00' },
+        { startTime: '2026-08-06T11:00:00', endTime: '2026-08-06T13:00:00' },
+      ],
+      totalTime: 240,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [multi] }} />
+    )
+    const blocks = Array.from(container.querySelectorAll('[data-event-block]')) as HTMLElement[]
+    expect(blocks).toHaveLength(2)
+    expect(new Set(blocks.map(el => el.style.left)).size).toBe(2)
+  })
+
+  it('別の日の記録は互いの配置に影響しない', () => {
+    const a = makeSession({
+      id: 'a', taskId: 'a', date: '2026-08-05',
+      times: [{ startTime: '2026-08-05T10:00:00', endTime: '2026-08-05T12:00:00' }],
+      totalTime: 120,
+    })
+    const b = makeSession({
+      id: 'b', taskId: 'b',
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T12:00:00' }],
+      totalTime: 120,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-05': [a], '2026-08-06': [b] }} />
+    )
+    const blocks = Array.from(container.querySelectorAll('[data-event-block]')) as HTMLElement[]
+    expect(blocks).toHaveLength(2)
+    for (const el of blocks) expect(parseFloat(el.style.width)).toBeCloseTo(100, 3)
+  })
+})
