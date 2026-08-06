@@ -89,6 +89,7 @@ export function CalendarWindow() {
             selectedDate={cal.selectedDate}
             holidays={cal.holidays}
             onSelectDate={cal.selectDate}
+            onEditSession={s => cal.selectDate(s.date)}
           />
         ) : (
           <MonthGrid
