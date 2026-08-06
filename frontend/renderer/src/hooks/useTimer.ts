@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Session, WorkLocation } from '../types/session'
 import { formatLocalDateTime, formatLocalDate } from '../../../shared/sessionUtils'
 import { JUICE_COLOR_KEYS, randomColor } from '../domain/colors'
+import { totalMinutesOf } from '../domain/session'
 import { timerRepository } from '../repositories/timerRepository'
 import { sessionRepository } from '../repositories/sessionRepository'
 import { settingsRepository } from '../repositories/settingsRepository'
@@ -181,34 +182,41 @@ export function useTimer(): TimerState {
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
+    const endMs = Date.now()
     const newInterval = {
       startTime: formatLocalDateTime(startTimeRef.current.getTime()),
-      endTime: formatLocalDateTime(Date.now()),
+      endTime: formatLocalDateTime(endMs),
     }
 
     let resultSession: Session
 
-    const newIntervalMinutes = Math.round((Date.now() - startTimeRef.current.getTime()) / 60000)
-
     const extending = extendingSessionRef.current
     if (extending) {
-      // extend mode: 既存セッションの times に追記し totalTime を加算
+      // extend mode: 既存セッションの times に追記する。
+      // totalTime は「times が1つ以上あるならその合計と一致する派生値」という不変条件を守るため、
+      // 原則として新しい times 全体から算出し直す（区間ごとに丸めて足すと 1分ずれ、
+      // hasReliableTimes が false になって週表示の時間軸グリッドから消えてしまう）。
+      // ただし停止前の totalTime が区間の合計と食い違う記録は、ユーザーが手で整えた合計
+      // （あるいは times を持たないレガシー記録）なので、その値を消さずに加算で尊重する。
+      const times = [...extending.times, newInterval]
+      const wasDerived = extending.totalTime === totalMinutesOf(extending.times)
+      const addedMinutes = Math.round((endMs - startTimeRef.current.getTime()) / 60000)
       resultSession = {
         ...extending,
         projectCode: opts?.projectCode ?? extending.projectCode,
         workCategory: opts?.workCategory ?? extending.workCategory,
-        totalTime: extending.totalTime + newIntervalMinutes,
-        times: [...extending.times, newInterval],
+        totalTime: wasDerived ? totalMinutesOf(times) : extending.totalTime + addedMinutes,
+        times,
       }
     } else {
-      // new mode: 新規セッションを作成
+      // new mode: 新規セッションを作成（totalTime は区間から算出する）
       resultSession = {
         id: crypto.randomUUID(),
         taskId: taskIdRef.current,
         name: nameRef.current,
         projectCode: opts?.projectCode ?? '',
         workCategory: opts?.workCategory ?? '',
-        totalTime: newIntervalMinutes,
+        totalTime: totalMinutesOf([newInterval]),
         times: [newInterval],
         date: formatLocalDate(startTimeRef.current.getTime()),
         color: activeColorRef.current,

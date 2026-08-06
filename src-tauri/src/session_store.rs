@@ -1,6 +1,7 @@
 // Electron 版 src/main/sessionStore.ts の Rust 移植。
 // セッションを月ごとの JSON（sessions-YYYY-MM.json）で永続化する。
 // - read-modify-write は Mutex で直列化し、並行呼び出しでの lost-update を防ぐ
+//   （読み取りも移行の write を伴いうるので同じロックで直列化する）
 // - 書き込みは tmp→rename で原子的に行い、旧ファイルは .bak に退避する
 // - 破損時は .bak へフォールバックする
 
@@ -141,7 +142,8 @@ impl SessionStore {
         }
     }
 
-    /// write 系（read-modify-write）を直列化する write_lock を取得。
+    /// ファイルへ触れる操作（read-modify-write と、移行を伴う読み取り）を直列化する
+    /// write_lock を取得。非再入なので、保持したまま取り直さないこと。
     /// 直前の操作が panic で毒された場合も中身を取り出して継続する。
     fn lock(&self) -> MutexGuard<'_, ()> {
         self.write_lock.lock().unwrap_or_else(|e| e.into_inner())
@@ -171,6 +173,15 @@ impl SessionStore {
     }
 
     pub fn get_sessions(&self, year_month: &str) -> Result<Vec<Session>, StoreError> {
+        // 読み取りは移行の write を伴いうるので、書き込みと同じロックで直列化する。
+        // write_lock は非再入なので、既にロックを持つ write 系からは
+        // get_sessions_locked を直接呼ぶこと（ここを呼ぶとデッドロックする）。
+        let _guard = self.lock();
+        self.get_sessions_locked(year_month)
+    }
+
+    /// write_lock を取得済みの呼び出し元専用の読み取り。自身ではロックを取らない。
+    fn get_sessions_locked(&self, year_month: &str) -> Result<Vec<Session>, StoreError> {
         // 不正な yearMonth はここで即 throw（try の外で検証）
         let path = self.file_path(year_month)?;
         // 読み取り元のパスも覚えておく（移行前の退避はこのファイルを複製する）
@@ -213,7 +224,7 @@ impl SessionStore {
     pub fn save_session(&self, session: Session) -> Result<(), StoreError> {
         let year_month = Self::year_month_of(&session)?;
         let _guard = self.lock();
-        let mut sessions = self.get_sessions(&year_month)?;
+        let mut sessions = self.get_sessions_locked(&year_month)?;
         sessions.push(session);
         self.write(&year_month, &sessions)
     }
@@ -221,7 +232,7 @@ impl SessionStore {
     pub fn update_session(&self, session: Session) -> Result<(), StoreError> {
         let year_month = Self::year_month_of(&session)?;
         let _guard = self.lock();
-        let mut sessions = self.get_sessions(&year_month)?;
+        let mut sessions = self.get_sessions_locked(&year_month)?;
         match sessions.iter().position(|s| s.id == session.id) {
             Some(i) => sessions[i] = session,
             None => sessions.push(session),
@@ -233,7 +244,7 @@ impl SessionStore {
         // 先に検証してから直列化（不正な yearMonth は即時に拒否する）
         self.file_path(year_month)?;
         let _guard = self.lock();
-        let mut sessions = self.get_sessions(year_month)?;
+        let mut sessions = self.get_sessions_locked(year_month)?;
         sessions.retain(|s| s.id != id);
         self.write(year_month, &sessions)
     }
@@ -665,6 +676,68 @@ mod tests {
         );
         // 移行が走っていないので退避ファイルも作られない
         assert!(!dir.path().join("sessions-2026-05.json.pre-v2.bak").exists());
+    }
+
+    /// 未移行（version 無し・単区間が totalTime と食い違う）の月ファイルを置く。
+    fn write_legacy_month(dir: &TempDir) {
+        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
+        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+    }
+
+    #[test]
+    fn save_on_unmigrated_month_does_not_deadlock() {
+        // save_session はロックを保持したまま読み取りへ入る。読み取り側が同じ
+        // 非再入 Mutex を取り直すと自己デッドロックするので、別スレッドで時間を計る。
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        let store = Arc::new(store);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let s = store.clone();
+        std::thread::spawn(move || {
+            let r = s.save_session(sample("later", "2026-05-21"));
+            let _ = tx.send(r.is_ok());
+        });
+        match rx.recv_timeout(std::time::Duration::from_secs(5)) {
+            Ok(ok) => assert!(ok, "save_session が失敗した"),
+            // ここで store に触れると本体側がロックを握ったままなので更にブロックする
+            Err(_) => panic!("save_session がデッドロックした（移行を伴う読み取りでロックを取り直している）"),
+        }
+        let got = store.get_sessions("2026-05").unwrap();
+        assert_eq!(got.len(), 2);
+        // 移行（単区間の終了時刻補正）も適用されている
+        let migrated = got.iter().find(|s| s.id == "a").unwrap();
+        assert_eq!(migrated.times[0].end_time.as_deref(), Some("2026-05-20T10:30:00"));
+    }
+
+    #[test]
+    fn read_migration_and_writes_are_serialized() {
+        // 読み取り経由の移行も write を伴うため、書き込みと直列化されないと
+        // 直前に保存されたセッションを移行側の write が消しうる。
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        let store = Arc::new(store);
+        let handles: Vec<_> = (0..8)
+            .flat_map(|i| {
+                let w = store.clone();
+                let r = store.clone();
+                [
+                    std::thread::spawn(move || {
+                        w.save_session(sample(&format!("id-{i}"), "2026-05-21")).unwrap()
+                    }),
+                    std::thread::spawn(move || {
+                        r.get_sessions("2026-05").unwrap();
+                    }),
+                ]
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        let got = store.get_sessions("2026-05").unwrap();
+        // 移行対象の1件 + 保存した8件がすべて残る
+        assert_eq!(got.len(), 9);
+        let migrated = got.iter().find(|s| s.id == "a").unwrap();
+        assert_eq!(migrated.times[0].end_time.as_deref(), Some("2026-05-20T10:30:00"));
     }
 
     #[test]

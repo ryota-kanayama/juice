@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useTimer } from './useTimer'
+import { totalMinutesOf } from '../domain/session'
 import type { Session } from '../types/session'
 
 const mockSaveSession = vi.fn().mockResolvedValue(undefined)
@@ -91,13 +92,20 @@ describe('useTimer', () => {
     expect(mockSaveSession).toHaveBeenCalledTimes(2)
   })
 
-  it('30秒未満で止めると totalTime が 0 になる（四捨五入）', async () => {
+  it('30秒未満で止めても totalTime は 1 になる（区間があれば下限1分）', async () => {
     const { result } = renderHook(() => useTimer())
     act(() => { result.current.start('テスト作業') })
     act(() => { vi.advanceTimersByTime(20000) })
     let session: Session | null = null
     await act(async () => { session = await result.current.stop() })
-    expect(session!.totalTime).toBe(0)
+    // 以前は Math.round(ms/60000) をそのまま使っていたので 0 だったが、
+    // totalTime は times から導出する（totalMinutesOf）ように変更した。
+    // totalMinutesOf は完了区間が1つでもあれば最低1分を返す規則で、
+    // Rust の total_time_from_intervals とも hasReliableTimes の判定とも揃う。
+    // 0 のままだと「合計 0 ≠ 区間合計 1」で時刻が信用できない扱いになり、
+    // 週表示の時間軸グリッドから消えてしまう。
+    expect(session!.totalTime).toBe(1)
+    expect(session!.totalTime).toBe(totalMinutesOf(session!.times))
   })
 
   it('30秒以上で止めると totalTime が 1 に四捨五入される', async () => {
@@ -121,6 +129,42 @@ describe('useTimer', () => {
     let session: Session | null = null
     await act(async () => { session = await result.current.stop() })
     expect(session!.totalTime).toBe(60)
+  })
+
+  it('extend で2区間になっても totalTime が区間の合計と一致する（丸め誤差を持ち込まない）', async () => {
+    // 90秒の区間（= 1.5分）を2つ持つセッション。区間ごとに丸めて足すと 2+2=4 分になるが、
+    // 正しくは ms を合計してから丸めて 180秒 = 3分。
+    const existingSession: Session = {
+      id: 'round-id', taskId: 'round-id', name: '丸め', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-02-27T08:00:00', endTime: '2026-02-27T08:01:30' }],
+      date: '2026-02-27', color: '#FF9500', totalTime: 2,
+    }
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.startMore(existingSession) })
+    act(() => { vi.advanceTimersByTime(90000) })
+    let session: Session | null = null
+    await act(async () => { session = await result.current.stop() })
+    expect(session!.times).toHaveLength(2)
+    expect(session!.totalTime).toBe(3)
+    expect(session!.totalTime).toBe(totalMinutesOf(session!.times))
+  })
+
+  it('手編集で合計を変えたセッションを extend すると加算方式が維持される', async () => {
+    // 区間の合計（30分）と totalTime（45分）が食い違う = ユーザーが手で整えた記録。
+    // 区間から算出し直すと手入力値が消えてしまうため、従来どおり加算する。
+    const existingSession: Session = {
+      id: 'manual-id', taskId: 'manual-id', name: '手編集', projectCode: '', workCategory: '',
+      times: [{ startTime: '2026-02-27T08:00:00', endTime: '2026-02-27T08:30:00' }],
+      date: '2026-02-27', color: '#FF9500', totalTime: 45,
+    }
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.startMore(existingSession) })
+    act(() => { vi.advanceTimersByTime(600000) }) // 10分
+    let session: Session | null = null
+    await act(async () => { session = await result.current.stop() })
+    expect(session!.totalTime).toBe(55)
+    // 区間から算出し直していないこと（40分にはならない）
+    expect(session!.totalTime).not.toBe(totalMinutesOf(session!.times))
   })
 
   it('colorを指定して開始すると同じcolorがセッションに含まれる', async () => {
@@ -389,8 +433,10 @@ describe('useTimer', () => {
       act(() => { vi.advanceTimersByTime(60000) }) // 一時停止中に1分経過
       let session: Awaited<ReturnType<typeof result.current.stop>> = null
       await act(async () => { session = await result.current.stop() })
-      // totalTime は pause 前の約5秒（0分切り捨て） → 実質0分だが例外は出ない
+      // 区間は pause 前の約5秒ぶんだけ（一時停止中の60秒は含まない）。
+      // totalTime は区間から導出するので下限の1分になる
       expect(session).not.toBeNull()
+      expect(session!.totalTime).toBe(1)
       vi.useRealTimers()
     })
   })
