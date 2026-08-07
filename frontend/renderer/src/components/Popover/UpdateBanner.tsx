@@ -1,5 +1,6 @@
 // src/renderer/src/components/Popover/UpdateBanner.tsx
 import type { UpdateState } from '../../hooks/useUpdate'
+import { releaseNotesRepository } from '../../repositories/releaseNotesRepository'
 
 interface Props {
   update: UpdateState
@@ -13,10 +14,18 @@ export function UpdateBanner({ update }: Props) {
   const bar = 'flex items-center justify-between gap-2 px-3 py-2 text-[12px] [-webkit-app-region:no-drag]'
 
   if (phase === 'available') {
+    // 文言ボタンの aria-label は可視テキストで始める。可視文言が読み上げ名に含まれないと
+    // 音声操作で見えているとおりに言っても押せなくなる。
     return (
       <div className={`${bar} bg-[var(--accent-light)] text-[var(--accent)]`}>
-        <span>新しいバージョン v{info.latestVersion} があります</span>
-        <span className="flex items-center gap-2">
+        <button
+          className="text-left underline decoration-dotted underline-offset-2"
+          aria-label={`新しいバージョン v${info.latestVersion} があります — 変更点を見る`}
+          onClick={() => { releaseNotesRepository.openPending().catch(console.error) }}
+        >
+          新しいバージョン v{info.latestVersion} があります
+        </button>
+        <span className="flex shrink-0 items-center gap-2">
           <button className="font-semibold underline" onClick={install}>更新</button>
           <button aria-label="閉じる" onClick={dismiss}>✕</button>
         </span>

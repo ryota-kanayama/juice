@@ -30,6 +30,7 @@ pub struct Settings {
     pub break_behavior: BreakBehavior,
     pub main_project_code: String,
     pub dismissed_update_version: String,
+    pub last_seen_version: String,
 }
 
 impl Default for Settings {
@@ -46,6 +47,7 @@ impl Default for Settings {
             break_behavior: BreakBehavior::Stop,
             main_project_code: String::new(),
             dismissed_update_version: String::new(),
+            last_seen_version: String::new(),
         }
     }
 }
@@ -177,6 +179,14 @@ impl SettingsStore {
         let v = version.to_string();
         self.update(move |s| s.dismissed_update_version = v)
     }
+    /// 最後にリリースノートを見せたバージョン。空なら一度も見せていない。
+    pub fn get_last_seen_version(&self) -> String {
+        self.read_all().last_seen_version
+    }
+    pub fn set_last_seen_version(&self, version: &str) -> Result<(), StoreError> {
+        let v = version.to_string();
+        self.update(move |s| s.last_seen_version = v)
+    }
 }
 
 /// JSON 読み取り用（既知キーのみ・欠落許容）。未知キーは serde が無視＝書き戻しで落ちる。
@@ -194,6 +204,7 @@ struct RawSettings {
     break_behavior: Option<String>,
     main_project_code: Option<String>,
     dismissed_update_version: Option<String>,
+    last_seen_version: Option<String>,
 }
 
 impl RawSettings {
@@ -226,6 +237,7 @@ impl RawSettings {
             dismissed_update_version: self
                 .dismissed_update_version
                 .unwrap_or(d.dismissed_update_version),
+            last_seen_version: self.last_seen_version.unwrap_or(d.last_seen_version),
         }
     }
 }
@@ -426,6 +438,15 @@ mod tests {
         assert_eq!(s.get_dismissed_update_version(), "");
         s.set_dismissed_update_version("1.2.0").unwrap();
         assert_eq!(s.get_dismissed_update_version(), "1.2.0");
+    }
+
+    #[test]
+    fn last_seen_version() {
+        let (s, _d) = new_store();
+        // 初期値は空（＝まだ一度も記録していない）
+        assert_eq!(s.get_last_seen_version(), "");
+        s.set_last_seen_version("2.2.0").unwrap();
+        assert_eq!(s.get_last_seen_version(), "2.2.0");
     }
 
     #[test]

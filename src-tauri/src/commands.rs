@@ -361,6 +361,84 @@ pub fn open_calendar_window(app: tauri::AppHandle) {
     crate::open_calendar(&app);
 }
 
+// ---- リリースノート ----
+
+/// ウィンドウが読むノート。範囲ルールが空なら今のバージョンの節だけを返す
+/// （設定から開き直したときに何も出ないのを防ぐ）。
+#[tauri::command]
+pub fn release_notes_current(
+    app: tauri::AppHandle,
+    store: State<'_, SettingsStore>,
+) -> Vec<crate::release_notes::ReleaseNoteEntry> {
+    let current = app.package_info().version.to_string();
+    crate::release_notes::entries_for_display(
+        &store.get_last_seen_version(),
+        &current,
+        store.is_setup_completed(),
+    )
+}
+
+/// 直近のチェック結果から、更新前に見せるノートを組み立てる。
+/// 空になるのは「チェックが未実行」か「本文が空」のとき。
+/// ウィンドウを開くかどうかの判定も同じ結果を使う（判定を二重に持たない）。
+fn pending_entries(
+    state: &crate::update::LastChecked,
+) -> Vec<crate::release_notes::ReleaseNoteEntry> {
+    match state.get() {
+        Some(info) if !info.notes.trim().is_empty() => {
+            vec![crate::release_notes::ReleaseNoteEntry {
+                version: info.latest_version,
+                date: String::new(),
+                body: info.notes,
+            }]
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// これから入るバージョンのノート。GitHub から取得済みの本文をそのまま渡す。
+#[tauri::command]
+pub fn release_notes_pending(
+    state: State<'_, crate::update::LastChecked>,
+) -> Vec<crate::release_notes::ReleaseNoteEntry> {
+    pending_entries(&state)
+}
+
+/// 「変更点を見せた」ことを記録する。ウィンドウが中身を描画できた時点で呼ばれる。
+#[tauri::command]
+pub fn release_notes_mark_seen(
+    app: tauri::AppHandle,
+    store: State<'_, SettingsStore>,
+) -> CmdResult<()> {
+    let current = app.package_info().version.to_string();
+    map(store.set_last_seen_version(&current))
+}
+
+#[tauri::command]
+pub fn open_release_notes_window(app: tauri::AppHandle) {
+    crate::open_release_notes(&app);
+}
+
+/// 更新前のノートのウィンドウを開く。
+/// 見せる本文が無いとき（チェック未実行・本文が空）は空のウィンドウが出るだけなので開かない。
+#[tauri::command]
+pub fn open_release_notes_pending_window(
+    app: tauri::AppHandle,
+    state: State<'_, crate::update::LastChecked>,
+) {
+    if pending_entries(&state).is_empty() {
+        return;
+    }
+    crate::open_release_notes_pending(&app);
+}
+
+/// リリースノートのウィンドウを閉じる（パネル内の「閉じる」ボタンから）。
+/// 更新前と更新後のウィンドウは共存しうるので、呼び出し元のウィンドウだけを閉じる。
+#[tauri::command]
+pub fn close_release_notes_window(window: tauri::Window) {
+    let _ = window.close();
+}
+
 /// カレンダーウィンドウを閉じてポップオーバーへ戻る。
 /// ポップオーバーが隠れていたときだけ表示し、タイマー画面に切り替えるよう通知する。
 /// 既に表示中なら位置も表示中の画面も動かさず、カレンダーウィンドウを閉じるだけにする。

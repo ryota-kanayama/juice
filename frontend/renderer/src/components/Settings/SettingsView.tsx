@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { THEMES } from '../../themes'
 import { useSettings } from '../../hooks/useSettings'
 import { useUpdate } from '../../hooks/useUpdate'
+import { releaseNotesRepository } from '../../repositories/releaseNotesRepository'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -352,6 +353,12 @@ export function SettingsView() {
                     </button>
                   )}
                 </div>
+                <button
+                  className="self-start text-[13px] text-[var(--accent)] underline"
+                  onClick={() => { releaseNotesRepository.openCurrent().catch(console.error) }}
+                >
+                  リリースノートを見る
+                </button>
               </CardContent>
             </Card>
           </>

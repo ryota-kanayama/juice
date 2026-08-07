@@ -50,3 +50,12 @@ export interface UpdateInfo {
   assetName: string | null    // 例 "Juice-1.1.0-arm64.dmg"。無ければ null
   notes: string               // リリースノート本文（未使用なら空）
 }
+
+/** リリースノート1バージョンぶん。Rust の release_notes::ReleaseNoteEntry と同じ形。 */
+export interface ReleaseNoteEntry {
+  version: string
+  /** "YYYY-MM-DD"。更新前のノートは日付が無いので空文字 */
+  date: string
+  /** 生の Markdown。描画側で parseReleaseNotes に通す */
+  body: string
+}
