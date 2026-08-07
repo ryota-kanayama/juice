@@ -98,6 +98,14 @@ const bridge = {
   installUpdate: () => invoke("update_install"),
   readyToQuit: () => invoke("update_ready_to_quit"),
 
+  // ---- Release notes（✅ MAPPED） ----
+  getReleaseNotesCurrent: () => invoke("release_notes_current"),
+  getReleaseNotesPending: () => invoke("release_notes_pending"),
+  markReleaseNotesSeen: () => invoke("release_notes_mark_seen"),
+  openReleaseNotesWindow: () => invoke("open_release_notes_window"),
+  openReleaseNotesPendingWindow: () => invoke("open_release_notes_pending_window"),
+  closeReleaseNotesWindow: () => invoke("close_release_notes_window"),
+
   // ---- Misc ----
   completeSetup: () => invoke("settings_complete_setup"),
   getHolidays: () => invoke("holidays_get"),

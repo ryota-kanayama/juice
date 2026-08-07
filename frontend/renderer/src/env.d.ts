@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { Session, DailyMonth, DayRecord, UpdateInfo } from '../../shared/types'
+import type { Session, DailyMonth, DayRecord, UpdateInfo, ReleaseNoteEntry } from '../../shared/types'
 import type {
   AttendanceSendResult, AuthStatus, BreakBehaviorSettings, PomodoroSettings, ToggleSettings, WhiteboardSettings,
 } from '../../shared/ipc'
@@ -73,6 +73,14 @@ interface Bridge {
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateProgress: (callback: (p: { percent: number; done: boolean; error?: string }) => void) => () => void
   onUpdatePrepareQuit: (callback: () => void) => () => void
+
+  // release notes
+  getReleaseNotesCurrent: () => Promise<ReleaseNoteEntry[]>
+  getReleaseNotesPending: () => Promise<ReleaseNoteEntry[]>
+  markReleaseNotesSeen: () => Promise<void>
+  openReleaseNotesWindow: () => Promise<void>
+  openReleaseNotesPendingWindow: () => Promise<void>
+  closeReleaseNotesWindow: () => Promise<void>
 
   // misc
   completeSetup: () => Promise<void>
