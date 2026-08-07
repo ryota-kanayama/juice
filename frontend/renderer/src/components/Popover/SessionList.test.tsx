@@ -115,10 +115,10 @@ describe('SessionList — customOrder 同期', () => {
 describe('SessionList — 編集', () => {
   beforeEach(() => { mockDayStore = {}; setDailyDay.mockClear() })
 
-  it('行をダブルクリックすると編集ダイアログがセッションの値で開く', async () => {
+  it('編集ボタンを押すと編集ダイアログがセッションの値で開く', async () => {
     const user = userEvent.setup()
     renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={vi.fn()} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     expect(screen.getByText('タイマーを編集')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('企画書作業')
     expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P001')
@@ -127,9 +127,9 @@ describe('SessionList — 編集', () => {
     expect(within(screen.getByLabelText('終了時刻')).getByLabelText('分')).toHaveValue('45')
   })
 
-  it('編集ボタンは表示されない（ダブルクリックと右クリックメニューに移行）', () => {
+  it('編集ボタンが表示される（ホバーの鉛筆ボタンと右クリックメニューの両方から編集できる）', () => {
     renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: '編集' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '編集' })).toBeInTheDocument()
   })
 
   it('右クリックメニューの「編集」で編集ダイアログが開く', async () => {
@@ -145,7 +145,7 @@ describe('SessionList — 編集', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.clear(screen.getByPlaceholderText('作業名（必須）'))
     await user.type(screen.getByPlaceholderText('作業名（必須）'), '新しい名前')
     await user.click(screen.getByRole('button', { name: '保存' }))
@@ -156,7 +156,7 @@ describe('SessionList — 編集', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.clear(screen.getByPlaceholderText('作業名（必須）'))
     await user.type(screen.getByPlaceholderText('作業名（必須）'), '新しい名前{Enter}')
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: '新しい名前' }))
@@ -166,7 +166,7 @@ describe('SessionList — 編集', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     // makeSession の区間は 2026-02-25T10:00:00–10:45:00（45分）。終了の「時」を 12 にして 165分にする
     const endGroup = screen.getByLabelText('終了時刻')
     fireEvent.change(within(endGroup).getByLabelText('時'), { target: { value: '12' } })
@@ -178,7 +178,7 @@ describe('SessionList — 編集', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     renderWithProvider(<SessionList sessions={[makeSession({ times: [] })]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.clear(screen.getByPlaceholderText('分'))
     await user.type(screen.getByPlaceholderText('分'), '90')
     await user.click(screen.getByRole('button', { name: '保存' }))
@@ -189,7 +189,7 @@ describe('SessionList — 編集', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn()
     renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.type(screen.getByPlaceholderText('作業名（必須）'), '変更途中')
     await user.keyboard('{Escape}')
     expect(screen.queryByText('タイマーを編集')).not.toBeInTheDocument()
@@ -201,7 +201,7 @@ describe('SessionList — 編集', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn()
     renderWithProvider(<SessionList sessions={[makeSession()]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.clear(screen.getByPlaceholderText('作業名（必須）'))
     await user.keyboard('{Enter}')
     expect(onUpdate).not.toHaveBeenCalled()

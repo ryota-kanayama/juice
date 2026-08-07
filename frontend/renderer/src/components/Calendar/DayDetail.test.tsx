@@ -28,21 +28,16 @@ describe('DayDetail', () => {
     expect(screen.getAllByText(/45分/)).toHaveLength(2) // アイテムの duration + 合計
   })
 
-  it('行をダブルクリックすると編集ダイアログがセッションの値で開く', async () => {
+  it('編集ボタンを押すと編集ダイアログがセッションの値で開く', async () => {
     const user = userEvent.setup()
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     expect(screen.getByText('タイマーを編集')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('企画書作業')
     expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P001')
     expect(screen.getByPlaceholderText('作業区分')).toHaveValue('設計')
     expect(within(screen.getByLabelText('開始時刻')).getByLabelText('時')).toHaveValue('10')
     expect(within(screen.getByLabelText('終了時刻')).getByLabelText('分')).toHaveValue('45')
-  })
-
-  it('編集ボタンは表示されない（ダブルクリックと右クリックメニューに移行）', () => {
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: '編集' })).not.toBeInTheDocument()
   })
 
   it('右クリックメニューの「編集」で編集ダイアログが開く', async () => {
@@ -58,7 +53,7 @@ describe('DayDetail', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.clear(screen.getByPlaceholderText('作業名（必須）'))
     await user.type(screen.getByPlaceholderText('作業名（必須）'), '新しい作業名{Enter}')
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: '新しい作業名' }))
@@ -69,7 +64,7 @@ describe('DayDetail', () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     const legacy = { ...session, times: [] }
     render(<DayDetail date="2026-02-25" sessions={[legacy]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.clear(screen.getByPlaceholderText('分'))
     await user.type(screen.getByPlaceholderText('分'), '90')
     await user.click(screen.getByRole('button', { name: '保存' }))
@@ -80,7 +75,7 @@ describe('DayDetail', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn()
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.type(screen.getByPlaceholderText('作業名（必須）'), '変更途中')
     await user.keyboard('{Escape}')
     expect(screen.queryByText('タイマーを編集')).not.toBeInTheDocument()
@@ -92,7 +87,7 @@ describe('DayDetail', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn()
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     await user.clear(screen.getByPlaceholderText('作業名（必須）'))
     await user.keyboard('{Enter}')
     expect(onUpdate).not.toHaveBeenCalled()
@@ -146,7 +141,7 @@ describe('DayDetail の区間編集', () => {
   it('編集ダイアログに既存の区間が入る', async () => {
     const user = userEvent.setup()
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     expect(screen.getByText('合計: 45分')).toBeInTheDocument()
   })
 
@@ -154,7 +149,7 @@ describe('DayDetail の区間編集', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn().mockResolvedValue(undefined)
     render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     // 終了時刻の「時」を 12 に変える（10:45 → 12:45）。
     // TimeField は role="group" + aria-label を持つ div の中に「時」「分」の input を持つ
     const endGroup = screen.getByLabelText('終了時刻')
@@ -169,7 +164,7 @@ describe('DayDetail の区間編集', () => {
     const user = userEvent.setup()
     const legacy = { ...session, times: [] }
     render(<DayDetail date="2026-02-25" sessions={[legacy]} onUpdate={vi.fn()} />)
-    await user.dblClick(screen.getByText('企画書作業'))
+    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
     expect(screen.getByPlaceholderText('分')).toBeInTheDocument()
   })
 })
@@ -246,5 +241,38 @@ describe('DayDetail のカードの収まり', () => {
     expect(categoryChip.className).toContain('truncate')
     expect(codeChip).toHaveAttribute('title', long.projectCode)
     expect(categoryChip).toHaveAttribute('title', long.workCategory)
+  })
+})
+
+describe('DayDetail の編集ボタン', () => {
+  it('onUpdate があれば編集ボタンを描画する', () => {
+    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
+    expect(screen.getByRole('button', { name: '編集' })).toBeInTheDocument()
+  })
+
+  it('onUpdate が無ければ編集ボタンを描画しない', () => {
+    render(<DayDetail date="2026-02-25" sessions={[session]} />)
+    expect(screen.queryByRole('button', { name: '編集' })).not.toBeInTheDocument()
+  })
+
+  it('編集ボタンを押すと編集ダイアログが開く', async () => {
+    const user = userEvent.setup()
+    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '編集' }))
+    expect(screen.getByText('タイマーを編集')).toBeInTheDocument()
+  })
+
+  it('編集ボタンを押しても展開は切り替わらない', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: '編集' }))
+    expect(container.querySelector('[data-session-intervals]')).toBeNull()
+  })
+
+  it('行をダブルクリックしても編集は開かない', async () => {
+    const user = userEvent.setup()
+    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
+    await user.dblClick(screen.getByText('企画書作業'))
+    expect(screen.queryByText('タイマーを編集')).not.toBeInTheDocument()
   })
 })

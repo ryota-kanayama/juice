@@ -9,6 +9,7 @@ import { useContextMenu } from '../../hooks/useContextMenu'
 import { useExpandedItem } from '../../hooks/useExpandedItem'
 import { SessionIntervals } from '../Popover/SessionIntervals'
 import { Card, CardContent } from '@/components/ui/card'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { EditPencil } from 'iconoir-react'
 import { resolveJuiceColor } from '../../domain/colors'
 
@@ -109,10 +110,6 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
                 if ((e.target as HTMLElement).closest('button, input, [role="listbox"]')) return
                 setExpandedId(prev => (prev === session.id ? null : session.id))
               }}
-              onDoubleClick={(e) => {
-                if ((e.target as HTMLElement).closest('button, input, [role="listbox"]')) return
-                if (onUpdate) handleEditStart(session)
-              }}
               onContextMenu={e => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -134,6 +131,22 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
                 {expandedId === session.id && <SessionIntervals session={session} />}
               </div>
               <span className="ml-auto shrink-0 text-sm font-semibold text-[var(--accent)]">{session.totalTime}分</span>
+              {onUpdate && (
+                <TooltipProvider delayDuration={450}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--accent)] focus:opacity-100 group-hover:opacity-100"
+                        onClick={() => handleEditStart(session)}
+                        aria-label="編集"
+                      >
+                        <EditPencil width={14} height={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>編集</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </li>
           ))}
         </ul>
