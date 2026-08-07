@@ -42,7 +42,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-session-item]',
     title: '記録を編集・並び替え',
-    body: 'カーソルを合わせて鉛筆ボタンで編集、右クリックで削除、ドラッグで並び替えできます。',
+    body: 'カーソルを合わせて鉛筆ボタンで編集、右クリックのメニューから削除、ドラッグで並び替えできます。',
     placement: 'bottom',
     scene: { tab: 'timer', demo: true },
   },
