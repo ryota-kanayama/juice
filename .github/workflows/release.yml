@@ -50,6 +50,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # ビルド前のガード。CHANGELOG の `## [Unreleased]` をこの版の節へリネームし忘れたまま
+      # タグを打つと、アプリ内の「変更点」はビルド時の CHANGELOG を埋め込むため、その版の
+      # 変更点が誰にも表示されないまま既読として記録され、二度と出せなくなる。
+      # release_notes.rs のテストが現在のバージョンの節の存在を検査するので、ここで止める。
+      - name: Guard release notes (cargo test)
+        run: cargo test --lib --manifest-path src-tauri/Cargo.toml
+
       # tauri-action が tauri build（beforeBuildCommand=vite build 含む）を実行し、
       # 生成された DMG を同一タグのリリースへアップロードする。
       - name: Build & upload (Tauri, unsigned)
