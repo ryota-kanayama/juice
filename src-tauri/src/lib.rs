@@ -158,6 +158,12 @@ pub fn run() {
             commands::update_check,
             commands::update_install,
             commands::update_ready_to_quit,
+            commands::release_notes_current,
+            commands::release_notes_pending,
+            commands::release_notes_mark_seen,
+            commands::open_release_notes_window,
+            commands::open_release_notes_pending_window,
+            commands::close_release_notes_window,
         ])
         .setup(|app| {
             // データディレクトリは Electron 版と互換（dev=juice-dev / 本番=Juice）。
@@ -171,6 +177,7 @@ pub fn run() {
             app.manage(auth::AuthStore::new());
             app.manage(oauth::PendingState::default());
             app.manage(update::UpdateAck::default());
+            app.manage(update::LastChecked::default());
             app.manage(AnchorPos::default());
 
             // juice://auth コールバック（Slack サインイン）を deep-link で受ける。
@@ -198,6 +205,8 @@ pub fn run() {
             if !handle.state::<SettingsStore>().is_setup_completed() {
                 open_aux_window(handle, "setup", "setup", "Juice — セットアップ", 480.0, 600.0, false);
             }
+            // 更新後の初回起動なら変更点を出す（セットアップ窓とは排他: 新規インストールでは出ない）
+            maybe_show_release_notes(handle);
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -422,14 +431,39 @@ fn open_aux_window(
     }
 }
 
-/// 付属ウィンドウ（settings/setup）が1つも無ければ Accessory（Dock 非表示）に戻す。
+/// 付属ウィンドウが1つも無ければ Accessory（Dock 非表示）に戻す。
 fn revert_activation_policy_if_no_aux(app: &AppHandle) {
     let has_aux = app.get_webview_window("settings").is_some()
         || app.get_webview_window("setup").is_some()
-        || app.get_webview_window("calendar").is_some();
+        || app.get_webview_window("calendar").is_some()
+        || app.get_webview_window("release-notes").is_some()
+        || app.get_webview_window("release-notes-pending").is_some();
     if !has_aux {
         let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
     }
+}
+
+/// 更新後の初回起動なら「変更点」ウィンドウを出す。
+///
+/// 見せるものが無い場合（節が無い・空・新規インストール・ダウングレード）はその場で
+/// last_seen_version を記録して終わる。見せる場合の記録は、ウィンドウが中身を描画
+/// できた時点でフロントから release_notes_mark_seen を呼んで行う。
+fn maybe_show_release_notes(app: &AppHandle) {
+    let current = app.package_info().version.to_string();
+    let store = app.state::<SettingsStore>();
+    if store.get_last_seen_version() == current {
+        return;
+    }
+    let entries = release_notes::entries_since_last_seen(
+        &store.get_last_seen_version(),
+        &current,
+        store.is_setup_completed(),
+    );
+    if entries.is_empty() {
+        let _ = store.set_last_seen_version(&current);
+        return;
+    }
+    open_release_notes(app);
 }
 
 /// 設定ウィンドウを開く（トレイ「設定」から）。
@@ -440,6 +474,26 @@ pub fn open_settings(app: &AppHandle) {
 /// カレンダーウィンドウを開く。通常のアプリウィンドウ（リサイズ可）。
 pub fn open_calendar(app: &AppHandle) {
     open_aux_window(app, "calendar", "calendar", "Juice カレンダー", 1000.0, 680.0, true);
+}
+
+/// 更新後の「変更点」ウィンドウを開く。
+pub fn open_release_notes(app: &AppHandle) {
+    open_aux_window(app, "release-notes", "release-notes", "Juice の変更点", 560.0, 640.0, true);
+}
+
+/// 更新前の「次の更新の変更点」ウィンドウを開く。
+/// 更新後のウィンドウとは label を分ける。1つの label を使い回すと、close() の完了前に
+/// open_aux_window が既存ウィンドウを見つけて前面化するだけになり、古いモードのまま残る。
+pub fn open_release_notes_pending(app: &AppHandle) {
+    open_aux_window(
+        app,
+        "release-notes-pending",
+        "release-notes-pending",
+        "次の更新の変更点",
+        560.0,
+        640.0,
+        true,
+    );
 }
 
 /// トレイアイコンの真下にパネルを表示／非表示でトグルする。
