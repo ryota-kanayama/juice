@@ -63,6 +63,9 @@ jobs:
             自動ビルド（未署名）。arm64 / x64 の DMG を添付しています。
 
             公開前チェック:
+            - CHANGELOG.md の `## [Unreleased]` をこの版の節（`## [X.Y.Z] - YYYY-MM-DD`）へ
+              **タグ push 前に**リネーム済みか（アプリ内の「変更点」はビルド時の CHANGELOG を
+              埋め込むため、未リネームのままだとこの版の変更点が表示されない。タグを取り直す）
             - CHANGELOG.md の該当節を本文に記載
             - **引き継ぎリリース時のみ**: DMG を Electron 命名へリネーム
               （`Juice_X.Y.Z_aarch64.dmg`→`Juice-X.Y.Z-arm64.dmg`、`_x64.dmg`→`.dmg`）

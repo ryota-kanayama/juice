@@ -217,6 +217,23 @@ mod tests {
         assert!(entries.iter().any(|e| e.version == "2.1.0"));
     }
 
+    #[test]
+    fn embedded_changelog_has_section_for_build_version() {
+        // CHANGELOG のリネーム忘れを検知する。
+        // ビルド時のバージョンの節が無いと、表示範囲のルールが常に空になり、
+        // その版のリリースノートは起動時にも設定からも二度と出せなくなる。
+        let version = env!("CARGO_PKG_VERSION");
+        let entries = parse_changelog(CHANGELOG);
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.version == version && !e.body.trim().is_empty()),
+            "CHANGELOG.md に v{version} の節（本文つき）がありません。\
+             リリース前に `## [Unreleased]` を `## [{version}] - YYYY-MM-DD` へリネームしてください。\
+             忘れると、この版の変更点がユーザーに一度も表示されません。"
+        );
+    }
+
     fn entries() -> Vec<ReleaseNoteEntry> {
         vec![
             ReleaseNoteEntry { version: "2.3.0".into(), date: "2026-09-01".into(), body: "- 三".into() },
