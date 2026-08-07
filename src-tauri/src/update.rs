@@ -67,12 +67,12 @@ pub struct UpdateAck(std::sync::Mutex<Option<tokio::sync::oneshot::Sender<()>>>)
 // ---- バージョン比較（Electron 版 shared/version.ts 相当） ----
 
 /// 先頭の v/V と前後空白を除く。
-fn normalize_version(v: &str) -> String {
+pub(crate) fn normalize_version(v: &str) -> String {
     v.trim().trim_start_matches(['v', 'V']).to_string()
 }
 
 /// major.minor.patch を数値比較。桁欠落は 0 扱い。
-fn compare_versions(a: &str, b: &str) -> Ordering {
+pub(crate) fn compare_versions(a: &str, b: &str) -> Ordering {
     let pa = parse_parts(a);
     let pb = parse_parts(b);
     let len = pa.len().max(pb.len());

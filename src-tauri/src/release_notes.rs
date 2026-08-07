@@ -5,6 +5,8 @@
 //! 出所だけが1つに定まる。
 
 use serde::Serialize;
+use crate::update::compare_versions;
+use std::cmp::Ordering;
 
 /// ビルド時に埋め込む CHANGELOG（src-tauri/src から見たリポジトリルート）。
 const CHANGELOG: &str = include_str!("../../CHANGELOG.md");
@@ -60,6 +62,88 @@ pub fn parse_changelog(md: &str) -> Vec<ReleaseNoteEntry> {
     }
     flush(&mut out, current.take());
     out
+}
+
+/// この機能より前のバージョンから上がってきた既存ユーザーに見せる下限。
+///
+/// v2.1.0 の変更内容が誰にも伝わらなかったため、次の更新でまとめて見せる。
+/// 一度でも新バージョンを起動すれば `last_seen_version` が入るので、この定数は二度と効かない。
+const MIGRATION_FLOOR: &str = "2.1.0";
+
+/// 表示範囲のルール。`last_seen` より新しく、`current` 以下の節を新しい順に返す。
+/// 本文が空の節は落とす。
+///
+/// `last_seen` が空のとき:
+///   - `setup_completed` = true  → 既存ユーザー。`MIGRATION_FLOOR` 以上を返す
+///   - `setup_completed` = false → 新規インストール。何も返さない
+fn select_entries(
+    entries: &[ReleaseNoteEntry],
+    last_seen: &str,
+    current: &str,
+    setup_completed: bool,
+) -> Vec<ReleaseNoteEntry> {
+    let last_seen = last_seen.trim();
+    if last_seen.is_empty() && !setup_completed {
+        return Vec::new();
+    }
+
+    let mut selected: Vec<ReleaseNoteEntry> = entries
+        .iter()
+        .filter(|e| !e.body.trim().is_empty())
+        // 今動いているバージョンより新しい節は、まだこのアプリに入っていない
+        .filter(|e| compare_versions(&e.version, current) != Ordering::Greater)
+        .filter(|e| {
+            if last_seen.is_empty() {
+                // 移行: 下限そのものを含めるので Less のみ落とす
+                compare_versions(&e.version, MIGRATION_FLOOR) != Ordering::Less
+            } else {
+                compare_versions(&e.version, last_seen) == Ordering::Greater
+            }
+        })
+        .cloned()
+        .collect();
+
+    selected.sort_by(|a, b| compare_versions(&b.version, &a.version));
+    selected
+}
+
+/// 範囲ルールが空だったときに、今のバージョンの節だけを返すフォールバック付き。
+/// テストから任意のリストを渡せるよう分けてある。
+fn entries_for_display_from(
+    entries: &[ReleaseNoteEntry],
+    last_seen: &str,
+    current: &str,
+    setup_completed: bool,
+) -> Vec<ReleaseNoteEntry> {
+    let selected = select_entries(entries, last_seen, current, setup_completed);
+    if !selected.is_empty() {
+        return selected;
+    }
+    entries
+        .iter()
+        .filter(|e| !e.body.trim().is_empty())
+        .filter(|e| compare_versions(&e.version, current) == Ordering::Equal)
+        .cloned()
+        .collect()
+}
+
+/// 起動時の自動表示が使う。フォールバックを通さない
+/// （通すと新規インストールでもウィンドウが開いてしまう）。
+pub fn entries_since_last_seen(
+    last_seen: &str,
+    current: &str,
+    setup_completed: bool,
+) -> Vec<ReleaseNoteEntry> {
+    select_entries(&parse_changelog(CHANGELOG), last_seen, current, setup_completed)
+}
+
+/// ウィンドウが読むコマンドが使う。設定から開き直したときのためにフォールバックを通す。
+pub fn entries_for_display(
+    last_seen: &str,
+    current: &str,
+    setup_completed: bool,
+) -> Vec<ReleaseNoteEntry> {
+    entries_for_display_from(&parse_changelog(CHANGELOG), last_seen, current, setup_completed)
 }
 
 #[cfg(test)]
@@ -131,5 +215,78 @@ mod tests {
         let entries = parse_changelog(CHANGELOG);
         assert!(!entries.is_empty());
         assert!(entries.iter().any(|e| e.version == "2.1.0"));
+    }
+
+    fn entries() -> Vec<ReleaseNoteEntry> {
+        vec![
+            ReleaseNoteEntry { version: "2.3.0".into(), date: "2026-09-01".into(), body: "- 三".into() },
+            ReleaseNoteEntry { version: "2.2.0".into(), date: "2026-08-20".into(), body: "- 二".into() },
+            ReleaseNoteEntry { version: "2.1.0".into(), date: "2026-08-07".into(), body: "- 一".into() },
+            ReleaseNoteEntry { version: "2.0.1".into(), date: "2026-07-10".into(), body: "- 零".into() },
+        ]
+    }
+
+    fn versions(v: &[ReleaseNoteEntry]) -> Vec<String> {
+        v.iter().map(|e| e.version.clone()).collect()
+    }
+
+    #[test]
+    fn selects_only_newer_than_last_seen() {
+        let got = select_entries(&entries(), "2.2.0", "2.3.0", true);
+        assert_eq!(versions(&got), vec!["2.3.0"]);
+    }
+
+    #[test]
+    fn includes_skipped_versions_newest_first() {
+        let got = select_entries(&entries(), "2.0.1", "2.3.0", true);
+        assert_eq!(versions(&got), vec!["2.3.0", "2.2.0", "2.1.0"]);
+    }
+
+    #[test]
+    fn never_includes_versions_above_current() {
+        // 2.3.0 の節はあるが、動いているのは 2.2.0
+        let got = select_entries(&entries(), "2.0.1", "2.2.0", true);
+        assert_eq!(versions(&got), vec!["2.2.0", "2.1.0"]);
+    }
+
+    #[test]
+    fn empty_last_seen_with_setup_falls_back_to_migration_floor() {
+        // この機能より前のバージョンから上がってきた既存ユーザー: 2.1.0 以降をまとめて出す
+        let got = select_entries(&entries(), "", "2.3.0", true);
+        assert_eq!(versions(&got), vec!["2.3.0", "2.2.0", "2.1.0"]);
+    }
+
+    #[test]
+    fn empty_last_seen_without_setup_shows_nothing() {
+        // 新規インストール。リリースノートは出さない
+        let got = select_entries(&entries(), "", "2.3.0", false);
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn downgrade_shows_nothing() {
+        let got = select_entries(&entries(), "2.3.0", "2.2.0", true);
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn skips_entries_with_empty_body() {
+        let mut list = entries();
+        list[0].body = "   \n".into();
+        let got = select_entries(&list, "2.1.0", "2.3.0", true);
+        assert_eq!(versions(&got), vec!["2.2.0"]);
+    }
+
+    #[test]
+    fn display_falls_back_to_current_version_when_already_seen() {
+        // 一度見たあと（last_seen == current）でも、設定から開き直せるように今の版を返す
+        let got = entries_for_display_from(&entries(), "2.3.0", "2.3.0", true);
+        assert_eq!(versions(&got), vec!["2.3.0"]);
+    }
+
+    #[test]
+    fn display_returns_nothing_when_current_version_has_no_section() {
+        let got = entries_for_display_from(&entries(), "9.9.9", "9.9.9", true);
+        assert!(got.is_empty());
     }
 }
