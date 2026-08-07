@@ -34,8 +34,22 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     target: '[data-session-item]',
-    title: '記録を操作する',
-    body: 'カーソルを合わせて鉛筆ボタンで編集、右クリックで追加・削除、ドラッグで並び替えできます。',
+    title: '記録を見る',
+    body: '項目をクリックすると、その作業をいつからいつまで行ったかを確認できます。',
+    placement: 'bottom',
+    scene: { tab: 'timer', demo: true },
+  },
+  {
+    target: '[data-session-item]',
+    title: '記録を編集・並び替え',
+    body: 'カーソルを合わせて鉛筆ボタンで編集、右クリックのメニューから削除、ドラッグで並び替えできます。',
+    placement: 'bottom',
+    scene: { tab: 'timer', demo: true },
+  },
+  {
+    target: '[data-session-item]',
+    title: 'あとから記録を足す',
+    body: 'タイマーを回し忘れても、右クリックの「追加」から開始・終了の時刻を入れて記録できます。',
     placement: 'bottom',
     scene: { tab: 'timer', demo: true },
   },
@@ -49,8 +63,13 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="tab-calendar"]',
     title: 'カレンダー',
-    body: '日々の記録をカレンダーで振り返れます。',
+    body: '押すと大きな画面が開き、これまでの記録を週や月で振り返れます。',
     placement: 'top',
+  },
+  {
+    target: null,
+    title: 'カレンダーでできること',
+    body: '週表示では作業が時間帯どおりに並び、同じ時間帯の作業は横に並びます。月表示では 1 か月分を見渡せます。',
   },
   {
     target: '[data-tour="tab-attendance"]',
