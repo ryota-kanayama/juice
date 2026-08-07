@@ -81,7 +81,7 @@ impl LastChecked {
 // ---- バージョン比較（Electron 版 shared/version.ts 相当） ----
 
 /// 先頭の v/V と前後空白を除く。
-pub(crate) fn normalize_version(v: &str) -> String {
+fn normalize_version(v: &str) -> String {
     v.trim().trim_start_matches(['v', 'V']).to_string()
 }
 

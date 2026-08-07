@@ -378,10 +378,11 @@ pub fn release_notes_current(
     )
 }
 
-/// これから入るバージョンのノート。GitHub から取得済みの本文をそのまま渡す。
-#[tauri::command]
-pub fn release_notes_pending(
-    state: State<'_, crate::update::LastChecked>,
+/// 直近のチェック結果から、更新前に見せるノートを組み立てる。
+/// 空になるのは「チェックが未実行」か「本文が空」のとき。
+/// ウィンドウを開くかどうかの判定も同じ結果を使う（判定を二重に持たない）。
+fn pending_entries(
+    state: &crate::update::LastChecked,
 ) -> Vec<crate::release_notes::ReleaseNoteEntry> {
     match state.get() {
         Some(info) if !info.notes.trim().is_empty() => {
@@ -393,6 +394,14 @@ pub fn release_notes_pending(
         }
         _ => Vec::new(),
     }
+}
+
+/// これから入るバージョンのノート。GitHub から取得済みの本文をそのまま渡す。
+#[tauri::command]
+pub fn release_notes_pending(
+    state: State<'_, crate::update::LastChecked>,
+) -> Vec<crate::release_notes::ReleaseNoteEntry> {
+    pending_entries(&state)
 }
 
 /// 「変更点を見せた」ことを記録する。ウィンドウが中身を描画できた時点で呼ばれる。
@@ -410,20 +419,24 @@ pub fn open_release_notes_window(app: tauri::AppHandle) {
     crate::open_release_notes(&app);
 }
 
+/// 更新前のノートのウィンドウを開く。
+/// 見せる本文が無いとき（チェック未実行・本文が空）は空のウィンドウが出るだけなので開かない。
 #[tauri::command]
-pub fn open_release_notes_pending_window(app: tauri::AppHandle) {
+pub fn open_release_notes_pending_window(
+    app: tauri::AppHandle,
+    state: State<'_, crate::update::LastChecked>,
+) {
+    if pending_entries(&state).is_empty() {
+        return;
+    }
     crate::open_release_notes_pending(&app);
 }
 
 /// リリースノートのウィンドウを閉じる（パネル内の「閉じる」ボタンから）。
+/// 更新前と更新後のウィンドウは共存しうるので、呼び出し元のウィンドウだけを閉じる。
 #[tauri::command]
-pub fn close_release_notes_window(app: tauri::AppHandle) {
-    use tauri::Manager;
-    for label in ["release-notes", "release-notes-pending"] {
-        if let Some(win) = app.get_webview_window(label) {
-            let _ = win.close();
-        }
-    }
+pub fn close_release_notes_window(window: tauri::Window) {
+    let _ = window.close();
 }
 
 /// カレンダーウィンドウを閉じてポップオーバーへ戻る。
