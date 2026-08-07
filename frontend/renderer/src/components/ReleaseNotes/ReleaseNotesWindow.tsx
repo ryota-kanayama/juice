@@ -43,9 +43,7 @@ export function ReleaseNotesWindow({ mode }: { mode: 'current' | 'pending' }) {
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="shrink-0 border-b border-border px-5 py-3">
-        <h1 className="text-[15px] font-semibold text-foreground">{title}</h1>
-      </header>
+      <h1 className="sr-only">{title}</h1>
 
       <main className="flex flex-1 flex-col gap-7 overflow-y-auto px-5 py-4">
         {state.status === 'failed' ? (

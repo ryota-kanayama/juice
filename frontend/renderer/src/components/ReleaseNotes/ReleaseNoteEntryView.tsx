@@ -16,13 +16,13 @@ export function ReleaseNoteEntryView({ entry }: { entry: ReleaseNoteEntry }) {
 
       {blocks.map((block, i) =>
         block.kind === 'paragraph' ? (
-          <p key={i} className="text-[13px] leading-relaxed text-foreground">
+          <p key={i} className="my-0 text-[13px] leading-relaxed text-foreground">
             {block.text}
           </p>
         ) : (
           <div key={i} className="flex flex-col gap-2">
             {(block.emoji || block.label) && (
-              <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+              <h3 className="my-0 flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
                 {block.emoji && (
                   <span
                     aria-hidden="true"
@@ -34,7 +34,7 @@ export function ReleaseNoteEntryView({ entry }: { entry: ReleaseNoteEntry }) {
                 {block.label}
               </h3>
             )}
-            <ul className="flex flex-col gap-1.5 pl-1">
+            <ul className="my-0 list-none flex flex-col gap-1.5 pl-1">
               {block.items.map((item, j) => (
                 <li key={j} className="flex gap-2 text-[13px] leading-relaxed text-foreground">
                   <span aria-hidden="true" className="select-none text-muted-foreground">
