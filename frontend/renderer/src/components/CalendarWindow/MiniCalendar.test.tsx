@@ -112,4 +112,15 @@ describe('MiniCalendar の前後月', () => {
     await userEvent.click(screen.getByRole('button', { name: '7月26日' }))
     expect(onSelectDate).toHaveBeenCalledWith('2026-07-26')
   })
+
+  it('highlightWeekOf の週が月をまたぐとき、前月のセルにも帯が途切れず付く', () => {
+    const { container } = render(
+      <MiniCalendar {...baseProps} highlightWeekOf="2026-07-29" />
+    )
+    // 2026-07-29(水) を含む週は 7/26(日)〜8/1(土)。7/26〜7/31 は前月（アウトサイド）のセル
+    const outsideCell = container.querySelector('[data-outside-month="2026-07-26"]')
+    expect(outsideCell).not.toBeNull()
+    expect(outsideCell).toHaveAttribute('data-in-week', '2026-07-26')
+    expect(container.querySelector('[data-in-week="2026-08-01"]')).not.toBeNull()
+  })
 })
