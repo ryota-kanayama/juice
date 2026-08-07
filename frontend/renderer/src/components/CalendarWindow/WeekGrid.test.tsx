@@ -139,8 +139,24 @@ describe('WeekGrid', () => {
       <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [oneMinute] }} />
     )
     const block = container.querySelector('[data-event-block]') as HTMLElement
-    // 1分ぶん(0.14%)ではなく、最低高さ 14px 相当（12時間 × 44px = 528px に対する割合）まで引き上げられる
-    expect(parseFloat(block.style.height)).toBeCloseTo((14 / 528) * 100, 3)
+    // 1分ぶん(0.14%)ではなく、最低高さ 18px 相当（12時間 × 44px = 528px に対する割合）まで引き上げられる
+    expect(parseFloat(block.style.height)).toBeCloseTo((18 / 528) * 100, 3)
+  })
+
+  it('最小高さは作業名1行と padding・ボーダーが収まる大きさにする', () => {
+    const oneMinute = makeSession({
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T10:01:00' }],
+      totalTime: 1,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [oneMinute] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    // グリッド最小高さ 528px 換算での実寸
+    const px = (parseFloat(block.style.height) / 100) * 528
+    // 上下 padding 4px + 透明ボーダー 2px を引いた残りが、9px・leading-tight の
+    // 行ボックス（約 11.25px）以上あること
+    expect(px - 4 - 2).toBeGreaterThanOrEqual(11.25)
   })
 
   it('最小高さを確保してもグリッド最下部を超えない', () => {
@@ -335,5 +351,40 @@ describe('WeekGrid のホバー詳細', () => {
     await user.hover(block)
     expect(await screen.findByText('18:00 – 22:00')).toBeInTheDocument()
     expect(screen.getByText('240分')).toBeInTheDocument()
+  })
+})
+
+describe('WeekGrid のブロックの余白', () => {
+  it('時間が連続するブロックが接して見えないよう上下に余白を入れる', () => {
+    const morning = makeSession({
+      id: 'a', taskId: 'a',
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T11:00:00' }],
+      totalTime: 60,
+    })
+    const noon = makeSession({
+      id: 'b', taskId: 'b',
+      times: [{ startTime: '2026-08-06T11:00:00', endTime: '2026-08-06T12:00:00' }],
+      totalTime: 60,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [morning, noon] }} />
+    )
+    const blocks = Array.from(container.querySelectorAll('[data-event-block]')) as HTMLElement[]
+    expect(blocks).toHaveLength(2)
+    for (const el of blocks) {
+      expect(el.style.borderTopWidth).toBe('1px')
+      expect(el.style.borderBottomWidth).toBe('1px')
+      expect(el.style.borderTopColor).toBe('transparent')
+      expect(el.style.borderBottomColor).toBe('transparent')
+    }
+  })
+
+  it('左右の余白は維持する', () => {
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [makeSession()] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    expect(block.style.borderLeftWidth).toBe('2px')
+    expect(block.style.borderRightWidth).toBe('2px')
   })
 })

@@ -22,8 +22,12 @@ const HOUR_PX = 44
 const HOUR_COUNT = END_HOUR - START_HOUR
 /** グリッドの最小高さ(px)。ウィンドウが高いときはこれを超えて縦に伸びる。 */
 const MIN_GRID_PX = HOUR_COUNT * HOUR_PX
-/** 短い記録が潰れて見えなくならないよう確保する最小高さ(px 相当)。 */
-const MIN_BLOCK_PX = 14
+/**
+ * 短い記録が潰れて見えなくならないよう確保する最小高さ(px 相当)。
+ * 作業名の1行（9px・leading-tight ≒ 11.25px）に、上下の padding 4px と
+ * 透明ボーダー 2px を足した分が収まる値にする。
+ */
+const MIN_BLOCK_PX = 18
 /** ブロックがこの高さ(px 相当)未満のときは作業名のみ1行で表示する。 */
 const COMPACT_BLOCK_PX = 28
 
@@ -255,9 +259,12 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
                       height: pct(b.height),
                       left: pct(b.left),
                       width: pct(b.width),
-                      // 隣の列と接して見えないよう、透明ボーダーで内側に寄せる
+                      // 隣のブロックと接して見えないよう、透明ボーダーで内側に寄せる。
+                      // 縦は 1時間がグリッド高さの 1/12 しかなく、短い記録が潰れるため左右より薄くする
                       borderLeft: '2px solid transparent',
                       borderRight: '2px solid transparent',
+                      borderTop: '1px solid transparent',
+                      borderBottom: '1px solid transparent',
                       background: b.color,
                       backgroundClip: 'padding-box',
                     }}
