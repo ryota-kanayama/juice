@@ -64,6 +64,20 @@ struct Progress {
 #[derive(Default)]
 pub struct UpdateAck(std::sync::Mutex<Option<tokio::sync::oneshot::Sender<()>>>);
 
+/// 直近の更新チェック結果。更新前のリリースノート表示がここから本文を読む。
+/// 取得は Rust 側で走っているので、フロントへ渡し直さずに済む。
+#[derive(Default)]
+pub struct LastChecked(std::sync::Mutex<Option<UpdateInfo>>);
+
+impl LastChecked {
+    pub fn set(&self, info: UpdateInfo) {
+        *self.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(info);
+    }
+    pub fn get(&self) -> Option<UpdateInfo> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+}
+
 // ---- バージョン比較（Electron 版 shared/version.ts 相当） ----
 
 /// 先頭の v/V と前後空白を除く。
@@ -228,7 +242,7 @@ pub async fn check_for_update(app: &AppHandle) -> Result<UpdateInfo, String> {
     let latest = normalize_version(&release.tag_name);
     let asset = select_dmg_asset(&release.assets, current_arch());
     let current = current_version(app);
-    Ok(UpdateInfo {
+    let info = UpdateInfo {
         has_update: is_newer_version(&latest, &current),
         current_version: current,
         latest_version: latest,
@@ -236,7 +250,10 @@ pub async fn check_for_update(app: &AppHandle) -> Result<UpdateInfo, String> {
         download_url: asset.as_ref().map(|a| a.url.clone()),
         asset_name: asset.as_ref().map(|a| a.name.clone()),
         notes: release.body,
-    })
+    };
+    // 更新前のリリースノート表示が読めるよう控えておく
+    app.state::<LastChecked>().set(info.clone());
+    Ok(info)
 }
 
 async fn check_and_notify(app: &AppHandle) {
@@ -610,5 +627,33 @@ mod tests {
         assert_eq!(safe_asset_name("/abs/evil.dmg").as_deref(), Some("evil.dmg"));
         assert_eq!(safe_asset_name(".."), None);
         assert_eq!(safe_asset_name(""), None);
+    }
+
+    fn sample_info(version: &str, notes: &str) -> UpdateInfo {
+        UpdateInfo {
+            current_version: "2.1.0".into(),
+            latest_version: version.into(),
+            has_update: true,
+            release_url: "https://github.com/x/y/releases/tag/v2.2.0".into(),
+            download_url: None,
+            asset_name: None,
+            notes: notes.into(),
+        }
+    }
+
+    #[test]
+    fn last_checked_starts_empty() {
+        let s = LastChecked::default();
+        assert!(s.get().is_none());
+    }
+
+    #[test]
+    fn last_checked_keeps_the_latest_value() {
+        let s = LastChecked::default();
+        s.set(sample_info("2.2.0", "### ✨ 新機能\n\n- 何か"));
+        s.set(sample_info("2.3.0", "### 🐛 修正\n\n- 別の何か"));
+        let got = s.get().unwrap();
+        assert_eq!(got.latest_version, "2.3.0");
+        assert!(got.notes.contains("別の何か"));
     }
 }
