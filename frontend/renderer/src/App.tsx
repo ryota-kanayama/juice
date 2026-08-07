@@ -9,6 +9,7 @@ import { AttendanceReport } from './components/Popover/AttendanceReport'
 import { SettingsView } from './components/Settings/SettingsView'
 import { SetupView } from './components/Setup/SetupView'
 import { CalendarWindow } from './components/CalendarWindow/CalendarWindow'
+import { ReleaseNotesWindow } from './components/ReleaseNotes/ReleaseNotesWindow'
 import { WorkStartOverlay } from './components/Popover/WorkStartOverlay'
 import { UsageGuideButton } from './components/UsageGuide/UsageGuideButton'
 import { UsageGuidePanel } from './components/UsageGuide/UsageGuidePanel'
@@ -44,9 +45,19 @@ function isCalendarRoute(): boolean {
   return window.location.hash === '#calendar'
 }
 
+function isReleaseNotesRoute(): boolean {
+  return window.location.hash === '#release-notes'
+}
+
+function isReleaseNotesPendingRoute(): boolean {
+  return window.location.hash === '#release-notes-pending'
+}
+
 export default function App() {
   if (isSetupRoute()) return <SetupView />
   if (isSettingsRoute()) return <SettingsView />
+  if (isReleaseNotesRoute()) return <ReleaseNotesWindow mode="current" />
+  if (isReleaseNotesPendingRoute()) return <ReleaseNotesWindow mode="pending" />
   if (isCalendarRoute()) {
     return (
       <DailyDataProvider>
