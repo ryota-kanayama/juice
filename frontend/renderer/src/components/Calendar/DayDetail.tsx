@@ -118,7 +118,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
             >
               <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: resolveJuiceColor(session.color) }} aria-hidden="true" />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="break-words text-sm font-medium leading-snug text-foreground">{session.name}</span>
+                <span className="truncate text-sm font-medium text-foreground" title={session.name}>{session.name}</span>
                 {(session.projectCode || session.workCategory) && (
                   <div data-session-meta className="mb-px mt-0.5 flex flex-nowrap gap-1 overflow-hidden">
                     {/* shrink-0 と truncate は両立しない（shrink-0 だと text-ellipsis が発動せず

@@ -82,3 +82,34 @@ describe('MiniCalendar', () => {
     expect(container.querySelector('[data-holiday="2026-08-11"]')).not.toBeNull()
   })
 })
+
+describe('MiniCalendar の前後月', () => {
+  it('常に6週ぶん(42セル)の日付ボタンを描く', () => {
+    render(<MiniCalendar {...baseProps} />)
+    // 2026年8月は 8/1(土) 始まりなので、前月 7/26〜7/31 と翌月 9/1〜9/5 で埋まる
+    expect(screen.getAllByRole('button', { name: /月\d+日$/ })).toHaveLength(42)
+  })
+
+  it('前月の日付を出す', () => {
+    const { container } = render(<MiniCalendar {...baseProps} />)
+    expect(container.querySelector('[data-outside-month="2026-07-26"]')).not.toBeNull()
+    expect(container.querySelector('[data-outside-month="2026-07-31"]')).not.toBeNull()
+  })
+
+  it('翌月の日付を出す', () => {
+    const { container } = render(<MiniCalendar {...baseProps} />)
+    expect(container.querySelector('[data-outside-month="2026-09-01"]')).not.toBeNull()
+  })
+
+  it('表示中の月の日付には data-outside-month を付けない', () => {
+    const { container } = render(<MiniCalendar {...baseProps} />)
+    expect(container.querySelector('[data-outside-month="2026-08-06"]')).toBeNull()
+  })
+
+  it('前後月の日付を押しても onSelectDate は呼ばれる', async () => {
+    const onSelectDate = vi.fn()
+    render(<MiniCalendar {...baseProps} onSelectDate={onSelectDate} />)
+    await userEvent.click(screen.getByRole('button', { name: '7月26日' }))
+    expect(onSelectDate).toHaveBeenCalledWith('2026-07-26')
+  })
+})

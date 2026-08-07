@@ -17,6 +17,9 @@ interface Props {
 }
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土']
+/** カレンダーは常に6週(42セル)固定。月初/月末の空白は前後月の日付で埋める。 */
+const WEEK_ROWS = 6
+const GRID_CELLS = WEEK_ROWS * 7
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -27,14 +30,21 @@ export function MiniCalendar({
   onSelectDate, onPrevMonth, onNextMonth,
 }: Props) {
   const [year, month] = anchorDate.split('-').map(Number)
-  const daysInMonth = new Date(year, month, 0).getDate()
-  const firstDayOfWeek = new Date(year, month - 1, 1).getDay()
   const weekSet = new Set(highlightWeekOf ? weekDates(highlightWeekOf) : [])
 
-  const cells: (number | null)[] = [
-    ...Array<null>(firstDayOfWeek).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ]
+  const firstOfMonth = new Date(year, month - 1, 1)
+  const gridStart = new Date(year, month - 1, 1 - firstOfMonth.getDay())
+  const cells = Array.from({ length: GRID_CELLS }, (_, i) => {
+    const d = new Date(gridStart)
+    d.setDate(gridStart.getDate() + i)
+    return {
+      dateStr: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+      day: d.getDate(),
+      month: d.getMonth() + 1,
+      dow: d.getDay(),
+      inCurrentMonth: d.getMonth() === month - 1 && d.getFullYear() === year,
+    }
+  })
 
   return (
     <div className="select-none">
@@ -53,13 +63,11 @@ export function MiniCalendar({
       </div>
 
       <div className="grid grid-cols-7 gap-px text-center text-[10px]">
-        {cells.map((day, idx) => {
-          if (day === null) return <div key={`empty-${idx}`} />
-          const dateStr = `${year}-${pad(month)}-${pad(day)}`
+        {cells.map(cell => {
+          const { dateStr, day, month: cellMonth, dow, inCurrentMonth } = cell
           const isSelected = dateStr === selectedDate
           const inWeek = weekSet.has(dateStr)
           const isHoliday = dateStr in holidays
-          const dow = new Date(year, month - 1, day).getDay()
           const textColor = isSelected
             ? 'text-[var(--text-on-accent)]'
             : (dow === 0 || isHoliday)
@@ -78,10 +86,13 @@ export function MiniCalendar({
                     ? 'bg-[var(--accent-light)]'
                     : 'bg-transparent hover:bg-[var(--bg-hover)]',
                 textColor,
+                // 前後月の日付は薄く出す（月表示のグリッドと同じ扱い）
+                inCurrentMonth ? '' : 'opacity-40',
               ].join(' ')}
               onClick={() => onSelectDate(dateStr)}
               aria-pressed={isSelected}
-              aria-label={`${month}月${day}日`}
+              aria-label={`${cellMonth}月${day}日`}
+              {...(inCurrentMonth ? {} : { 'data-outside-month': dateStr })}
               {...(inWeek ? { 'data-in-week': dateStr } : {})}
               {...(isHoliday ? { 'data-holiday': dateStr } : {})}
             >

@@ -195,19 +195,26 @@ describe('DayDetail の展開表示', () => {
 })
 
 describe('DayDetail のカードの収まり', () => {
-  it('作業名を省略記号で切らず折り返す', () => {
+  it('作業名が長いときは1行に収めて省略記号で切る', () => {
     const long = {
       ...session,
       name: 'とても長い作業名がここに入っていて一行では収まらない',
     }
     render(<DayDetail date="2026-02-25" sessions={[long]} />)
     const name = screen.getByText('とても長い作業名がここに入っていて一行では収まらない')
-    // truncate（whitespace-nowrap + text-ellipsis）ではなく折り返しで見せる
-    expect(name.className).not.toContain('whitespace-nowrap')
-    expect(name.className).not.toContain('text-ellipsis')
-    // Tailwind の truncate は上記2つと overflow-hidden を1クラスに畳んだものなので、
-    // 不在チェックだけでは truncate への差し戻しを検出できない。break-words の存在も見る
-    expect(name.className).toContain('break-words')
+    // ポップオーバーのタイマー一覧と同じく1行に収める
+    expect(name.className).toContain('truncate')
+    expect(name.className).not.toContain('break-words')
+  })
+
+  it('作業名の全文を title で読めるようにする', () => {
+    const long = {
+      ...session,
+      name: 'とても長い作業名がここに入っていて一行では収まらない',
+    }
+    render(<DayDetail date="2026-02-25" sessions={[long]} />)
+    expect(screen.getByText('とても長い作業名がここに入っていて一行では収まらない'))
+      .toHaveAttribute('title', 'とても長い作業名がここに入っていて一行では収まらない')
   })
 
   it('PJコードと作業区分を同じ行に並べる', () => {
