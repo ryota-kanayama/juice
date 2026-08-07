@@ -16,6 +16,7 @@ mod integrations;
 mod notif_scheduler;
 mod notifications;
 mod oauth;
+mod release_notes;
 mod session_store;
 mod settings_store;
 mod types;
