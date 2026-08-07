@@ -22,8 +22,12 @@ const HOUR_PX = 44
 const HOUR_COUNT = END_HOUR - START_HOUR
 /** グリッドの最小高さ(px)。ウィンドウが高いときはこれを超えて縦に伸びる。 */
 const MIN_GRID_PX = HOUR_COUNT * HOUR_PX
-/** 短い記録が潰れて見えなくならないよう確保する最小高さ(px 相当)。 */
-const MIN_BLOCK_PX = 14
+/**
+ * 短い記録が潰れて見えなくならないよう確保する最小高さ(px 相当)。
+ * 作業名の1行（9px・leading-tight ≒ 11.25px）に、上下の padding 4px と
+ * 透明ボーダー 2px を足した分が収まる値にする。
+ */
+const MIN_BLOCK_PX = 18
 /** ブロックがこの高さ(px 相当)未満のときは作業名のみ1行で表示する。 */
 const COMPACT_BLOCK_PX = 28
 

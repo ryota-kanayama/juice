@@ -139,8 +139,24 @@ describe('WeekGrid', () => {
       <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [oneMinute] }} />
     )
     const block = container.querySelector('[data-event-block]') as HTMLElement
-    // 1分ぶん(0.14%)ではなく、最低高さ 14px 相当（12時間 × 44px = 528px に対する割合）まで引き上げられる
-    expect(parseFloat(block.style.height)).toBeCloseTo((14 / 528) * 100, 3)
+    // 1分ぶん(0.14%)ではなく、最低高さ 18px 相当（12時間 × 44px = 528px に対する割合）まで引き上げられる
+    expect(parseFloat(block.style.height)).toBeCloseTo((18 / 528) * 100, 3)
+  })
+
+  it('最小高さは作業名1行と padding・ボーダーが収まる大きさにする', () => {
+    const oneMinute = makeSession({
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T10:01:00' }],
+      totalTime: 1,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [oneMinute] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    // グリッド最小高さ 528px 換算での実寸
+    const px = (parseFloat(block.style.height) / 100) * 528
+    // 上下 padding 4px + 透明ボーダー 2px を引いた残りが、9px・leading-tight の
+    // 行ボックス（約 11.25px）以上あること
+    expect(px - 4 - 2).toBeGreaterThanOrEqual(11.25)
   })
 
   it('最小高さを確保してもグリッド最下部を超えない', () => {
