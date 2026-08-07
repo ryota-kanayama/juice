@@ -36,7 +36,7 @@ export function CalendarWindow() {
   return (
     <div className="flex h-screen w-full bg-[var(--bg)] font-[var(--font-family)] antialiased">
       {/* 左サイドバー。最上段はツールバーと同じ高さの行にして「＜」だけを置く */}
-      <aside className="flex w-[220px] shrink-0 flex-col gap-3 overflow-hidden p-3">
+      <aside className="flex w-[260px] shrink-0 flex-col gap-3 overflow-hidden p-3">
         <div className="mb-2 flex shrink-0 items-center border-b border-[var(--glass-border)] pb-1.5">
           <Button
             variant="ghost"
@@ -89,6 +89,7 @@ export function CalendarWindow() {
             selectedDate={cal.selectedDate}
             holidays={cal.holidays}
             onSelectDate={cal.selectDate}
+            onEditSession={s => cal.selectDate(s.date)}
           />
         ) : (
           <MonthGrid

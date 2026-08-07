@@ -2,7 +2,8 @@ import type { DragEvent, MouseEvent } from 'react'
 import type { Session } from '../../types/session'
 import { resolveJuiceColor } from '../../domain/colors'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
-import { Play } from 'iconoir-react'
+import { Play, EditPencil } from 'iconoir-react'
+import { SessionIntervals } from './SessionIntervals'
 
 interface Props {
   session: Session
@@ -35,7 +36,6 @@ export function SessionItem({
       draggable
       className={`group flex cursor-grab items-start gap-2 rounded-[8px] border bg-card px-2.5 py-2 transition-all duration-200 hover:bg-accent active:cursor-grabbing ${expanded ? 'bg-accent' : ''} ${dragOver ? 'border-[var(--accent)] shadow-[0_0_0_2px_var(--accent-light)]' : 'border-border'}`}
       onClick={e => { if (!isInteractiveTarget(e)) onToggleExpand() }}
-      onDoubleClick={e => { if (!isInteractiveTarget(e)) onEditStart() }}
       onContextMenu={onContextMenu}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
@@ -51,8 +51,17 @@ export function SessionItem({
             {session.workCategory && <span className="rounded-[6px] border border-border bg-muted px-1.5 text-[11px] leading-[1.6] text-muted-foreground">{session.workCategory}</span>}
           </div>
         )}
+        {expanded && <SessionIntervals session={session} />}
       </div>
       <span className="shrink-0 text-[13px] font-semibold text-[var(--accent)]">{session.totalTime}分</span>
+      <TooltipProvider delayDuration={450}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[13px] text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--accent)] focus:opacity-100 group-hover:opacity-100" onClick={onEditStart} aria-label="編集"><EditPencil width={14} height={14} /></button>
+          </TooltipTrigger>
+          <TooltipContent>編集</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       {!isRunning && onStartMore && (
         <TooltipProvider delayDuration={450}>
           <Tooltip>

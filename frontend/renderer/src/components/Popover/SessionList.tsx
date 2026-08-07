@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import type { Session } from '../../types/session'
+import type { Session, TimeInterval } from '../../types/session'
 import { formatLocalDate, orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit } from '../../domain/session'
+import { toIntervalDrafts, toTimeIntervals, initialIntervalDraft } from '../../domain/intervalDraft'
 import { useDailyData } from '../../daily/DailyDataContext'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { PageIndicator } from '../PageIndicator/PageIndicator'
@@ -23,7 +24,7 @@ interface Props {
   onUpdate?: (session: Session) => Promise<void>
   onDelete?: (sessionId: string) => void
   onAdjustStartTime?: (newStartMs: number) => void
-  onAdd?: (params: SessionFormValues) => void
+  onAdd?: (params: { name: string; projectCode: string; workCategory: string; times: TimeInterval[] }) => void
   workStart?: string | null
   workEnd?: string | null
   onWorkEnd?: (time: string) => void
@@ -34,7 +35,12 @@ interface Props {
   suggestions?: Suggestions
 }
 
-const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
+// 追加ダイアログの初期値。1行目の開始時刻は openAddDialog で埋めるためここでは空にする
+const EMPTY_FORM: SessionFormValues = {
+  name: '', projectCode: '', workCategory: '',
+  intervals: [{ start: '', end: '', running: false }],
+  totalTime: '',
+}
 
 export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate, onDelete, onAdjustStartTime, onAdd, workStart = null, workEnd = null, onWorkEnd, breakStart = null, breakEnd = null, onBreakStart, onBreakEnd, suggestions = EMPTY_SUGGESTIONS }: Props) {
   const todayKey = today ?? formatLocalDate(Date.now())
@@ -81,28 +87,34 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   })
 
   const openAddDialog = () => {
-    setAddDraft(EMPTY_FORM)
+    setAddDraft({
+      ...EMPTY_FORM,
+      intervals: [initialIntervalDraft(sessions.flatMap(s => s.times), workStart)],
+    })
     setAddDialogOpen(true)
     setContextMenu(null)
   }
 
   const handleAddConfirm = () => {
-    if (!addDraft.name.trim() || !addDraft.totalTime) return
-    onAdd?.({ ...addDraft, name: addDraft.name.trim() })
+    if (!addDraft.name.trim() || !addDraft.intervals) return
+    onAdd?.({
+      name: addDraft.name.trim(),
+      projectCode: addDraft.projectCode.trim(),
+      workCategory: addDraft.workCategory.trim(),
+      times: toTimeIntervals(addDraft.intervals, todayKey),
+    })
     setAddDialogOpen(false)
   }
 
   const handleEditStart = (session: Session) => {
-    const lastInterval = session.times[session.times.length - 1]
-    const runningMs = lastInterval && !lastInterval.endTime
-      ? Date.now() - new Date(lastInterval.startTime).getTime()
-      : 0
     setEditTargetId(session.id)
     setEditDraft({
       name: session.name,
       projectCode: session.projectCode,
       workCategory: session.workCategory,
-      totalTime: String(session.totalTime + Math.round(runningMs / 60000)),
+      // 時刻を持たない記録はレガシーモード（「分」入力）で開く
+      intervals: session.times.length > 0 ? toIntervalDrafts(session.times) : null,
+      totalTime: String(session.totalTime),
     })
   }
 
@@ -116,6 +128,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
       name: editDraft.name.trim(),
       projectCode: editDraft.projectCode.trim(),
       workCategory: editDraft.workCategory.trim(),
+      times: editDraft.intervals ? toTimeIntervals(editDraft.intervals, session.date) : null,
       totalMinutes: isNaN(parsed) ? null : parsed,
     })
 

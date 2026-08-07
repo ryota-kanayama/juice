@@ -1,4 +1,4 @@
-import type { Session, WorkLocation } from '../types/session'
+import type { Session, TimeInterval, WorkLocation } from '../types/session'
 import { formatLocalDate, formatLocalDateTime } from '../../../shared/sessionUtils'
 import { randomColor } from './colors'
 
@@ -6,65 +6,81 @@ export interface SessionEdit {
   name: string
   projectCode: string
   workCategory: string
-  /** 編集後の合計分。null なら時間は変更しない */
+  /** 編集後の区間。時刻を持たないまま編集する（レガシー）なら null */
+  times: TimeInterval[] | null
+  /** times が null のときだけ使う合計分 */
   totalMinutes: number | null
 }
 
+/** 稼働中（endTime=null）の区間を返す。無ければ undefined。 */
+function runningIntervalOf(times: TimeInterval[]): TimeInterval | undefined {
+  return times.find(t => t.endTime === null)
+}
+
 /**
- * セッションの編集内容を適用する。稼働中セッションの合計時間を変更した場合は
- * 最後の区間の開始時刻を巻き戻し、その新しい開始時刻（ms）を adjustedStartMs で返す。
+ * セッションの編集内容を適用する。
+ * 区間を差し替えた場合は totalTime も区間の合計に合わせる（稼働中の区間は含めない）。
+ * 稼働中区間の開始時刻を動かした場合は、その新しい開始時刻（ms）を adjustedStartMs で返す。
  */
 export function applySessionEdit(
   session: Session,
   edit: SessionEdit
 ): { session: Session; adjustedStartMs?: number } {
-  let updated: Session = {
+  const base: Session = {
     ...session,
     name: edit.name,
     projectCode: edit.projectCode,
     workCategory: edit.workCategory,
   }
 
-  const { totalMinutes } = edit
-  if (totalMinutes != null && totalMinutes >= 1) {
-    const lastInterval = session.times[session.times.length - 1]
-    if (lastInterval && !lastInterval.endTime) {
-      // 稼働中: 合計が指定値になるよう最後の区間の開始時刻を調整
-      const desiredElapsed = Math.max(1, totalMinutes - session.totalTime)
-      const newStartMs = Date.now() - desiredElapsed * 60000
-      updated = {
-        ...updated,
-        times: session.times.map(t =>
-          t === lastInterval ? { ...t, startTime: formatLocalDateTime(newStartMs) } : t
-        ),
-      }
-      return { session: updated, adjustedStartMs: newStartMs }
+  // レガシー: 時刻を持たないまま合計だけ編集する
+  if (edit.times === null) {
+    const { totalMinutes } = edit
+    if (totalMinutes != null && totalMinutes >= 1) {
+      return { session: { ...base, totalTime: totalMinutes } }
     }
-    updated = { ...updated, totalTime: totalMinutes }
+    return { session: base }
   }
 
+  const times = edit.times
+  const running = runningIntervalOf(times)
+  const completed = totalMinutesOf(times)
+  const updated: Session = {
+    ...base,
+    times,
+    // completed は totalMinutesOf のルール通り: 完了区間が1つも無ければ0、
+    // 1つでもあれば max(1, ...) が効くので下限1分。稼働中でも0になるのは
+    // 「完了区間が無く稼働中区間だけ」のときだけ。
+    totalTime: running ? completed : Math.max(1, completed),
+  }
+
+  const prevRunning = runningIntervalOf(session.times)
+  if (running && prevRunning && running.startTime !== prevRunning.startTime) {
+    return { session: updated, adjustedStartMs: new Date(running.startTime).getTime() }
+  }
   return { session: updated }
 }
 
-/** 手動追加用の新規セッションを組み立てる（区間なしの確定済みセッション） */
+/** 手動追加用の新規セッションを組み立てる。日付は最初の区間から決まる。 */
 export function createManualSession(params: {
   name: string
   projectCode: string
   workCategory: string
-  totalMinutes: number
+  times: TimeInterval[]
   workLocation?: WorkLocation
 }): Session {
   const id = crypto.randomUUID()
+  const first = params.times[0]
   return {
     id,
     taskId: id,
     name: params.name,
     projectCode: params.projectCode,
     workCategory: params.workCategory,
-    times: [],
-    date: formatLocalDate(Date.now()),
+    times: params.times,
+    date: first ? first.startTime.slice(0, 10) : formatLocalDate(Date.now()),
     color: randomColor(),
-    totalTime: Math.max(1, params.totalMinutes),
+    totalTime: Math.max(1, totalMinutesOf(params.times)),
     ...(params.workLocation === 'telework' ? { workLocation: 'telework' as const } : {}),
   }
 }
@@ -113,4 +129,32 @@ export function dayTimeRange(sessions: Session[]): DayTimeRange | null {
     intervals[0].endTime!
   )
   return { start: timeOf(start), end: timeOf(end) }
+}
+
+/**
+ * 完了区間の合計分。稼働中（endTime=null）の区間は含めない。
+ * Rust の total_time_from_intervals と同じ丸め方をするが、区間が無い／すべて稼働中の
+ * ときは 0 を返す（Rust 側は totalTime 欠落時のフォールバック専用で最低1分を返す）。
+ */
+export function totalMinutesOf(times: TimeInterval[]): number {
+  let ms = 0
+  let completed = 0
+  for (const t of times) {
+    if (!t.endTime) continue
+    completed += 1
+    ms += new Date(t.endTime).getTime() - new Date(t.startTime).getTime()
+  }
+  if (completed === 0) return 0
+  return Math.max(1, Math.round(ms / 60000))
+}
+
+/**
+ * 週表示の時間軸グリッドに出してよい記録か。
+ * 区間を持ち、その合計が totalTime と一致していれば時刻を信用できる。
+ * 稼働中の区間があるセッションは合計に経過が含まれず必ず食い違うため、常に信用する。
+ */
+export function hasReliableTimes(session: Session): boolean {
+  if (session.times.length === 0) return false
+  if (hasRunningInterval(session)) return true
+  return totalMinutesOf(session.times) === session.totalTime
 }

@@ -145,20 +145,28 @@ describe('useSessions', () => {
         name: '手動追加',
         projectCode: 'PROJ',
         workCategory: '開発',
-        totalTime: '45',
+        times: [{ startTime: `${TODAY}T09:00:00`, endTime: `${TODAY}T09:45:00` }],
       })
     })
 
     expect(updateSession).toHaveBeenCalledOnce()
     expect(result.current.todaySessions).toHaveLength(1)
     expect(result.current.todaySessions[0].name).toBe('手動追加')
+    expect(result.current.todaySessions[0].times).toEqual([
+      { startTime: `${TODAY}T09:00:00`, endTime: `${TODAY}T09:45:00` },
+    ])
     expect(result.current.todaySessions[0].totalTime).toBe(45)
   })
 
   it('add に workLocation=telework を渡すとセッションへ反映される', async () => {
     const { result } = renderHook(() => useSessions())
     await act(async () => {
-      await result.current.add({ name: 'a', projectCode: 'ZZ', workCategory: '開発', totalTime: '30' }, 'telework')
+      await result.current.add({
+        name: 'a',
+        projectCode: 'ZZ',
+        workCategory: '開発',
+        times: [{ startTime: `${TODAY}T13:00:00`, endTime: `${TODAY}T13:30:00` }],
+      }, 'telework')
     })
     expect(updateSession).toHaveBeenCalledWith(expect.objectContaining({ workLocation: 'telework' }))
   })

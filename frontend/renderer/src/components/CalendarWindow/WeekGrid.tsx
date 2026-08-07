@@ -1,5 +1,8 @@
 import type { Session } from '../../types/session'
 import { resolveJuiceColor } from '../../domain/colors'
+import { hasReliableTimes } from '../../domain/session'
+import { layoutOverlaps, type Span } from '../../domain/overlapLayout'
+import { BlockTooltip } from './BlockTooltip'
 
 interface Props {
   /** 日曜〜土曜の7日 "YYYY-MM-DD" */
@@ -8,6 +11,8 @@ interface Props {
   selectedDate: string
   holidays: Record<string, string>
   onSelectDate: (date: string) => void
+  /** 帯のチップをダブルクリックしたときに編集を開く */
+  onEditSession?: (session: Session) => void
 }
 
 /** グリッドの表示範囲（時）と1時間あたりの最小高さ(px)。 */
@@ -51,11 +56,26 @@ interface Block {
   top: number
   height: number
   label: string
+  left: number
+  width: number
+  minutes: number
+  projectCode: string
+  workCategory: string
 }
 
 /** 1日ぶんの区間を、グリッド座標のブロックに変換する（範囲外はクリップ、稼働中は除外）。 */
 function toBlocks(sessions: Session[]): Block[] {
-  const blocks: Block[] = []
+  // 先にクリップ済みの区間を集め、重なりの配置をまとめて計算する
+  const clipped: {
+    key: string
+    name: string
+    color: string
+    label: string
+    span: Span
+    minutes: number
+    projectCode: string
+    workCategory: string
+  }[] = []
   for (const s of sessions) {
     s.times.forEach((t, i) => {
       if (!t.endTime) return
@@ -64,26 +84,56 @@ function toBlocks(sessions: Session[]): Block[] {
       const clippedStart = Math.max(startMin, START_HOUR * 60)
       const clippedEnd = Math.min(endMin, END_HOUR * 60)
       if (clippedEnd <= clippedStart) return
-      const top = ((clippedStart - START_HOUR * 60) / (HOUR_COUNT * 60)) * 100
-      const rawHeight = ((clippedEnd - clippedStart) / (HOUR_COUNT * 60)) * 100
-      // 短い記録でも視認できるよう最小高さを確保する。ただしグリッド最下部を超えないようクランプする
-      const height = Math.min(Math.max(rawHeight, MIN_BLOCK_PCT), 100 - top)
-      blocks.push({
+      clipped.push({
         key: `${s.id}-${i}`,
         name: s.name,
         color: resolveJuiceColor(s.color),
-        top,
-        height,
+        // ツールチップは「実際に記録された内容」を伝えるものなので、グリッドの表示範囲で
+        // 切り詰めたクリップ後の値ではなく、記録そのものの時刻・長さ（クリップ前）を使う
         label: `${t.startTime.split('T')[1].slice(0, 5)}–${t.endTime.split('T')[1].slice(0, 5)}`,
+        span: { start: clippedStart, end: clippedEnd },
+        minutes: Math.max(1, endMin - startMin),
+        projectCode: s.projectCode,
+        workCategory: s.workCategory,
       })
     })
   }
-  return blocks
+
+  const placements = layoutOverlaps(clipped.map(c => c.span))
+
+  return clipped.map((c, i) => {
+    const top = ((c.span.start - START_HOUR * 60) / (HOUR_COUNT * 60)) * 100
+    const rawHeight = ((c.span.end - c.span.start) / (HOUR_COUNT * 60)) * 100
+    // 短い記録でも視認できるよう最小高さを確保する。ただしグリッド最下部を超えないようクランプする
+    const height = Math.min(Math.max(rawHeight, MIN_BLOCK_PCT), 100 - top)
+    return {
+      key: c.key,
+      name: c.name,
+      color: c.color,
+      label: c.label,
+      top,
+      height,
+      left: placements[i].left,
+      width: placements[i].width,
+      minutes: c.minutes,
+      projectCode: c.projectCode,
+      workCategory: c.workCategory,
+    }
+  })
 }
 
-export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSelectDate }: Props) {
+export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSelectDate, onEditSession }: Props) {
   const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
   const cols = `44px repeat(7, minmax(0, 1fr))`
+
+  // 時刻を信用できない記録（区間なし／合計が totalTime と食い違う）は帯にまとめる
+  const untimedByDate: Record<string, Session[]> = {}
+  let untimedCount = 0
+  for (const date of dates) {
+    const list = (sessionsByDate[date] ?? []).filter(s => !hasReliableTimes(s))
+    untimedByDate[date] = list
+    untimedCount += list.length
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -112,6 +162,45 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
           )
         })}
       </div>
+
+      {/* 時刻なし帯。該当が無い週では描かない */}
+      {untimedCount > 0 && (
+        <div
+          data-untimed-row
+          className="grid shrink-0 border-x border-b border-[var(--glass-border)] bg-[var(--glass-bg)]"
+          style={{ gridTemplateColumns: cols }}
+        >
+          <div className="flex items-center justify-end border-r border-[var(--glass-border)] pr-1 text-[9px] text-[var(--text-muted)]">
+            時刻なし
+          </div>
+          {dates.map(date => (
+            <div
+              key={date}
+              className="flex min-h-[22px] flex-col gap-px border-r border-[var(--glass-border)] p-px last:border-r-0"
+              onClick={() => onSelectDate(date)}
+            >
+              {untimedByDate[date].map(s => (
+                <BlockTooltip
+                  key={s.id}
+                  name={s.name}
+                  minutes={s.totalTime}
+                  projectCode={s.projectCode}
+                  workCategory={s.workCategory}
+                >
+                  <div
+                    data-untimed-chip
+                    className="cursor-pointer truncate rounded-[3px] px-1 text-[9px] leading-[1.5] text-white"
+                    style={{ background: resolveJuiceColor(s.color) }}
+                    onDoubleClick={() => onEditSession?.(s)}
+                  >
+                    {s.name}
+                  </div>
+                </BlockTooltip>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 時間軸グリッド。高さは固定せず、余った縦幅いっぱいまで伸ばす（最低 MIN_GRID_PX） */}
       <div
@@ -149,17 +238,34 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
               }}
               {...(isSelected ? { 'data-selected': date } : {})}
             >
-              {toBlocks(sessionsByDate[date] ?? []).map(b => (
-                <div
+              {toBlocks((sessionsByDate[date] ?? []).filter(hasReliableTimes)).map(b => (
+                <BlockTooltip
                   key={b.key}
-                  data-event-block
-                  className="absolute left-0.5 right-0.5 overflow-hidden rounded-[3px] px-1 py-0.5 text-[9px] leading-tight text-white shadow-sm"
-                  style={{ top: pct(b.top), height: pct(b.height), background: b.color }}
-                  title={`${b.name} ${b.label}`}
+                  name={b.name}
+                  timeRange={b.label.replace('–', ' – ')}
+                  minutes={b.minutes}
+                  projectCode={b.projectCode}
+                  workCategory={b.workCategory}
                 >
-                  <div className="truncate font-semibold">{b.name}</div>
-                  {b.height >= COMPACT_BLOCK_PCT && <div className="truncate opacity-85">{b.label}</div>}
-                </div>
+                  <div
+                    data-event-block
+                    className="absolute overflow-hidden rounded-[3px] py-0.5 pl-1 pr-1.5 text-[9px] leading-tight text-white shadow-sm"
+                    style={{
+                      top: pct(b.top),
+                      height: pct(b.height),
+                      left: pct(b.left),
+                      width: pct(b.width),
+                      // 隣の列と接して見えないよう、透明ボーダーで内側に寄せる
+                      borderLeft: '2px solid transparent',
+                      borderRight: '2px solid transparent',
+                      background: b.color,
+                      backgroundClip: 'padding-box',
+                    }}
+                  >
+                    <div className="truncate font-semibold">{b.name}</div>
+                    {b.height >= COMPACT_BLOCK_PCT && <div className="truncate opacity-85">{b.label}</div>}
+                  </div>
+                </BlockTooltip>
               ))}
             </div>
           )

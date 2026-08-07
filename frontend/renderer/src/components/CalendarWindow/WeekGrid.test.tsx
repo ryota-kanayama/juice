@@ -113,6 +113,7 @@ describe('WeekGrid', () => {
   it('表示範囲より早い区間は上端でクリップされる', () => {
     const early = makeSession({
       times: [{ startTime: '2026-08-06T06:00:00', endTime: '2026-08-06T09:00:00' }],
+      totalTime: 180,
     })
     const { container } = render(
       <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [early] }} />
@@ -132,6 +133,7 @@ describe('WeekGrid', () => {
   it('1分の記録でも最小高さが確保される', () => {
     const oneMinute = makeSession({
       times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T10:01:00' }],
+      totalTime: 1,
     })
     const { container } = render(
       <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [oneMinute] }} />
@@ -144,11 +146,194 @@ describe('WeekGrid', () => {
   it('最小高さを確保してもグリッド最下部を超えない', () => {
     const lastMinute = makeSession({
       times: [{ startTime: '2026-08-06T19:59:00', endTime: '2026-08-06T20:00:00' }],
+      totalTime: 1,
     })
     const { container } = render(
       <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [lastMinute] }} />
     )
     const block = container.querySelector('[data-event-block]') as HTMLElement
     expect(parseFloat(block.style.top) + parseFloat(block.style.height)).toBeLessThanOrEqual(100)
+  })
+})
+
+describe('WeekGrid の時刻なし帯', () => {
+  it('区間を持たないセッションは帯に出る', () => {
+    const untimed = makeSession({ times: [], totalTime: 45 })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [untimed] }} />
+    )
+    const chip = container.querySelector('[data-untimed-chip]')
+    expect(chip).not.toBeNull()
+    expect(chip?.textContent).toContain('レビュー')
+  })
+
+  it('区間を持たないセッションはグリッドに描かない', () => {
+    const untimed = makeSession({ times: [], totalTime: 45 })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [untimed] }} />
+    )
+    expect(container.querySelectorAll('[data-event-block]')).toHaveLength(0)
+  })
+
+  it('区間の合計が totalTime と食い違うセッションは帯に出る', () => {
+    const mismatched = makeSession({
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T10:01:00' }],
+      totalTime: 65,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [mismatched] }} />
+    )
+    expect(container.querySelectorAll('[data-untimed-chip]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-event-block]')).toHaveLength(0)
+  })
+
+  it('合計が一致するセッションはグリッドに描く', () => {
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [makeSession()] }} />
+    )
+    expect(container.querySelectorAll('[data-untimed-chip]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-event-block]')).toHaveLength(1)
+  })
+
+  it('稼働中の区間を持つセッションはグリッドに残す', () => {
+    const running = makeSession({
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: null }],
+      totalTime: 0,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [running] }} />
+    )
+    expect(container.querySelectorAll('[data-untimed-chip]')).toHaveLength(0)
+  })
+
+  it('該当が1件も無ければ帯を描かない', () => {
+    const { container } = render(<WeekGrid {...baseProps} />)
+    expect(container.querySelector('[data-untimed-row]')).toBeNull()
+  })
+
+  it('チップをダブルクリックすると onEditSession が呼ばれる', async () => {
+    const onEditSession = vi.fn()
+    const untimed = makeSession({ times: [], totalTime: 45 })
+    const { container } = render(
+      <WeekGrid
+        {...baseProps}
+        sessionsByDate={{ '2026-08-06': [untimed] }}
+        onEditSession={onEditSession}
+      />
+    )
+    const chip = container.querySelector('[data-untimed-chip]') as HTMLElement
+    await userEvent.dblClick(chip)
+    expect(onEditSession).toHaveBeenCalledWith(untimed)
+  })
+})
+
+describe('WeekGrid の重なり配置', () => {
+  it('重ならない記録は全幅で描く', () => {
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [makeSession()] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    expect(parseFloat(block.style.left)).toBeCloseTo(0, 3)
+    expect(parseFloat(block.style.width)).toBeCloseTo(100, 3)
+  })
+
+  it('重なる2件は左右に分かれる', () => {
+    const a = makeSession({
+      id: 'a', taskId: 'a',
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T12:00:00' }],
+      totalTime: 120,
+    })
+    const b = makeSession({
+      id: 'b', taskId: 'b',
+      times: [{ startTime: '2026-08-06T11:00:00', endTime: '2026-08-06T13:00:00' }],
+      totalTime: 120,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [a, b] }} />
+    )
+    const blocks = Array.from(container.querySelectorAll('[data-event-block]')) as HTMLElement[]
+    expect(blocks).toHaveLength(2)
+    const lefts = blocks.map(el => parseFloat(el.style.left)).sort((x, y) => x - y)
+    expect(lefts[0]).toBeCloseTo(0, 3)
+    expect(lefts[1]).toBeCloseTo(50, 3)
+    for (const el of blocks) expect(parseFloat(el.style.width)).toBeCloseTo(50, 3)
+  })
+
+  it('1セッションの複数区間も重なれば横に分かれる', () => {
+    const multi = makeSession({
+      times: [
+        { startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T12:00:00' },
+        { startTime: '2026-08-06T11:00:00', endTime: '2026-08-06T13:00:00' },
+      ],
+      totalTime: 240,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [multi] }} />
+    )
+    const blocks = Array.from(container.querySelectorAll('[data-event-block]')) as HTMLElement[]
+    expect(blocks).toHaveLength(2)
+    expect(new Set(blocks.map(el => el.style.left)).size).toBe(2)
+  })
+
+  it('別の日の記録は互いの配置に影響しない', () => {
+    const a = makeSession({
+      id: 'a', taskId: 'a', date: '2026-08-05',
+      times: [{ startTime: '2026-08-05T10:00:00', endTime: '2026-08-05T12:00:00' }],
+      totalTime: 120,
+    })
+    const b = makeSession({
+      id: 'b', taskId: 'b',
+      times: [{ startTime: '2026-08-06T10:00:00', endTime: '2026-08-06T12:00:00' }],
+      totalTime: 120,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-05': [a], '2026-08-06': [b] }} />
+    )
+    const blocks = Array.from(container.querySelectorAll('[data-event-block]')) as HTMLElement[]
+    expect(blocks).toHaveLength(2)
+    for (const el of blocks) expect(parseFloat(el.style.width)).toBeCloseTo(100, 3)
+  })
+})
+
+describe('WeekGrid のホバー詳細', () => {
+  it('ブロックにカーソルを合わせると作業名と時刻が出る', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [makeSession()] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    await user.hover(block)
+    // makeSession は 10:00–12:00 / 120分 / レビュー / P001 / 開発
+    expect(await screen.findByText('10:00 – 12:00')).toBeInTheDocument()
+    expect(screen.getByText('120分')).toBeInTheDocument()
+    expect(screen.getByText('P001')).toBeInTheDocument()
+  })
+
+  it('時刻なし帯のチップにカーソルを合わせても詳細が出る', async () => {
+    const user = userEvent.setup()
+    const untimed = makeSession({ times: [], totalTime: 45 })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [untimed] }} />
+    )
+    const chip = container.querySelector('[data-untimed-chip]') as HTMLElement
+    await user.hover(chip)
+    expect(await screen.findByText('45分')).toBeInTheDocument()
+  })
+
+  it('グリッド範囲をはみ出す区間は、クリップ後ではなく記録そのものの時刻と長さを出す', async () => {
+    const user = userEvent.setup()
+    // 18:00–22:00（240分）。グリッドは 8:00〜20:00 までしか描かないため、
+    // 表示上は 20:00 でクリップされるが、ツールチップには記録そのものの時刻・長さを出す
+    const overnight = makeSession({
+      times: [{ startTime: '2026-08-06T18:00:00', endTime: '2026-08-06T22:00:00' }],
+      totalTime: 240,
+    })
+    const { container } = render(
+      <WeekGrid {...baseProps} sessionsByDate={{ '2026-08-06': [overnight] }} />
+    )
+    const block = container.querySelector('[data-event-block]') as HTMLElement
+    await user.hover(block)
+    expect(await screen.findByText('18:00 – 22:00')).toBeInTheDocument()
+    expect(screen.getByText('240分')).toBeInTheDocument()
   })
 })

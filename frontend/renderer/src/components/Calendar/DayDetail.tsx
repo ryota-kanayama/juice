@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react'
 import type { Session } from '../../types/session'
 import { orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit, dayTimeRange } from '../../domain/session'
+import { toIntervalDrafts, toTimeIntervals } from '../../domain/intervalDraft'
 import { EMPTY_SUGGESTIONS, type Suggestions } from '../../domain/suggestions'
 import { SessionFormDialog, type SessionFormValues } from '../Popover/SessionFormDialog'
 import { useContextMenu } from '../../hooks/useContextMenu'
+import { useExpandedItem } from '../../hooks/useExpandedItem'
+import { SessionIntervals } from '../Popover/SessionIntervals'
 import { Card, CardContent } from '@/components/ui/card'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 import { EditPencil } from 'iconoir-react'
 import { resolveJuiceColor } from '../../domain/colors'
 
@@ -17,7 +21,11 @@ interface Props {
   suggestions?: Suggestions
 }
 
-const EMPTY_FORM: SessionFormValues = { name: '', projectCode: '', workCategory: '', totalTime: '' }
+const EMPTY_FORM: SessionFormValues = {
+  name: '', projectCode: '', workCategory: '',
+  intervals: [{ start: '', end: '', running: false }],
+  totalTime: '',
+}
 
 const WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -35,6 +43,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
   const [editDraft, setEditDraft] = useState<SessionFormValues>(EMPTY_FORM)
 
   const { contextMenu, setContextMenu, contextMenuRef } = useContextMenu()
+  const { expandedId, setExpandedId } = useExpandedItem()
 
   useEffect(() => {
     setEditTargetId(null)
@@ -54,6 +63,8 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
       name: session.name,
       projectCode: session.projectCode,
       workCategory: session.workCategory,
+      // 時刻を持たない記録はレガシーモード（「分」入力）で開く
+      intervals: session.times.length > 0 ? toIntervalDrafts(session.times) : null,
       totalTime: String(session.totalTime),
     })
   }
@@ -68,6 +79,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
       name: editDraft.name.trim(),
       projectCode: editDraft.projectCode.trim(),
       workCategory: editDraft.workCategory.trim(),
+      times: editDraft.intervals ? toTimeIntervals(editDraft.intervals, session.date) : null,
       totalMinutes: isNaN(parsed) ? null : parsed,
     })
 
@@ -80,7 +92,7 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2.5">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1 pt-2.5">
       <div className="mb-3 flex items-center gap-2">
         <h3 className="m-0 text-[15px] font-bold text-[var(--text-primary)]">{formatDateHeading(date)}</h3>
       </div>
@@ -94,9 +106,9 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
               key={session.id}
               data-session-item
               className="group flex items-start gap-2 rounded-[8px] border border-[var(--glass-border)] bg-[var(--glass-bg)] px-2.5 py-2 transition-all [backdrop-filter:blur(8px)] hover:-translate-y-px hover:bg-[var(--bg-hover)] hover:shadow-[var(--shadow-glass)]"
-              onDoubleClick={(e) => {
+              onClick={(e) => {
                 if ((e.target as HTMLElement).closest('button, input, [role="listbox"]')) return
-                if (onUpdate) handleEditStart(session)
+                setExpandedId(prev => (prev === session.id ? null : session.id))
               }}
               onContextMenu={e => {
                 e.preventDefault()
@@ -106,15 +118,35 @@ export function DayDetail({ date, sessions, sessionOrder = null, onUpdate, sugge
             >
               <span className="mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: resolveJuiceColor(session.color) }} aria-hidden="true" />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-foreground">{session.name}</span>
+                <span className="truncate text-sm font-medium text-foreground" title={session.name}>{session.name}</span>
                 {(session.projectCode || session.workCategory) && (
-                  <div className="mb-px mt-0.5 flex flex-wrap gap-1">
-                    {session.projectCode && <span className="rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.projectCode}</span>}
-                    {session.workCategory && <span className="rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.workCategory}</span>}
+                  <div data-session-meta className="mb-px mt-0.5 flex flex-nowrap gap-1 overflow-hidden">
+                    {/* shrink-0 と truncate は両立しない（shrink-0 だと text-ellipsis が発動せず
+                        「…」なしで途中から切れる）。幅が足りないときは両方のチップが均等に縮んで
+                        省略記号を出す。ツールチップの逃げ道が無いぶん title で全文を出す */}
+                    {session.projectCode && <span title={session.projectCode} className="min-w-0 truncate rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.projectCode}</span>}
+                    {session.workCategory && <span title={session.workCategory} className="min-w-0 truncate rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] px-[7px] text-[11px] leading-[1.6] text-[var(--text-muted)]">{session.workCategory}</span>}
                   </div>
                 )}
+                {expandedId === session.id && <SessionIntervals session={session} />}
               </div>
               <span className="ml-auto shrink-0 text-sm font-semibold text-[var(--accent)]">{session.totalTime}分</span>
+              {onUpdate && (
+                <TooltipProvider delayDuration={450}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="shrink-0 cursor-pointer border-0 bg-transparent px-1 py-0.5 text-[var(--text-muted)] opacity-0 transition-opacity hover:text-[var(--accent)] focus:opacity-100 group-hover:opacity-100"
+                        onClick={() => handleEditStart(session)}
+                        aria-label="編集"
+                      >
+                        <EditPencil width={14} height={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>編集</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </li>
           ))}
         </ul>

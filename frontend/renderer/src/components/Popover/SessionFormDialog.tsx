@@ -4,11 +4,16 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { SuggestInput } from '@/components/ui/suggest-input'
 import type { Suggestions } from '../../domain/suggestions'
+import { SessionIntervalList } from './SessionIntervalList'
+import { type IntervalDraft, isValidDrafts } from '../../domain/intervalDraft'
 
 export interface SessionFormValues {
   name: string
   projectCode: string
   workCategory: string
+  /** 区間モードの入力値。レガシーモード（時刻なしのまま）では null */
+  intervals: IntervalDraft[] | null
+  /** レガシーモードの「分」入力。区間モードでは使わない */
   totalTime: string
 }
 
@@ -31,7 +36,10 @@ export function SessionFormDialog({ open, title, submitLabel, values, suggestion
     setSuggestOpenCount(c => (open ? c + 1 : Math.max(0, c - 1)))
   }
 
-  const canSubmit = Boolean(values.name.trim() && values.totalTime)
+  const canSubmit = Boolean(
+    values.name.trim() &&
+    (values.intervals ? isValidDrafts(values.intervals) : values.totalTime)
+  )
   const handleEnter = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter' && canSubmit) onSubmit()
   }
@@ -91,19 +99,36 @@ export function SessionFormDialog({ open, title, submitLabel, values, suggestion
               onKeyDown={handleEnter}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">時間</span>
-            <Input
-              type="number"
-              min="1"
-              className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              placeholder="分"
-              value={values.totalTime}
-              onChange={e => onChange({ ...values, totalTime: e.target.value })}
-              onKeyDown={handleEnter}
+          {values.intervals ? (
+            <SessionIntervalList
+              intervals={values.intervals}
+              onChange={next => onChange({ ...values, intervals: next })}
             />
-            <span className="text-xs text-muted-foreground">分</span>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">時間</span>
+                <Input
+                  type="number"
+                  min="1"
+                  className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  placeholder="分"
+                  value={values.totalTime}
+                  onChange={e => onChange({ ...values, totalTime: e.target.value })}
+                  onKeyDown={handleEnter}
+                />
+                <span className="text-xs text-muted-foreground">分</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 self-start px-1.5 text-[12px]"
+                onClick={() => onChange({ ...values, intervals: [{ start: '', end: '', running: false }] })}
+              >
+                時刻を入力する
+              </Button>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>キャンセル</Button>
