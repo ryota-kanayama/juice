@@ -71,7 +71,9 @@ describe('UpdateBanner', () => {
 
   it('available でバージョンの文言を押すと更新前のノートを開く', () => {
     render(<UpdateBanner update={state({ phase: 'available', info })} />)
-    fireEvent.click(screen.getByRole('button', { name: /1\.1\.0 の変更点を見る/ }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /新しいバージョン v1\.1\.0 があります — 変更点を見る/ }),
+    )
     expect(releaseNotesRepository.openPending).toHaveBeenCalled()
   })
 })

@@ -8,8 +8,15 @@ import { releaseNotesRepository } from '../../repositories/releaseNotesRepositor
 import { ReleaseNoteEntryView } from './ReleaseNoteEntryView'
 import type { ReleaseNoteEntry } from '../../../../shared/types'
 
+// 取得の状態。失敗と「中身が空」は別物として扱う。
+// 失敗のときは記録しないので次の起動でまた開く。その理由が読み手に分かる文言を出す。
+type LoadState =
+  | { status: 'loading' }
+  | { status: 'loaded'; entries: ReleaseNoteEntry[] }
+  | { status: 'failed' }
+
 export function ReleaseNotesWindow({ mode }: { mode: 'current' | 'pending' }) {
-  const [entries, setEntries] = useState<ReleaseNoteEntry[] | null>(null)
+  const [state, setState] = useState<LoadState>({ status: 'loading' })
 
   useEffect(() => {
     let alive = true
@@ -19,7 +26,7 @@ export function ReleaseNotesWindow({ mode }: { mode: 'current' | 'pending' }) {
     load
       .then(list => {
         if (!alive) return
-        setEntries(list)
+        setState({ status: 'loaded', entries: list })
         // 実際に中身が出たときだけ記録する。空のまま記録すると次から出せなくなる
         if (mode === 'current' && list.length > 0) {
           releaseNotesRepository.markSeen().catch(console.error)
@@ -27,12 +34,12 @@ export function ReleaseNotesWindow({ mode }: { mode: 'current' | 'pending' }) {
       })
       .catch(err => {
         console.error('リリースノートの取得に失敗しました:', err)
-        if (alive) setEntries([])
+        if (alive) setState({ status: 'failed' })
       })
     return () => { alive = false }
   }, [mode])
 
-  const title = mode === 'pending' ? '次の更新の変更点' : 'Juice が新しくなりました'
+  const title = mode === 'pending' ? '次の更新の変更点' : 'Juice の変更点'
 
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -41,10 +48,14 @@ export function ReleaseNotesWindow({ mode }: { mode: 'current' | 'pending' }) {
       </header>
 
       <main className="flex flex-1 flex-col gap-7 overflow-y-auto px-5 py-4">
-        {entries === null ? null : entries.length === 0 ? (
+        {state.status === 'failed' ? (
+          <p className="text-[13px] text-muted-foreground">
+            変更点を読み込めませんでした。ウィンドウを開き直すと再度読み込みます
+          </p>
+        ) : state.status === 'loading' ? null : state.entries.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">表示できる変更点がありません</p>
         ) : (
-          entries.map(entry => <ReleaseNoteEntryView key={entry.version} entry={entry} />)
+          state.entries.map(entry => <ReleaseNoteEntryView key={entry.version} entry={entry} />)
         )}
       </main>
 

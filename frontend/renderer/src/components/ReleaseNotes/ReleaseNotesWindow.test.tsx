@@ -65,6 +65,17 @@ describe('ReleaseNotesWindow', () => {
     expect(markReleaseNotesSeen).not.toHaveBeenCalled()
   })
 
+  it('取得に失敗したときは空と区別した文言を出し、記録もしない', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    getReleaseNotesCurrent.mockRejectedValue(new Error('取得できません'))
+    render(<ReleaseNotesWindow mode="current" />)
+    await screen.findByText(/変更点を読み込めませんでした/)
+    expect(screen.queryByText('表示できる変更点がありません')).not.toBeInTheDocument()
+    // 記録しないので次の起動でまた開く（記録すると本当に読めなくなる）
+    expect(markReleaseNotesSeen).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
   it('閉じるボタンでウィンドウを閉じる', async () => {
     getReleaseNotesCurrent.mockResolvedValue([entry('2.2.0', '- 何か')])
     render(<ReleaseNotesWindow mode="current" />)

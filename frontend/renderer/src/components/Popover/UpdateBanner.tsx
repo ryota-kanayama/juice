@@ -14,11 +14,13 @@ export function UpdateBanner({ update }: Props) {
   const bar = 'flex items-center justify-between gap-2 px-3 py-2 text-[12px] [-webkit-app-region:no-drag]'
 
   if (phase === 'available') {
+    // 文言ボタンの aria-label は可視テキストで始める。可視文言が読み上げ名に含まれないと
+    // 音声操作で見えているとおりに言っても押せなくなる。
     return (
       <div className={`${bar} bg-[var(--accent-light)] text-[var(--accent)]`}>
         <button
           className="text-left underline decoration-dotted underline-offset-2"
-          aria-label={`v${info.latestVersion} の変更点を見る`}
+          aria-label={`新しいバージョン v${info.latestVersion} があります — 変更点を見る`}
           onClick={() => { releaseNotesRepository.openPending().catch(console.error) }}
         >
           新しいバージョン v{info.latestVersion} があります
