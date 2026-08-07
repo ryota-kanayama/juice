@@ -3,6 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { UpdateBanner } from './UpdateBanner'
 import type { UpdateState } from '../../hooks/useUpdate'
+import { releaseNotesRepository } from '../../repositories/releaseNotesRepository'
+
+vi.mock('../../repositories/releaseNotesRepository', () => ({
+  releaseNotesRepository: { openPending: vi.fn().mockResolvedValue(undefined) },
+}))
 
 const info = {
   currentVersion: '1.0.0', latestVersion: '1.1.0', hasUpdate: true,
@@ -62,5 +67,11 @@ describe('UpdateBanner', () => {
     render(<UpdateBanner update={update} />)
     fireEvent.click(screen.getByText('更新'))
     expect(install).toHaveBeenCalled()
+  })
+
+  it('available でバージョンの文言を押すと更新前のノートを開く', () => {
+    render(<UpdateBanner update={state({ phase: 'available', info })} />)
+    fireEvent.click(screen.getByRole('button', { name: /1\.1\.0 の変更点を見る/ }))
+    expect(releaseNotesRepository.openPending).toHaveBeenCalled()
   })
 })
