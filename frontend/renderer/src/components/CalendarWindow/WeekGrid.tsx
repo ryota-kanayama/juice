@@ -255,9 +255,12 @@ export function WeekGrid({ dates, sessionsByDate, selectedDate, holidays, onSele
                       height: pct(b.height),
                       left: pct(b.left),
                       width: pct(b.width),
-                      // 隣の列と接して見えないよう、透明ボーダーで内側に寄せる
+                      // 隣のブロックと接して見えないよう、透明ボーダーで内側に寄せる。
+                      // 縦は 1時間がグリッド高さの 1/12 しかなく、短い記録が潰れるため左右より薄くする
                       borderLeft: '2px solid transparent',
                       borderRight: '2px solid transparent',
+                      borderTop: '1px solid transparent',
+                      borderBottom: '1px solid transparent',
                       background: b.color,
                       backgroundClip: 'padding-box',
                     }}
