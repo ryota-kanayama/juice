@@ -1,6 +1,6 @@
 {
   "name": "juice",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "macOS menu bar timer app",
   "private": true,
   "type": "module",
