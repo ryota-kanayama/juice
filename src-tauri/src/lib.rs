@@ -175,10 +175,10 @@ pub fn run() {
             let _ = std::fs::create_dir_all(&data_dir);
             app.manage(SessionStore::new(data_dir.clone()));
             app.manage(DailyStore::new(data_dir.clone()));
-            app.manage(SettingsStore::new(data_dir));
+            app.manage(SettingsStore::new(data_dir.clone()));
             app.manage(NotificationEngine::new());
             app.manage(holidays::HolidaysClient::new());
-            app.manage(auth::AuthStore::new());
+            app.manage(auth::AuthStore::new(data_dir));
             app.manage(oauth::PendingState::default());
             app.manage(update::UpdateAck::default());
             app.manage(update::LastChecked::default());
