@@ -1,6 +1,6 @@
 [package]
 name = "juice"
-version = "2.2.0"
+version = "2.2.1"
 description = "作業セッションを時間区間として記録する macOS メニューバーアプリ"
 authors = ["kanayama"]
 edition = "2021"
