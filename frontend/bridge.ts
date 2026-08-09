@@ -128,6 +128,10 @@ const bridge = {
     subscribe<void>("elapsed-notification-fired", () => cb()),
   onNavigate: (cb: (page: string) => void) =>
     subscribe<string>("navigate", cb),
+  onSessionsChanged: (cb: (p: { yearMonth: string }) => void) =>
+    subscribe<{ yearMonth: string }>("sessions-changed", cb),
+  onDailyChanged: (cb: (p: { yearMonth: string }) => void) =>
+    subscribe<{ yearMonth: string }>("daily-changed", cb),
 };
 
 // レンダラーが参照する window.bridge を提供する。

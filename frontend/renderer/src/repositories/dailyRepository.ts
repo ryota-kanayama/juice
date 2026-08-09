@@ -19,4 +19,8 @@ export const dailyRepository = {
   importLegacy(entries: Array<{ date: string; record: DayRecord }>): Promise<void> {
     return window.bridge.importLegacyDaily(entries)
   },
+  /** 他のウィンドウを含む書き込みの通知。返り値を呼ぶと購読を解除する */
+  onChanged(cb: (p: { yearMonth: string }) => void): () => void {
+    return window.bridge.onDailyChanged(cb)
+  },
 }
