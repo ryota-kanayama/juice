@@ -298,6 +298,16 @@ pub async fn update_install(app: tauri::AppHandle) {
     crate::update::install(&app).await;
 }
 
+/// 直近の更新チェック結果を引き直す。レンダラーはマウント時にこれを呼び、
+/// 起動時チェックの update-available を取りこぼしていても更新の有無を知る。
+#[tauri::command]
+pub fn update_pending(
+    state: State<'_, crate::update::LastChecked>,
+    store: State<'_, SettingsStore>,
+) -> Option<crate::update::UpdateInfo> {
+    crate::update::pending_update(state.get(), &store.get_dismissed_update_version())
+}
+
 #[tauri::command]
 pub fn update_ready_to_quit(app: tauri::AppHandle) {
     crate::update::notify_renderer_ready(&app);

@@ -38,6 +38,21 @@ export function useUpdate(): UpdateState {
   }, [])
 
   useEffect(() => {
+    // 起動時チェックの update-available は、レンダラーが購読を張る前に飛んでいることがある。
+    // Tauri のイベントは再送されないので、マウント時に直近の結果を引き直して取りこぼしを拾う。
+    let alive = true
+    updateRepository.pending()
+      .then(pending => {
+        if (!alive || !pending) return
+        setInfo(pending)
+        // 既にイベントで先へ進んでいるときは巻き戻さない
+        setPhase(p => (p === 'idle' ? 'available' : p))
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  useEffect(() => {
     const offAvail = updateRepository.onAvailable((i) => {
       setInfo(i)
       setPhase('available')

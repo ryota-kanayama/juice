@@ -100,7 +100,10 @@ pub fn run() {
         // 単一インスタンス化（最初に登録）。2つ目の起動は即終了させ、常駐トレイ/パネルの
         // 二重化や同一 JSON への同時書き込みを防ぐ。ログイン起動の重複や
         // 「再ログイン時にウインドウ再開」との併発でも1つに保つ。
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
+        // 起動中にもう一度開かれたら、無反応で終わらせずポップオーバーを出す
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_panel_now(app);
+        }))
         .plugin(tauri_nspanel::init())
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_notification::init())
@@ -158,6 +161,7 @@ pub fn run() {
             commands::update_check,
             commands::update_install,
             commands::update_ready_to_quit,
+            commands::update_pending,
             commands::release_notes_current,
             commands::release_notes_pending,
             commands::release_notes_mark_seen,
@@ -171,10 +175,10 @@ pub fn run() {
             let _ = std::fs::create_dir_all(&data_dir);
             app.manage(SessionStore::new(data_dir.clone()));
             app.manage(DailyStore::new(data_dir.clone()));
-            app.manage(SettingsStore::new(data_dir));
+            app.manage(SettingsStore::new(data_dir.clone()));
             app.manage(NotificationEngine::new());
             app.manage(holidays::HolidaysClient::new());
-            app.manage(auth::AuthStore::new());
+            app.manage(auth::AuthStore::new(data_dir));
             app.manage(oauth::PendingState::default());
             app.manage(update::UpdateAck::default());
             app.manage(update::LastChecked::default());
