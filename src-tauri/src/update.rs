@@ -16,12 +16,14 @@ use serde::Serialize;
 use std::cmp::Ordering;
 use std::io::Write;
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter, Manager};
 
 const LATEST_RELEASE_URL: &str =
     "https://api.github.com/repos/ryota-kanayama/juice/releases/latest";
 const CHECK_INTERVAL_SECS: u64 = 6 * 60 * 60;
+/// 壁時計を見に起きる間隔。タイマー自体は短くし、経過の判定は壁時計で行う。
+const WAKE_INTERVAL_SECS: u64 = 60;
 const PREPARE_QUIT_TIMEOUT_SECS: u64 = 3;
 
 // ---- 型 ----
@@ -279,13 +281,35 @@ async fn check_and_notify(app: &AppHandle) {
     }
 }
 
+/// 前回の確認から `interval` 以上の実時間が経ったか。
+///
+/// 時計が巻き戻されると `elapsed` は Err を返す。そのまま待ち続けると二度と確認しなく
+/// なるので、経過扱いにして一度確認しに行く。
+fn wall_elapsed_reached(last: SystemTime, interval: Duration) -> bool {
+    match last.elapsed() {
+        Ok(e) => e >= interval,
+        Err(_) => true,
+    }
+}
+
 /// 起動時に1回 + 6時間ごとに更新確認する（Electron 版 startPeriodicCheck 相当）。
+///
+/// 経過の判定に壁時計（SystemTime）を使う。macOS の `Instant` は `CLOCK_UPTIME_RAW`
+/// 相当で、スリープ中は進まず復帰しても取り戻さない（実測: 起動から 6.5 日のうち
+/// 4.6 日がスリープだった環境では、Instant は 2 日ぶんしか進んでいなかった）。
+/// tokio の sleep をそのまま 6 時間にすると、蓋を閉じる使い方では実時間で 20 時間近く
+/// 空いてしまうため、短い間隔で起きて壁時計を見る形にする。
 pub fn start_periodic_check(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        check_and_notify(&app).await;
+        let mut last = SystemTime::now();
         loop {
-            check_and_notify(&app).await;
-            tokio::time::sleep(Duration::from_secs(CHECK_INTERVAL_SECS)).await;
+            tokio::time::sleep(Duration::from_secs(WAKE_INTERVAL_SECS)).await;
+            if wall_elapsed_reached(last, Duration::from_secs(CHECK_INTERVAL_SECS)) {
+                check_and_notify(&app).await;
+                last = SystemTime::now();
+            }
         }
     });
 }
@@ -650,6 +674,26 @@ mod tests {
             asset_name: None,
             notes: notes.into(),
         }
+    }
+
+    #[test]
+    fn wall_clock_reached_after_interval() {
+        let last = SystemTime::now() - Duration::from_secs(7 * 60 * 60);
+        assert!(wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60)));
+    }
+
+    #[test]
+    fn wall_clock_not_reached_before_interval() {
+        let last = SystemTime::now() - Duration::from_secs(60 * 60);
+        assert!(!wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60)));
+    }
+
+    #[test]
+    fn wall_clock_treats_backwards_clock_as_reached() {
+        // 時計が巻き戻されたとき elapsed は Err を返す。待ち続けると永久に確認しなくなるので
+        // 経過扱いにして一度確認しに行く。
+        let last = SystemTime::now() + Duration::from_secs(60 * 60);
+        assert!(wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60)));
     }
 
     #[test]
