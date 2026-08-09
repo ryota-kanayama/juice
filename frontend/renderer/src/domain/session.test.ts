@@ -4,6 +4,7 @@ import {
   createManualSession,
   appendRunningInterval,
   hasRunningInterval,
+  mergeRunningSessions,
   dayTimeRange,
   totalMinutesOf,
   hasReliableTimes,
@@ -383,5 +384,54 @@ describe('hasReliableTimes', () => {
       ],
       totalTime: 30,
     }))).toBe(true)
+  })
+})
+
+describe('mergeRunningSessions', () => {
+  const stopped = (id: string): Session => ({
+    id, taskId: id, name: `作業${id}`, projectCode: 'P', workCategory: 'C',
+    times: [{ startTime: '2026-08-09T10:00:00', endTime: '2026-08-09T11:00:00' }],
+    date: '2026-08-09', color: '#FF9500', totalTime: 60,
+  })
+  const running = (id: string): Session => ({
+    ...stopped(id),
+    times: [{ startTime: '2026-08-09T13:00:00', endTime: null }],
+  })
+
+  it('ディスクに無い稼働中の作業を残す', () => {
+    const got = mergeRunningSessions([stopped('a')], [stopped('a'), running('b')])
+    expect(got.map(s => s.id)).toEqual(['a', 'b'])
+  })
+
+  it('稼働中の作業は同じ id があっても手元を優先する', () => {
+    // ディスクには停止済みとして入っているが、手元では区間が稼働中
+    const got = mergeRunningSessions([stopped('a')], [running('a')])
+    expect(got).toHaveLength(1)
+    expect(got[0].times).toEqual([{ startTime: '2026-08-09T13:00:00', endTime: null }])
+  })
+
+  it('停止済みの作業はディスクを優先する', () => {
+    const fromDisk = { ...stopped('a'), name: 'ディスクで直した名前' }
+    const got = mergeRunningSessions([fromDisk], [stopped('a')])
+    expect(got[0].name).toBe('ディスクで直した名前')
+  })
+
+  it('手元に稼働中が無ければディスクそのまま', () => {
+    const got = mergeRunningSessions([stopped('a'), stopped('b')], [stopped('a')])
+    expect(got.map(s => s.id)).toEqual(['a', 'b'])
+  })
+
+  it('同じ稼働中の作業が二重に入らない', () => {
+    const got = mergeRunningSessions([stopped('a')], [running('a'), running('a')])
+    expect(got).toHaveLength(1)
+  })
+
+  it('どちらも空なら空', () => {
+    expect(mergeRunningSessions([], [])).toEqual([])
+  })
+
+  it('ディスクが空でも手元の稼働中は残る', () => {
+    const got = mergeRunningSessions([], [running('b')])
+    expect(got.map(s => s.id)).toEqual(['b'])
   })
 })
