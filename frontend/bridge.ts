@@ -97,6 +97,7 @@ const bridge = {
     invoke("settings_set_dismissed_update_version", { version }),
   installUpdate: () => invoke("update_install"),
   readyToQuit: () => invoke("update_ready_to_quit"),
+  getPendingUpdate: () => invoke("update_pending"),
 
   // ---- Release notes（✅ MAPPED） ----
   getReleaseNotesCurrent: () => invoke("release_notes_current"),

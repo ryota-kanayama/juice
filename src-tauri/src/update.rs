@@ -256,11 +256,22 @@ pub async fn check_for_update(app: &AppHandle) -> Result<UpdateInfo, String> {
     Ok(info)
 }
 
+/// 直近のチェック結果のうち、ユーザーに知らせるべきものだけを返す。
+///
+/// 起動時チェックの `update-available` は、レンダラーが購読を張るより前に飛ぶ
+/// （実測で emit が約 0.4 秒、購読の完了はその数十倍あと）。Tauri のイベントは
+/// バッファも再送もされないため、そのままだと起動のたびに取りこぼし、次の通知は
+/// 6 時間後になる。レンダラーがマウント時にこれを引き直すことで取りこぼしを拾う。
+pub fn pending_update(last: Option<UpdateInfo>, dismissed: &str) -> Option<UpdateInfo> {
+    last.filter(|i| i.has_update && i.latest_version != dismissed)
+}
+
 async fn check_and_notify(app: &AppHandle) {
     match check_for_update(app).await {
         Ok(info) => {
             let dismissed = app.state::<SettingsStore>().get_dismissed_update_version();
-            if info.has_update && info.latest_version != dismissed {
+            // 通知するかの判定は pending_update に一本化する（引き直し経路と同じ規則にする）
+            if let Some(info) = pending_update(Some(info), &dismissed) {
                 let _ = app.emit("update-available", &info);
             }
         }
@@ -639,6 +650,39 @@ mod tests {
             asset_name: None,
             notes: notes.into(),
         }
+    }
+
+    #[test]
+    fn pending_update_returns_info_when_update_available() {
+        let info = sample_info("2.2.0", "notes");
+        assert_eq!(pending_update(Some(info), "").unwrap().latest_version, "2.2.0");
+    }
+
+    #[test]
+    fn pending_update_is_none_when_no_update() {
+        let mut info = sample_info("2.2.0", "notes");
+        info.has_update = false;
+        assert!(pending_update(Some(info), "").is_none());
+    }
+
+    #[test]
+    fn pending_update_is_none_when_dismissed() {
+        let info = sample_info("2.2.0", "notes");
+        assert!(pending_update(Some(info), "2.2.0").is_none());
+    }
+
+    #[test]
+    fn pending_update_is_none_when_never_checked() {
+        assert!(pending_update(None, "").is_none());
+    }
+
+    #[test]
+    fn pending_update_ignores_dismissal_of_another_version() {
+        let info = sample_info("2.3.0", "notes");
+        assert_eq!(
+            pending_update(Some(info), "2.2.0").unwrap().latest_version,
+            "2.3.0"
+        );
     }
 
     #[test]

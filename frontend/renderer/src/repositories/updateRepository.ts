@@ -28,4 +28,8 @@ export const updateRepository = {
   getCurrentVersion(): Promise<string> {
     return window.bridge.getAppVersion()
   },
+  /** 直近のチェック結果のうち、まだ知らせていない更新。無ければ null */
+  pending(): Promise<UpdateInfo | null> {
+    return window.bridge.getPendingUpdate()
+  },
 }

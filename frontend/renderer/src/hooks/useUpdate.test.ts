@@ -13,6 +13,7 @@ const mockCheck = vi.fn()
 const mockInstall = vi.fn()
 const mockDismiss = vi.fn()
 const mockGetCurrentVersion = vi.fn()
+const mockPending = vi.fn()
 
 vi.mock('../repositories/updateRepository', () => ({
   updateRepository: {
@@ -20,6 +21,7 @@ vi.mock('../repositories/updateRepository', () => ({
     install: () => mockInstall(),
     dismiss: (v: string) => mockDismiss(v),
     getCurrentVersion: () => mockGetCurrentVersion(),
+    pending: () => mockPending(),
     onAvailable: (cb: (i: UpdateInfo) => void) => { handlers.available = cb; return () => {} },
     onProgress: (cb: (p: { percent: number; done: boolean; error?: string }) => void) => { handlers.progress = cb; return () => {} },
   },
@@ -46,6 +48,7 @@ beforeEach(() => {
   mockDismiss.mockResolvedValue(undefined)
   mockInstall.mockResolvedValue(undefined)
   mockGetCurrentVersion.mockResolvedValue('1.0.0')
+  mockPending.mockResolvedValue(null)
   mockIsRunning.mockResolvedValue(false)
 })
 
@@ -152,6 +155,40 @@ describe('useUpdate', () => {
     await waitFor(() => expect(result.current.checkedUpToDate).toBe(true))
     act(() => { result.current.install() })
     await waitFor(() => expect(result.current.checkedUpToDate).toBe(false))
+  })
+
+  // 起動時チェックの update-available はレンダラーが購読する前に飛ぶため取りこぼす。
+  // マウント時に直近の結果を引き直すことで、取りこぼしても拾えるようにする。
+  it('マウント時に直近のチェック結果を引き、更新があれば available にする', async () => {
+    mockPending.mockResolvedValue(info)
+    const { result } = renderHook(() => useUpdate())
+    await waitFor(() => expect(result.current.phase).toBe('available'))
+    expect(result.current.info?.latestVersion).toBe('1.1.0')
+  })
+
+  it('直近のチェック結果が無ければ idle のまま', async () => {
+    mockPending.mockResolvedValue(null)
+    const { result } = renderHook(() => useUpdate())
+    await waitFor(() => expect(mockPending).toHaveBeenCalled())
+    expect(result.current.phase).toBe('idle')
+  })
+
+  it('直近のチェック結果の取得に失敗しても phase を壊さない', async () => {
+    mockPending.mockRejectedValue(new Error('boom'))
+    const { result } = renderHook(() => useUpdate())
+    await waitFor(() => expect(mockPending).toHaveBeenCalled())
+    expect(result.current.phase).toBe('idle')
+  })
+
+  it('先に進んだ phase を、あとから解決したマウント時の取得が巻き戻さない', async () => {
+    let resolvePending: (v: UpdateInfo | null) => void = () => {}
+    mockPending.mockReturnValue(new Promise<UpdateInfo | null>(r => { resolvePending = r }))
+    const { result } = renderHook(() => useUpdate())
+    act(() => handlers.available!(info))
+    act(() => handlers.progress!({ percent: 30, done: false }))
+    expect(result.current.phase).toBe('downloading')
+    await act(async () => { resolvePending(info) })
+    expect(result.current.phase).toBe('downloading')
   })
 })
 

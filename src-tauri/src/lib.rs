@@ -158,6 +158,7 @@ pub fn run() {
             commands::update_check,
             commands::update_install,
             commands::update_ready_to_quit,
+            commands::update_pending,
             commands::release_notes_current,
             commands::release_notes_pending,
             commands::release_notes_mark_seen,

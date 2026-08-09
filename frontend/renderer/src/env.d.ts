@@ -73,6 +73,7 @@ interface Bridge {
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
   onUpdateProgress: (callback: (p: { percent: number; done: boolean; error?: string }) => void) => () => void
   onUpdatePrepareQuit: (callback: () => void) => () => void
+  getPendingUpdate: () => Promise<UpdateInfo | null>
 
   // release notes
   getReleaseNotesCurrent: () => Promise<ReleaseNoteEntry[]>
