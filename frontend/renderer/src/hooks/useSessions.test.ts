@@ -12,11 +12,18 @@ const updateSession = vi.fn().mockResolvedValue(undefined)
 const deleteSession = vi.fn().mockResolvedValue(undefined)
 const teleworkStart = vi.fn().mockResolvedValue(undefined)
 
+let sessionsChangedCb: ((p: { yearMonth: string }) => void) | null = null
+const onSessionsChanged = vi.fn((cb: (p: { yearMonth: string }) => void) => {
+  sessionsChangedCb = cb
+  return () => { sessionsChangedCb = null }
+})
+
 vi.stubGlobal('bridge', {
   getSessions,
   updateSession,
   deleteSession,
   teleworkStart,
+  onSessionsChanged,
 })
 
 function makeSession(overrides: Partial<Session> = {}): Session {
@@ -193,5 +200,47 @@ describe('useSessions', () => {
     await act(async () => { await result.current.startTelework() })
 
     expect(teleworkStart).toHaveBeenCalledOnce()
+  })
+
+  it('当月の通知で読み直し、ディスクの内容を反映する', async () => {
+    getSessions.mockResolvedValue([makeSession({ id: 's1', name: '古い名前' })])
+    const { result } = renderHook(() => useSessions())
+    await waitFor(() => expect(result.current.todaySessions).toHaveLength(1))
+
+    getSessions.mockResolvedValue([makeSession({ id: 's1', name: '新しい名前' })])
+    await act(async () => { sessionsChangedCb!({ yearMonth: YEAR_MONTH }) })
+
+    await waitFor(() => expect(result.current.todaySessions[0].name).toBe('新しい名前'))
+  })
+
+  it('別の年月の通知は無視する', async () => {
+    getSessions.mockResolvedValue([makeSession({ id: 's1' })])
+    const { result } = renderHook(() => useSessions())
+    await waitFor(() => expect(result.current.todaySessions).toHaveLength(1))
+    getSessions.mockClear()
+
+    await act(async () => { sessionsChangedCb!({ yearMonth: '2020-01' }) })
+
+    expect(getSessions).not.toHaveBeenCalled()
+  })
+
+  it('読み直しても稼働中の作業を失わない', async () => {
+    // ディスクには s1 だけ。手元には稼働中の s2 がある（停止まで書かれないため）
+    getSessions.mockResolvedValue([makeSession({ id: 's1' })])
+    const { result } = renderHook(() => useSessions())
+    await waitFor(() => expect(result.current.todaySessions).toHaveLength(1))
+
+    const runningSession = makeSession({
+      id: 's2',
+      times: [{ startTime: `${TODAY}T13:00:00`, endTime: null }],
+    })
+    act(() => { result.current.upsertToday(runningSession) })
+    expect(result.current.todaySessions).toHaveLength(2)
+
+    await act(async () => { sessionsChangedCb!({ yearMonth: YEAR_MONTH }) })
+
+    await waitFor(() => {
+      expect(result.current.todaySessions.map(s => s.id).sort()).toEqual(['s1', 's2'])
+    })
   })
 })

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Session, TimeInterval, WorkLocation } from '../types/session'
-import { appendRunningInterval, createManualSession, hasRunningInterval } from '../domain/session'
+import { appendRunningInterval, createManualSession, hasRunningInterval, mergeRunningSessions } from '../domain/session'
 import { sessionRepository } from '../repositories/sessionRepository'
 import { attendanceRepository } from '../repositories/attendanceRepository'
 import { useToday } from './useToday'
@@ -31,6 +31,24 @@ export function useSessions(): SessionsState {
   useEffect(() => {
     sessionRepository.list(yearMonth).then(sessions => {
       setTodaySessions(sessions.filter(s => s.date === today))
+    })
+  }, [today, yearMonth])
+
+  // 他のウィンドウ（カレンダー）での変更を受け取って読み直す。
+  // 稼働中の作業はディスクに無いので、手元のものを残す（mergeRunningSessions）。
+  useEffect(() => {
+    return sessionRepository.onChanged(({ yearMonth: changed }) => {
+      if (changed !== yearMonth) return
+      sessionRepository.list(yearMonth)
+        .then(sessions => {
+          const fetched = sessions.filter(s => s.date === today)
+          // prev を使うので、読み直しの最中に起きた変更も取りこぼさない
+          setTodaySessions(prev => mergeRunningSessions(fetched, prev))
+        })
+        .catch(err => {
+          // 失敗したら手元の内容を保つ。次の通知で再試行される
+          console.error('[useSessions] 変更通知後の読み直しに失敗しました:', err)
+        })
     })
   }, [today, yearMonth])
 
