@@ -156,7 +156,7 @@ impl SessionStore {
         Ok(self.data_dir.join(format!("sessions-{year_month}.json")))
     }
 
-    fn year_month_of(session: &Session) -> Result<String, StoreError> {
+    pub(crate) fn year_month_of(session: &Session) -> Result<String, StoreError> {
         if !is_date(&session.date) {
             return Err(StoreError::InvalidDate(session.date.clone()));
         }

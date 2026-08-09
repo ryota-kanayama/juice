@@ -24,22 +24,68 @@ pub fn sessions_get(year_month: String, store: State<'_, SessionStore>) -> CmdRe
 }
 
 #[tauri::command]
-pub fn sessions_save(session: Session, store: State<'_, SessionStore>) -> CmdResult<()> {
-    map(store.save_session(session))
+pub fn sessions_save(
+    app: tauri::AppHandle,
+    session: Session,
+    store: State<'_, SessionStore>,
+) -> CmdResult<()> {
+    // store へ move する前に年月を取っておく
+    let year_month = map(SessionStore::year_month_of(&session))?;
+    map(store.save_session(session))?;
+    emit_sessions_changed(&app, &year_month);
+    Ok(())
 }
 
 #[tauri::command]
-pub fn sessions_update(session: Session, store: State<'_, SessionStore>) -> CmdResult<()> {
-    map(store.update_session(session))
+pub fn sessions_update(
+    app: tauri::AppHandle,
+    session: Session,
+    store: State<'_, SessionStore>,
+) -> CmdResult<()> {
+    let year_month = map(SessionStore::year_month_of(&session))?;
+    map(store.update_session(session))?;
+    emit_sessions_changed(&app, &year_month);
+    Ok(())
 }
 
 #[tauri::command]
 pub fn sessions_delete(
+    app: tauri::AppHandle,
     id: String,
     year_month: String,
     store: State<'_, SessionStore>,
 ) -> CmdResult<()> {
-    map(store.delete_session(&id, &year_month))
+    map(store.delete_session(&id, &year_month))?;
+    emit_sessions_changed(&app, &year_month);
+    Ok(())
+}
+
+/// 「この年月が変わった」ことだけを伝えるペイロード。
+///
+/// 変更内容そのものは送らない。イベントを取りこぼしてもキャッシュが実データとずれず、
+/// 受け手は「来たら読み直す」だけで済むため。
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ChangedPayload {
+    year_month: String,
+}
+
+/// セッションの変更を全ウィンドウへ知らせる。書き込みが成功したときだけ呼ぶ。
+fn emit_sessions_changed(app: &tauri::AppHandle, year_month: &str) {
+    use tauri::Emitter;
+    let _ = app.emit(
+        "sessions-changed",
+        ChangedPayload { year_month: year_month.to_string() },
+    );
+}
+
+/// 日次データの変更を全ウィンドウへ知らせる。書き込みが成功したときだけ呼ぶ。
+fn emit_daily_changed(app: &tauri::AppHandle, year_month: &str) {
+    use tauri::Emitter;
+    let _ = app.emit(
+        "daily-changed",
+        ChangedPayload { year_month: year_month.to_string() },
+    );
 }
 
 // ---- Daily ----
@@ -65,8 +111,16 @@ pub fn daily_get_day(date: String, store: State<'_, DailyStore>) -> CmdResult<Op
 }
 
 #[tauri::command]
-pub fn daily_set_day(date: String, patch: Value, store: State<'_, DailyStore>) -> CmdResult<()> {
-    map(store.set_day(&date, patch))
+pub fn daily_set_day(
+    app: tauri::AppHandle,
+    date: String,
+    patch: Value,
+    store: State<'_, DailyStore>,
+) -> CmdResult<()> {
+    let year_month = map(DailyStore::year_month_of(&date))?;
+    map(store.set_day(&date, patch))?;
+    emit_daily_changed(&app, &year_month);
+    Ok(())
 }
 
 #[tauri::command]
