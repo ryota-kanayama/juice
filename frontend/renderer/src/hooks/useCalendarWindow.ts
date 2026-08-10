@@ -98,13 +98,18 @@ export function useCalendarWindow(): CalendarWindowState {
   // 他のウィンドウ（ポップオーバー）での変更を受け取って読み直す。
   // カレンダーは稼働中の作業を持たないので、ディスクの内容をそのまま採る。
   useEffect(() => {
-    return sessionRepository.onChanged(({ yearMonth: changed }) => {
+    let alive = true
+    const off = sessionRepository.onChanged(({ yearMonth: changed }) => {
       if (!yearMonths.includes(changed)) return
-      loadSessions(yearMonths).then(setSessionsByDate).catch(err => {
+      loadSessions(yearMonths).then(grouped => {
+        // 表示範囲が変わったあとに解決した古い読み込みで上書きしない
+        if (alive) setSessionsByDate(grouped)
+      }).catch(err => {
         // 失敗したら手元の内容を保つ。次の通知で再試行される
         console.error('[useCalendarWindow] 変更通知後の読み直しに失敗しました:', err)
       })
     })
+    return () => { alive = false; off() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yearMonthsKey, loadSessions])
 

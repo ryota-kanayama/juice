@@ -191,4 +191,48 @@ describe('useCalendarWindow', () => {
 
     expect(mockList).not.toHaveBeenCalled()
   })
+
+  it('通知起点の読み直しが解決する前に表示範囲が変わったら、その結果を捨てる', async () => {
+    mockList.mockResolvedValue([])
+    const { result } = renderHook(() => useCalendarWindow())
+    await waitFor(() => { expect(mockList).toHaveBeenCalled() })
+    mockList.mockClear()
+
+    // 8/6 の週 → 4回 goNext で 2026-09-03 が anchor
+    // （視野は 8/30(日)〜9/5(土)。2026-08 と 2026-09 の両方を含む）
+    act(() => { result.current.goNext() })
+    act(() => { result.current.goNext() })
+    act(() => { result.current.goNext() })
+    act(() => { result.current.goNext() })
+    await waitFor(() => {
+      const requested = mockList.mock.calls.map(c => c[0])
+      expect(requested).toContain('2026-08')
+      expect(requested).toContain('2026-09')
+    })
+    mockList.mockClear()
+
+    // 通知起点の読み直し（2026-08・2026-09 の2回分）を手で解決を制御できる Promise にする
+    let resolveStale!: (v: Session[]) => void
+    const stale = new Promise<Session[]>(resolve => { resolveStale = resolve })
+    mockList
+      .mockImplementationOnce(() => stale)
+      .mockImplementationOnce(() => stale)
+      .mockImplementationOnce(() => Promise.resolve([makeSession({ id: 'new', date: '2026-09-06' })]))
+
+    await act(async () => { sessionsChangedCb!({ yearMonth: '2026-08' }) })
+
+    // 通知起点の読み直しが解決する前に、視野が 2026-09 だけの週（9/6〜9/12）へ進む
+    act(() => { result.current.goNext() })
+    expect(result.current.visibleDates[0]).toBe('2026-09-06')
+
+    await waitFor(() => {
+      expect(result.current.sessionsByDate['2026-09-06']).toHaveLength(1)
+    })
+
+    // 遅れて解決した通知起点の読み込みが、新しい視野の内容を上書きしないことを確認
+    await act(async () => { resolveStale([makeSession({ id: 'stale', date: '2026-08-06' })]) })
+
+    expect(result.current.sessionsByDate['2026-09-06']).toHaveLength(1)
+    expect(result.current.sessionsByDate['2026-08-06']).toBeUndefined()
+  })
 })
