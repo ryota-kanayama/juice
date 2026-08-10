@@ -37,10 +37,13 @@ export function useSessions(): SessionsState {
   // 他のウィンドウ（カレンダー）での変更を受け取って読み直す。
   // 稼働中の作業はディスクに無いので、手元のものを残す（mergeRunningSessions）。
   useEffect(() => {
-    return sessionRepository.onChanged(({ yearMonth: changed }) => {
+    let alive = true
+    const off = sessionRepository.onChanged(({ yearMonth: changed }) => {
       if (changed !== yearMonth) return
       sessionRepository.list(yearMonth)
         .then(sessions => {
+          // today が変わったあとに解決した古い読み込みは捨てる
+          if (!alive) return
           const fetched = sessions.filter(s => s.date === today)
           // prev を使うので、読み直しの最中に起きた変更も取りこぼさない
           setTodaySessions(prev => mergeRunningSessions(fetched, prev))
@@ -50,6 +53,7 @@ export function useSessions(): SessionsState {
           console.error('[useSessions] 変更通知後の読み直しに失敗しました:', err)
         })
     })
+    return () => { alive = false; off() }
   }, [today, yearMonth])
 
   const upsertToday = useCallback((session: Session): void => {

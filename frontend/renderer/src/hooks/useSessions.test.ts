@@ -243,4 +243,36 @@ describe('useSessions', () => {
       expect(result.current.todaySessions.map(s => s.id).sort()).toEqual(['s1', 's2'])
     })
   })
+
+  it('読み直しの結果が解決する前に日付が変わったら、その結果を捨てる', async () => {
+    const NEXT_DAY = '2026-06-18'
+    getSessions.mockResolvedValue([makeSession({ id: 's1', date: TODAY })])
+    const { result } = renderHook(() => useSessions())
+    await waitFor(() => expect(result.current.todaySessions).toHaveLength(1))
+    getSessions.mockClear()
+
+    // 通知起点の読み直しを手で解決を制御できる Promise にする
+    let resolveStale!: (v: Session[]) => void
+    const stale = new Promise<Session[]>(resolve => { resolveStale = resolve })
+    getSessions.mockReturnValueOnce(stale)
+
+    await act(async () => { sessionsChangedCb!({ yearMonth: YEAR_MONTH }) })
+
+    // 通知起点の読み直しが解決する前に日付が変わる
+    // （TODAY を捕まえたクロージャの読み直しが宙に浮いた状態になる）
+    getSessions.mockResolvedValue([makeSession({ id: 's2', date: NEXT_DAY })])
+    act(() => {
+      vi.setSystemTime(new Date(2026, 5, 18, 0, 0, 5))
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(result.current.today).toBe(NEXT_DAY))
+    await waitFor(() => {
+      expect(result.current.todaySessions.map(s => s.id)).toEqual(['s2'])
+    })
+
+    // 遅れて解決した、前日（TODAY）を捕まえたクロージャの読み直しが上書きしないことを確認
+    await act(async () => { resolveStale([makeSession({ id: 'stale', date: TODAY })]) })
+
+    expect(result.current.todaySessions.map(s => s.id)).toEqual(['s2'])
+  })
 })
