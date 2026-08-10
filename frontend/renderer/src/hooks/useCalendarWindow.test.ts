@@ -7,10 +7,17 @@ const mockList = vi.fn()
 const mockUpdate = vi.fn().mockResolvedValue(undefined)
 const mockHolidays = vi.fn()
 
+let sessionsChangedCb: ((p: { yearMonth: string }) => void) | null = null
+const mockOnChanged = vi.fn((cb: (p: { yearMonth: string }) => void) => {
+  sessionsChangedCb = cb
+  return () => { sessionsChangedCb = null }
+})
+
 vi.mock('../repositories/sessionRepository', () => ({
   sessionRepository: {
     list: (ym: string) => mockList(ym),
     update: (s: Session) => mockUpdate(s),
+    onChanged: (cb: (p: { yearMonth: string }) => void) => mockOnChanged(cb),
   },
 }))
 vi.mock('../repositories/holidayRepository', () => ({
@@ -159,5 +166,29 @@ describe('useCalendarWindow', () => {
     await waitFor(() => {
       expect(result.current.holidays['2026-08-11']).toBe('山の日')
     })
+  })
+
+  it('表示中の年月の通知で読み直す', async () => {
+    mockList.mockResolvedValue([makeSession({ id: 's1', name: '古い名前' })])
+    const { result } = renderHook(() => useCalendarWindow())
+    await waitFor(() => expect(result.current.sessionsByDate['2026-08-06']).toHaveLength(1))
+
+    mockList.mockResolvedValue([makeSession({ id: 's1', name: '新しい名前' })])
+    await act(async () => { sessionsChangedCb!({ yearMonth: '2026-08' }) })
+
+    await waitFor(() => {
+      expect(result.current.sessionsByDate['2026-08-06'][0].name).toBe('新しい名前')
+    })
+  })
+
+  it('表示していない年月の通知は無視する', async () => {
+    mockList.mockResolvedValue([makeSession({ id: 's1' })])
+    const { result } = renderHook(() => useCalendarWindow())
+    await waitFor(() => expect(result.current.sessionsByDate['2026-08-06']).toHaveLength(1))
+    mockList.mockClear()
+
+    await act(async () => { sessionsChangedCb!({ yearMonth: '2020-01' }) })
+
+    expect(mockList).not.toHaveBeenCalled()
   })
 })

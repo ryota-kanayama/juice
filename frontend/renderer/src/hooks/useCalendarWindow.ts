@@ -71,21 +71,42 @@ export function useCalendarWindow(): CalendarWindowState {
     holidayRepository.getAll().then(setHolidays)
   }, [])
 
-  useEffect(() => {
-    let alive = true
-    Promise.all(yearMonths.map(ym => sessionRepository.list(ym))).then(results => {
-      if (!alive) return
+  // 表示範囲の月をまとめて読む。state は触らず結果を返す（取り消しは呼び出し側の責務）。
+  const loadSessions = useCallback((months: string[]): Promise<Record<string, Session[]>> => {
+    return Promise.all(months.map(ym => sessionRepository.list(ym))).then(results => {
       const grouped: Record<string, Session[]> = {}
       for (const s of results.flat()) {
         if (!grouped[s.date]) grouped[s.date] = []
         grouped[s.date].push(s)
       }
-      setSessionsByDate(grouped)
+      return grouped
+    })
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    loadSessions(yearMonths).then(grouped => {
+      if (alive) setSessionsByDate(grouped)
+    }).catch(err => {
+      console.error('[useCalendarWindow] セッションの読み込みに失敗しました:', err)
     })
     return () => { alive = false }
     // yearMonths は毎回新しい配列になるため、内容を表す key で依存を張る
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yearMonthsKey])
+  }, [yearMonthsKey, loadSessions])
+
+  // 他のウィンドウ（ポップオーバー）での変更を受け取って読み直す。
+  // カレンダーは稼働中の作業を持たないので、ディスクの内容をそのまま採る。
+  useEffect(() => {
+    return sessionRepository.onChanged(({ yearMonth: changed }) => {
+      if (!yearMonths.includes(changed)) return
+      loadSessions(yearMonths).then(setSessionsByDate).catch(err => {
+        // 失敗したら手元の内容を保つ。次の通知で再試行される
+        console.error('[useCalendarWindow] 変更通知後の読み直しに失敗しました:', err)
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yearMonthsKey, loadSessions])
 
   const goToday = useCallback((): void => {
     const t = todayStr()
