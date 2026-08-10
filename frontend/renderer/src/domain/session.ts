@@ -98,6 +98,30 @@ export function hasRunningInterval(session: Session): boolean {
   return session.times.some(t => t.endTime === null)
 }
 
+/**
+ * 読み直した結果に、ディスクにまだ無い稼働中の作業を残す。
+ *
+ * 稼働中の区間は停止するまでディスクに書かれない。同期の読み直しでディスクを素直に
+ * 採ると、タイマーを回している最中に別の作業を保存した瞬間、稼働中の作業が一覧から消える。
+ *
+ * `fetched` を土台にし、`local` のうち稼働中のものを、同じ id があれば差し替え、
+ * 無ければ末尾に足す。
+ */
+export function mergeRunningSessions(fetched: Session[], local: Session[]): Session[] {
+  const runningById = new Map<string, Session>()
+  for (const s of local) {
+    if (hasRunningInterval(s)) runningById.set(s.id, s)
+  }
+  if (runningById.size === 0) return fetched
+
+  const merged = fetched.map(s => runningById.get(s.id) ?? s)
+  const seen = new Set(fetched.map(s => s.id))
+  for (const [id, s] of runningById) {
+    if (!seen.has(id)) merged.push(s)
+  }
+  return merged
+}
+
 /** その日の作業時間帯（"HH:mm"）。稼働中の区間があるときは end が null。 */
 export interface DayTimeRange {
   start: string

@@ -19,4 +19,8 @@ export const sessionRepository = {
   remove(id: string, yearMonth: string): Promise<void> {
     return window.bridge.deleteSession(id, yearMonth)
   },
+  /** 他のウィンドウを含む書き込みの通知。返り値を呼ぶと購読を解除する */
+  onChanged(cb: (p: { yearMonth: string }) => void): () => void {
+    return window.bridge.onSessionsChanged(cb)
+  },
 }

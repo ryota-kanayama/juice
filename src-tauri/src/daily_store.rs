@@ -54,7 +54,7 @@ impl DailyStore {
         Ok(self.data_dir.join(format!("daily-{year_month}.json")))
     }
 
-    fn year_month_of(date: &str) -> Result<String, StoreError> {
+    pub(crate) fn year_month_of(date: &str) -> Result<String, StoreError> {
         if !is_date(date) {
             return Err(StoreError::InvalidDate(date.to_string()));
         }

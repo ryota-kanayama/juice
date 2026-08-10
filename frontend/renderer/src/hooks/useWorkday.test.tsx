@@ -8,6 +8,7 @@ const setDailyDay = vi.fn().mockResolvedValue(undefined)
 vi.stubGlobal('bridge', {
   getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
   setDailyDay,
+  onDailyChanged: vi.fn(() => () => {}),
 })
 
 const wrapper = ({ children }: { children: ReactNode }) => (

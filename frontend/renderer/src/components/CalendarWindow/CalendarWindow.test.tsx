@@ -12,6 +12,8 @@ vi.stubGlobal('bridge', {
   getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
   setDailyDay: vi.fn().mockResolvedValue(undefined),
   getHolidays: vi.fn().mockResolvedValue({}),
+  onSessionsChanged: vi.fn(() => () => {}),
+  onDailyChanged: vi.fn(() => () => {}),
 })
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -86,6 +88,8 @@ describe('CalendarWindow の戻るボタン', () => {
       getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
       setDailyDay: vi.fn().mockResolvedValue(undefined),
       getHolidays: vi.fn().mockResolvedValue({}),
+      onSessionsChanged: vi.fn(() => () => {}),
+      onDailyChanged: vi.fn(() => () => {}),
       backToMainPanel,
     })
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
