@@ -10,6 +10,25 @@ import { settingsRepository } from '../repositories/settingsRepository'
 /** ジュースが満杯になるまでの秒数。経過時間通知ONならその間隔、OFFなら30分（経過時間通知のデフォルト間隔と同じ） */
 const DEFAULT_FILL_SECONDS = 1800
 
+/**
+ * ディスクの最新の記録を返す。取れなければ fallback。
+ *
+ * 「もう一杯」から停止までの間に他のウィンドウで直された内容を、停止時の保存で
+ * 消さないために使う。スナップショットのままだと、そのあいだの名前・PJコード・
+ * 作業区分・時刻の修正が丸ごと消える。
+ *
+ * 読み込みに失敗した場合と、ディスクから消えていた場合は fallback を返す。
+ * 計測ぶんを失うのは、直そうとしている問題より悪いため。
+ */
+async function latestSessionOr(fallback: Session): Promise<Session> {
+  try {
+    const list = await sessionRepository.list(fallback.date.slice(0, 7))
+    return list.find(s => s.id === fallback.id) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
 interface ResolvedFillSeconds {
   fillSeconds: number
   notificationEnabled: boolean
@@ -183,8 +202,10 @@ export function useTimer(): TimerState {
       intervalRef.current = null
     }
     const endMs = Date.now()
+    // await を挟むと ref の絞り込みが失われるため、開始時刻も先に値として確定させる
+    const startedAtMs = startTimeRef.current.getTime()
     const newInterval = {
-      startTime: formatLocalDateTime(startTimeRef.current.getTime()),
+      startTime: formatLocalDateTime(startedAtMs),
       endTime: formatLocalDateTime(endMs),
     }
 
@@ -193,19 +214,25 @@ export function useTimer(): TimerState {
     const extending = extendingSessionRef.current
     if (extending) {
       // extend mode: 既存セッションの times に追記する。
+      //
+      // 土台はディスクの最新にする。「もう一杯」した時点のスナップショットを土台にすると、
+      // そのあいだにカレンダーで直した名前・PJコード・作業区分・時刻が丸ごと消える。
+      // 終了時刻（endMs）は読み込みより前に確定させてあるので、読み込みにかかった時間が
+      // 作業時間に混ざることはない。
+      const base = await latestSessionOr(extending)
       // totalTime は「times が1つ以上あるならその合計と一致する派生値」という不変条件を守るため、
       // 原則として新しい times 全体から算出し直す（区間ごとに丸めて足すと 1分ずれ、
       // hasReliableTimes が false になって週表示の時間軸グリッドから消えてしまう）。
       // ただし停止前の totalTime が区間の合計と食い違う記録は、ユーザーが手で整えた合計
       // （あるいは times を持たないレガシー記録）なので、その値を消さずに加算で尊重する。
-      const times = [...extending.times, newInterval]
-      const wasDerived = extending.totalTime === totalMinutesOf(extending.times)
-      const addedMinutes = Math.round((endMs - startTimeRef.current.getTime()) / 60000)
+      const times = [...base.times, newInterval]
+      const wasDerived = base.totalTime === totalMinutesOf(base.times)
+      const addedMinutes = Math.round((endMs - startedAtMs) / 60000)
       resultSession = {
-        ...extending,
-        projectCode: opts?.projectCode ?? extending.projectCode,
-        workCategory: opts?.workCategory ?? extending.workCategory,
-        totalTime: wasDerived ? totalMinutesOf(times) : extending.totalTime + addedMinutes,
+        ...base,
+        projectCode: opts?.projectCode ?? base.projectCode,
+        workCategory: opts?.workCategory ?? base.workCategory,
+        totalTime: wasDerived ? totalMinutesOf(times) : base.totalTime + addedMinutes,
         times,
       }
     } else {

@@ -6,6 +6,7 @@ import type { Session } from '../types/session'
 
 const mockSaveSession = vi.fn().mockResolvedValue(undefined)
 const mockUpdateSession = vi.fn().mockResolvedValue(undefined)
+const mockGetSessions = vi.fn().mockResolvedValue([])
 const mockGetElapsedSettings = vi.fn()
 let elapsedFiredCallback: (() => void) | null = null
 const mockOnElapsedNotificationFired = vi.fn((cb: () => void) => {
@@ -15,7 +16,7 @@ const mockOnElapsedNotificationFired = vi.fn((cb: () => void) => {
 vi.stubGlobal('bridge', {
   saveSession: mockSaveSession,
   updateSession: mockUpdateSession,
-  getSessions: vi.fn().mockResolvedValue([]),
+  getSessions: mockGetSessions,
   resizeWindow: vi.fn().mockResolvedValue(undefined),
   openUrl: vi.fn().mockResolvedValue(undefined),
   hideWindow: vi.fn().mockResolvedValue(undefined),
@@ -32,6 +33,7 @@ describe('useTimer', () => {
     vi.useFakeTimers()
     mockSaveSession.mockClear()
     mockUpdateSession.mockClear()
+    mockGetSessions.mockReset().mockResolvedValue([])
     mockGetElapsedSettings.mockReset().mockResolvedValue({ enabled: false, minutes: 30 })
     mockOnElapsedNotificationFired.mockClear()
     elapsedFiredCallback = null
@@ -165,6 +167,95 @@ describe('useTimer', () => {
     expect(session!.totalTime).toBe(55)
     // 区間から算出し直していないこと（40分にはならない）
     expect(session!.totalTime).not.toBe(totalMinutesOf(session!.times))
+  })
+
+  // 「もう一杯」から停止までの間に他のウィンドウ（カレンダー）で直された内容を、
+  // 停止時の保存で消さないこと。土台はスナップショットではなくディスクの最新。
+  describe('extend の停止はディスクの最新を土台にする', () => {
+    const snapshot: Session = {
+      id: 'ext-id', taskId: 'ext-id', name: 'スナップショットの名前',
+      projectCode: 'OLD-PJ', workCategory: '旧区分',
+      times: [{ startTime: '2026-08-10T09:00:00', endTime: '2026-08-10T09:30:00' }],
+      date: '2026-08-10', color: '#FF9500', totalTime: 30,
+    }
+
+    it('ディスクで直された名前が保存される（スナップショットの名前で上書きしない）', async () => {
+      mockGetSessions.mockResolvedValue([{ ...snapshot, name: 'カレンダーで直した名前' }])
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(snapshot) })
+      act(() => { vi.advanceTimersByTime(600000) })
+      let session: Session | null = null
+      await act(async () => { session = await result.current.stop() })
+      expect(session!.name).toBe('カレンダーで直した名前')
+    })
+
+    it('ディスクで直された times に今回の区間を足す', async () => {
+      // カレンダーで開始時刻を 08:00 に直した（区間が30分から90分になった）
+      mockGetSessions.mockResolvedValue([{
+        ...snapshot,
+        times: [{ startTime: '2026-08-10T08:00:00', endTime: '2026-08-10T09:30:00' }],
+        totalTime: 90,
+      }])
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(snapshot) })
+      act(() => { vi.advanceTimersByTime(600000) }) // 10分
+      let session: Session | null = null
+      await act(async () => { session = await result.current.stop() })
+      expect(session!.times).toHaveLength(2)
+      expect(session!.times[0].startTime).toBe('2026-08-10T08:00:00')
+      expect(session!.totalTime).toBe(100)
+      expect(session!.totalTime).toBe(totalMinutesOf(session!.times))
+    })
+
+    it('読み込みが失敗したらスナップショットで保存する（計測ぶんを失わない）', async () => {
+      mockGetSessions.mockRejectedValue(new Error('disk error'))
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(snapshot) })
+      act(() => { vi.advanceTimersByTime(600000) })
+      let session: Session | null = null
+      await act(async () => { session = await result.current.stop() })
+      expect(session!.name).toBe('スナップショットの名前')
+      expect(session!.times).toHaveLength(2)
+      expect(session!.totalTime).toBe(40)
+    })
+
+    it('ディスクから消えていたらスナップショットで保存する', async () => {
+      mockGetSessions.mockResolvedValue([])
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(snapshot) })
+      act(() => { vi.advanceTimersByTime(600000) })
+      let session: Session | null = null
+      await act(async () => { session = await result.current.stop() })
+      expect(session!.name).toBe('スナップショットの名前')
+      expect(session!.times).toHaveLength(2)
+    })
+
+    it('停止ダイアログの PJコード・作業区分はディスクの最新より優先される', async () => {
+      mockGetSessions.mockResolvedValue([{
+        ...snapshot, projectCode: 'DISK-PJ', workCategory: 'ディスク区分',
+      }])
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(snapshot) })
+      act(() => { vi.advanceTimersByTime(600000) })
+      let session: Session | null = null
+      await act(async () => {
+        session = await result.current.stop({ projectCode: 'NEW-PJ', workCategory: '新区分' })
+      })
+      expect(session!.projectCode).toBe('NEW-PJ')
+      expect(session!.workCategory).toBe('新区分')
+    })
+
+    it('ディスクの記録が手編集の合計を持つなら加算方式を維持する', async () => {
+      // 区間の合計（30分）と totalTime（45分）が食い違う = 手で整えた記録
+      mockGetSessions.mockResolvedValue([{ ...snapshot, totalTime: 45 }])
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(snapshot) })
+      act(() => { vi.advanceTimersByTime(600000) }) // 10分
+      let session: Session | null = null
+      await act(async () => { session = await result.current.stop() })
+      expect(session!.totalTime).toBe(55)
+      expect(session!.totalTime).not.toBe(totalMinutesOf(session!.times))
+    })
   })
 
   it('colorを指定して開始すると同じcolorがセッションに含まれる', async () => {
