@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components --
    context + hook + provider を同居させる標準的な構成のため（Fast Refresh のみの制約）。 */
-import { createContext, useContext, useState, useRef, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from 'react'
 import type { DayRecord } from '../../../shared/types'
 import { dailyRepository } from '../repositories/dailyRepository'
 
@@ -39,6 +39,30 @@ export function DailyDataProvider({ children }: { children: ReactNode }) {
       loadedRef.current.delete(yearMonth)
     })
   }, [])
+
+  // 同期の読み直し。ensureMonth とは勝つ側が逆で、ディスクの内容が勝つ。
+  //
+  // ensureMonth は「手元の楽観更新を古いディスクで潰さない」ために手元を優先する。
+  // こちらは「他のウィンドウの変更を受け取る」ためのものなので、手元を優先すると
+  // 相手の変更が永遠に届かない。スプレッドの順序が逆であることが本質なので、
+  // 1つの関数にまとめて引数で分岐させないこと。
+  const refreshMonth = useCallback((yearMonth: string): void => {
+    dailyRepository.getMonth(yearMonth).then(month => {
+      setDays(prev => ({ ...prev, ...month.days }))
+    }).catch((err) => {
+      // 失敗しても手元の内容は保つ。次の通知で再試行される
+      console.error(`[DailyDataProvider] getMonth(${yearMonth}) の読み直しに失敗しました:`, err)
+    })
+  }, [])
+
+  // 他のウィンドウでの書き込みを受け取って読み直す。
+  // 読み込んでいない月は無視する（loadedRef が判定材料。読み直しでは変えない）。
+  useEffect(() => {
+    return dailyRepository.onChanged(({ yearMonth }) => {
+      if (!loadedRef.current.has(yearMonth)) return
+      refreshMonth(yearMonth)
+    })
+  }, [refreshMonth])
 
   const getDay = useCallback((date: string): DayRecord | null => days[date] ?? null, [days])
 

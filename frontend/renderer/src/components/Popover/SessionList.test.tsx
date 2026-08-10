@@ -15,6 +15,7 @@ vi.stubGlobal('bridge', {
     Promise.resolve({ version: 1, days: mockDayStore as DailyMonth['days'] })
   ),
   setDailyDay,
+  onDailyChanged: vi.fn(() => () => {}),
 })
 
 // テスト用ラッパー: DailyDataProvider を挿入する

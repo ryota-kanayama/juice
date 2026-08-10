@@ -17,6 +17,7 @@ vi.mock('../repositories/attendanceRepository', () => ({
 vi.stubGlobal('bridge', {
   getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
   setDailyDay: vi.fn().mockResolvedValue(undefined),
+  onDailyChanged: vi.fn(() => () => {}),
 })
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -99,6 +100,7 @@ describe('useAttendanceReport — workStart/workEnd setter', () => {
     vi.stubGlobal('bridge', {
       getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
       setDailyDay,
+      onDailyChanged: vi.fn(() => () => {}),
     })
     const { result } = renderHook(
       () => useAttendanceReport([makeSession()], '2026-06-12'),
@@ -113,6 +115,7 @@ describe('useAttendanceReport — workStart/workEnd setter', () => {
     vi.stubGlobal('bridge', {
       getDailyMonth: vi.fn().mockResolvedValue({ version: 1, days: {} }),
       setDailyDay,
+      onDailyChanged: vi.fn(() => () => {}),
     })
     const { result } = renderHook(
       () => useAttendanceReport([makeSession()], '2026-06-12'),

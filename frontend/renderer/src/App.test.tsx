@@ -10,6 +10,7 @@ vi.stubGlobal('bridge', {
   getSessions: vi.fn().mockResolvedValue([]),
   getDailyMonth,
   setDailyDay: vi.fn().mockResolvedValue(undefined),
+  onDailyChanged: vi.fn(() => () => {}),
   getBreakBehaviorSettings: vi.fn().mockResolvedValue({ behavior: 'stop' }),
   // updateRepository が呼ぶ IPC モック
   onUpdatePrepareQuit: vi.fn().mockReturnValue(() => {}),
