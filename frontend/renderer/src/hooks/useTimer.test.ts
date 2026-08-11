@@ -94,6 +94,49 @@ describe('useTimer', () => {
     expect(mockSaveSession).toHaveBeenCalledTimes(2)
   })
 
+  it('stop を素早く2回呼んでも saveSession は1回だけ呼ばれる（二重記録防止・new モード）', async () => {
+    // stop() はディスクを読んでから書くようになったため、素早く2回呼ぶと
+    // 2回目の読み込みが1回目の書き込みの後を読み、同じ区間が二重に記録されうる
+    // （new モードでは UUID の違うレコードが2件保存される）。再入ガードで防ぐ。
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.start('テスト作業') })
+    act(() => { vi.advanceTimersByTime(60000) })
+    let s1: Session | null = null
+    let s2: Session | null = null
+    await act(async () => {
+      const p1 = result.current.stop()
+      const p2 = result.current.stop()
+      ;[s1, s2] = await Promise.all([p1, p2])
+    })
+    expect(mockSaveSession).toHaveBeenCalledOnce()
+    expect(s1).not.toBeNull()
+    expect(s2).toBeNull()
+    expect(result.current.isRunning).toBe(false)
+  })
+
+  it('extend で stop を素早く2回呼んでも updateSession は1回だけ呼ばれ、times は2つのまま（二重記録防止）', async () => {
+    const existingSession: Session = {
+      id: 'existing-id', taskId: 'existing-id', name: 'メール作業', projectCode: 'P001', workCategory: '開発',
+      times: [{ startTime: '2026-02-27T08:00:00', endTime: '2026-02-27T09:00:00' }],
+      date: '2026-02-27', color: '#FF9500', totalTime: 60,
+    }
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.startMore(existingSession) })
+    act(() => { vi.advanceTimersByTime(60000) })
+    let s1: Session | null = null
+    let s2: Session | null = null
+    await act(async () => {
+      const p1 = result.current.stop()
+      const p2 = result.current.stop()
+      ;[s1, s2] = await Promise.all([p1, p2])
+    })
+    expect(mockUpdateSession).toHaveBeenCalledOnce()
+    expect(s1).not.toBeNull()
+    expect(s1!.times).toHaveLength(2)
+    expect(s2).toBeNull()
+    expect(result.current.isRunning).toBe(false)
+  })
+
   it('30秒未満で止めても totalTime は 1 になる（区間があれば下限1分）', async () => {
     const { result } = renderHook(() => useTimer())
     act(() => { result.current.start('テスト作業') })

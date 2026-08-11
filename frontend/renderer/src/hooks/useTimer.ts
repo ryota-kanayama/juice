@@ -81,6 +81,7 @@ export function useTimer(): TimerState {
   const taskIdRef = useRef<string>('')
   const activeColorRef = useRef<string>(JUICE_COLOR_KEYS[0])
   const isRunningRef = useRef<boolean>(false)
+  const stoppingRef = useRef<boolean>(false)
   const extendingSessionRef = useRef<Session | null>(null)
   const workLocationRef = useRef<WorkLocation | undefined>(undefined)
   const isPausedRef = useRef<boolean>(false)
@@ -191,93 +192,102 @@ export function useTimer(): TimerState {
 
   const stop = useCallback(async (opts?: { projectCode?: string; workCategory?: string }): Promise<Session | null> => {
     if (!startTimeRef.current || !isRunningRef.current) return null
-    // pause 中に stop した場合は startTimeRef を巻き戻してから通常の stop 処理へ
-    if (isPausedRef.current) {
-      startTimeRef.current = new Date(Date.now() - pausedSecondsRef.current * 1000)
-      isPausedRef.current = false
-      setIsPaused(false)
-    }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-    const endMs = Date.now()
-    // await を挟むと ref の絞り込みが失われるため、開始時刻も先に値として確定させる
-    const startedAtMs = startTimeRef.current.getTime()
-    const newInterval = {
-      startTime: formatLocalDateTime(startedAtMs),
-      endTime: formatLocalDateTime(endMs),
-    }
-
-    let resultSession: Session
-
-    const extending = extendingSessionRef.current
-    if (extending) {
-      // extend mode: 既存セッションの times に追記する。
-      //
-      // 土台はディスクの最新にする。「もう一杯」した時点のスナップショットを土台にすると、
-      // そのあいだにカレンダーで直した名前・PJコード・作業区分・時刻が丸ごと消える。
-      // 終了時刻（endMs）は読み込みより前に確定させてあるので、読み込みにかかった時間が
-      // 作業時間に混ざることはない。
-      const base = await latestSessionOr(extending)
-      // totalTime は「times が1つ以上あるならその合計と一致する派生値」という不変条件を守るため、
-      // 原則として新しい times 全体から算出し直す（区間ごとに丸めて足すと 1分ずれ、
-      // hasReliableTimes が false になって週表示の時間軸グリッドから消えてしまう）。
-      // ただし停止前の totalTime が区間の合計と食い違う記録は、ユーザーが手で整えた合計
-      // （あるいは times を持たないレガシー記録）なので、その値を消さずに加算で尊重する。
-      const times = [...base.times, newInterval]
-      const wasDerived = base.totalTime === totalMinutesOf(base.times)
-      const addedMinutes = Math.round((endMs - startedAtMs) / 60000)
-      resultSession = {
-        ...base,
-        projectCode: opts?.projectCode ?? base.projectCode,
-        workCategory: opts?.workCategory ?? base.workCategory,
-        totalTime: wasDerived ? totalMinutesOf(times) : base.totalTime + addedMinutes,
-        times,
-      }
-    } else {
-      // new mode: 新規セッションを作成（totalTime は区間から算出する）
-      resultSession = {
-        id: crypto.randomUUID(),
-        taskId: taskIdRef.current,
-        name: nameRef.current,
-        projectCode: opts?.projectCode ?? '',
-        workCategory: opts?.workCategory ?? '',
-        totalTime: totalMinutesOf([newInterval]),
-        times: [newInterval],
-        date: formatLocalDate(startTimeRef.current.getTime()),
-        color: activeColorRef.current,
-        ...(workLocationRef.current === 'telework' ? { workLocation: 'telework' as const } : {}),
-      }
-    }
-
+    // 保存中の再入を防ぐ。ディスクを読んでから書くため、二度押しすると2回目が
+    // 1回目の書き込み後を読み、同じ区間が二重に記録される（new モードでも UUID の違う
+    // レコードが2件保存される退行になるため、extend/new の両方に効かせる）。
+    if (stoppingRef.current) return null
+    stoppingRef.current = true
     try {
-      if (extending) {
-        await sessionRepository.update(resultSession)
-      } else {
-        await sessionRepository.save(resultSession)
+      // pause 中に stop した場合は startTimeRef を巻き戻してから通常の stop 処理へ
+      if (isPausedRef.current) {
+        startTimeRef.current = new Date(Date.now() - pausedSecondsRef.current * 1000)
+        isPausedRef.current = false
+        setIsPaused(false)
       }
-    } catch (err) {
-      // 保存に失敗した場合は計測を止めずに継続させ、データロスを防ぐ。
-      // interval を張り直し（開始時刻 ref は保持済み）、呼び出し側で再試行できるよう例外を伝播する。
-      intervalRef.current = setInterval(runTick, 1000)
-      throw err
-    }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      const endMs = Date.now()
+      // await を挟むと ref の絞り込みが失われるため、開始時刻も先に値として確定させる
+      const startedAtMs = startTimeRef.current.getTime()
+      const newInterval = {
+        startTime: formatLocalDateTime(startedAtMs),
+        endTime: formatLocalDateTime(endMs),
+      }
 
-    startTimeRef.current = null
-    nameRef.current = ''
-    taskIdRef.current = ''
-    extendingSessionRef.current = null
-    workLocationRef.current = undefined
-    isRunningRef.current = false
-    timerRepository.stopped()
-    setIsRunning(false)
-    setBaseSeconds(0)
-    elapsedSecondsRef.current = 0
-    setElapsedSeconds(0)
-    resetJuiceCycle()
-    setActiveSessionId(null)
-    return resultSession
+      let resultSession: Session
+
+      const extending = extendingSessionRef.current
+      if (extending) {
+        // extend mode: 既存セッションの times に追記する。
+        //
+        // 土台はディスクの最新にする。「もう一杯」した時点のスナップショットを土台にすると、
+        // そのあいだにカレンダーで直した名前・PJコード・作業区分・時刻が丸ごと消える。
+        // 終了時刻（endMs）は読み込みより前に確定させてあるので、読み込みにかかった時間が
+        // 作業時間に混ざることはない。
+        const base = await latestSessionOr(extending)
+        // totalTime は「times が1つ以上あるならその合計と一致する派生値」という不変条件を守るため、
+        // 原則として新しい times 全体から算出し直す（区間ごとに丸めて足すと 1分ずれ、
+        // hasReliableTimes が false になって週表示の時間軸グリッドから消えてしまう）。
+        // ただし停止前の totalTime が区間の合計と食い違う記録は、ユーザーが手で整えた合計
+        // （あるいは times を持たないレガシー記録）なので、その値を消さずに加算で尊重する。
+        const times = [...base.times, newInterval]
+        const wasDerived = base.totalTime === totalMinutesOf(base.times)
+        const addedMinutes = Math.round((endMs - startedAtMs) / 60000)
+        resultSession = {
+          ...base,
+          projectCode: opts?.projectCode ?? base.projectCode,
+          workCategory: opts?.workCategory ?? base.workCategory,
+          totalTime: wasDerived ? totalMinutesOf(times) : base.totalTime + addedMinutes,
+          times,
+        }
+      } else {
+        // new mode: 新規セッションを作成（totalTime は区間から算出する）
+        resultSession = {
+          id: crypto.randomUUID(),
+          taskId: taskIdRef.current,
+          name: nameRef.current,
+          projectCode: opts?.projectCode ?? '',
+          workCategory: opts?.workCategory ?? '',
+          totalTime: totalMinutesOf([newInterval]),
+          times: [newInterval],
+          date: formatLocalDate(startTimeRef.current.getTime()),
+          color: activeColorRef.current,
+          ...(workLocationRef.current === 'telework' ? { workLocation: 'telework' as const } : {}),
+        }
+      }
+
+      try {
+        if (extending) {
+          await sessionRepository.update(resultSession)
+        } else {
+          await sessionRepository.save(resultSession)
+        }
+      } catch (err) {
+        // 保存に失敗した場合は計測を止めずに継続させ、データロスを防ぐ。
+        // interval を張り直し（開始時刻 ref は保持済み）、呼び出し側で再試行できるよう例外を伝播する。
+        intervalRef.current = setInterval(runTick, 1000)
+        throw err
+      }
+
+      startTimeRef.current = null
+      nameRef.current = ''
+      taskIdRef.current = ''
+      extendingSessionRef.current = null
+      workLocationRef.current = undefined
+      isRunningRef.current = false
+      timerRepository.stopped()
+      setIsRunning(false)
+      setBaseSeconds(0)
+      elapsedSecondsRef.current = 0
+      setElapsedSeconds(0)
+      resetJuiceCycle()
+      setActiveSessionId(null)
+      return resultSession
+    } finally {
+      stoppingRef.current = false
+    }
   }, [resetJuiceCycle, runTick])
 
   const cancel = useCallback(() => {
