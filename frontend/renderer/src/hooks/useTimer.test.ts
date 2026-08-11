@@ -94,6 +94,34 @@ describe('useTimer', () => {
     expect(mockSaveSession).toHaveBeenCalledTimes(2)
   })
 
+  it('extend の保存が失敗したら計測を継続し、例外を伝播する（データロス防止）', async () => {
+    // 今回変わったのは extend 経路（updateSession、書き込みの前に await が増えた）。
+    // new モードと同型の保証をここでも固定する。
+    mockUpdateSession.mockRejectedValueOnce(new Error('disk full'))
+    const existingSession: Session = {
+      id: 'existing-id', taskId: 'existing-id', name: 'メール作業', projectCode: 'P001', workCategory: '開発',
+      times: [{ startTime: '2026-02-27T08:00:00', endTime: '2026-02-27T09:00:00' }],
+      date: '2026-02-27', color: '#FF9500', totalTime: 60,
+    }
+    const { result } = renderHook(() => useTimer())
+    act(() => { result.current.startMore(existingSession) })
+    act(() => { vi.advanceTimersByTime(60000) })
+    await act(async () => {
+      await expect(result.current.stop()).rejects.toThrow('disk full')
+    })
+    // 保存に失敗しても計測は止めない（ユーザーが再試行できる）
+    expect(result.current.isRunning).toBe(true)
+    // interval が張り直され、開始時刻も保持されているので計測が継続する
+    act(() => { vi.advanceTimersByTime(2000) })
+    expect(result.current.elapsedSeconds).toBe(62)
+    // 再試行すると成功し、計測した区間が保存される
+    let session: Session | null = null
+    await act(async () => { session = await result.current.stop() })
+    expect(session).not.toBeNull()
+    expect(result.current.isRunning).toBe(false)
+    expect(mockUpdateSession).toHaveBeenCalledTimes(2)
+  })
+
   it('stop を素早く2回呼んでも saveSession は1回だけ呼ばれる（二重記録防止・new モード）', async () => {
     // stop() はディスクを読んでから書くようになったため、素早く2回呼ぶと
     // 2回目の読み込みが1回目の書き込みの後を読み、同じ区間が二重に記録されうる
@@ -271,6 +299,25 @@ describe('useTimer', () => {
       await act(async () => { session = await result.current.stop() })
       expect(session!.name).toBe('スナップショットの名前')
       expect(session!.times).toHaveLength(2)
+      // 戻り値だけでなく、実際に保存されたこと（times が2つの状態で）も確認する
+      expect(mockUpdateSession).toHaveBeenCalledOnce()
+      expect(mockUpdateSession.mock.calls[0][0].times).toHaveLength(2)
+    })
+
+    it('終了時刻は読み込みより前に確定する（読み込みにかかった時間が作業時間に混ざらない）', async () => {
+      let resolveRead: (v: Session[]) => void = () => {}
+      mockGetSessions.mockReturnValue(new Promise(r => { resolveRead = r }))
+      const { result } = renderHook(() => useTimer())
+      act(() => { result.current.startMore(snapshot) })
+      act(() => { vi.advanceTimersByTime(600000) }) // 10分計測
+      let session: Session | null = null
+      const stopping = act(async () => { session = await result.current.stop() })
+      // 読み込みに5分かかった状況を作る
+      await act(async () => { vi.advanceTimersByTime(300000) })
+      await act(async () => { resolveRead([snapshot]) })
+      await stopping
+      // 追加される区間は10分ぶん。読み込みの5分は含まれない
+      expect(session!.totalTime).toBe(40)
     })
 
     it('停止ダイアログの PJコード・作業区分はディスクの最新より優先される', async () => {
