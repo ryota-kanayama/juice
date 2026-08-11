@@ -24,7 +24,8 @@ async function latestSessionOr(fallback: Session): Promise<Session> {
   try {
     const list = await sessionRepository.list(fallback.date.slice(0, 7))
     return list.find(s => s.id === fallback.id) ?? fallback
-  } catch {
+  } catch (err) {
+    console.warn('[useTimer] 停止時のディスク読み込みに失敗したため、スナップショットで保存します:', err)
     return fallback
   }
 }
