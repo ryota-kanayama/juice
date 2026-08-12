@@ -2057,7 +2057,7 @@ dependencies = [
 
 [[package]]
 name = "juice"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "base64 0.22.1",
  "block",
