@@ -242,7 +242,13 @@ fn current_version(app: &AppHandle) -> String {
 pub async fn check_for_update(app: &AppHandle) -> Result<UpdateInfo, String> {
     let release = fetch_latest_release().await?;
     let latest = normalize_version(&release.tag_name);
-    let asset = select_dmg_asset(&release.assets, current_arch());
+    // 自己差し替えは macOS（DMG）のみ対応。他 OS は asset 無し扱いにして、
+    // install 時にリリースページを開く従来挙動へ落とす。
+    let asset = if cfg!(target_os = "macos") {
+        select_dmg_asset(&release.assets, current_arch())
+    } else {
+        None
+    };
     let current = current_version(app);
     let info = UpdateInfo {
         has_update: is_newer_version(&latest, &current),
@@ -401,7 +407,6 @@ open "$APP"
 /// 差し替えスクリプトを一時ファイルへ書き、アプリと切り離して起動する（detached）。
 /// work_dir はプロセス専用ディレクトリ（共有 /tmp の予測可能パスを避ける）。
 fn run_installer(work_dir: &PathBuf, dmg_path: &str, app_path: &str) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
     let log_path = work_dir.join("juice-update.log");
     let script_path = work_dir.join("juice-update.sh");
     let script = build_install_script(
@@ -411,8 +416,12 @@ fn run_installer(work_dir: &PathBuf, dmg_path: &str, app_path: &str) -> Result<(
         &log_path.to_string_lossy(),
     );
     std::fs::write(&script_path, script).map_err(|e| e.to_string())?;
-    std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755))
-        .map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755))
+            .map_err(|e| e.to_string())?;
+    }
     // detached: 親(アプリ)が exit してもスクリプトは生き残る。
     std::process::Command::new("/bin/bash")
         .arg(&script_path)

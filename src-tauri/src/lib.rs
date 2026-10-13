@@ -16,6 +16,10 @@ mod integrations;
 mod notif_scheduler;
 mod notifications;
 mod oauth;
+// ポップオーバー（main ウィンドウ）の OS 別実装。公開 API は両 OS で揃える。
+#[cfg_attr(target_os = "macos", path = "panel/macos.rs")]
+#[cfg_attr(not(target_os = "macos"), path = "panel/windows.rs")]
+mod panel;
 mod release_notes;
 mod session_store;
 mod settings_store;
@@ -33,49 +37,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, WebviewWindow,
+    AppHandle, Manager,
 };
-// tauri-nspanel が再エクスポートする `cocoa` 系は objc2 へ置換され deprecated 扱いだが、
-// 現状 tauri-nspanel が提供する API がこれなので許容する（アップストリーム追従の課題）。
-#[allow(deprecated)]
-use tauri_nspanel::{
-    cocoa::appkit::NSWindowCollectionBehavior, panel_delegate, ManagerExt, WebviewWindowExt,
-};
-// Tauri の set_position は macOS マルチモニタ座標バグ(tauri#7890/#7139)で効かないため、
-// AppKit を直接叩いて配置する。
-use objc::{class, msg_send, sel, sel_impl};
-use block::ConcreteBlock;
-#[allow(deprecated)]
-use tauri_nspanel::cocoa::base::id;
-#[allow(deprecated)]
-use tauri_nspanel::cocoa::foundation::{NSPoint, NSRect};
 
-const PANEL_WIDTH: f64 = 320.0;
-const PANEL_HEIGHT: f64 = 520.0;
-
-// AppKit 定数（cocoa クレートに定義が無いため直書き）
-#[allow(non_upper_case_globals)]
-const NSFloatWindowLevel: i32 = 4;
-#[allow(non_upper_case_globals)]
-const NSWindowStyleMaskNonActivatingPanel: i32 = 1 << 7;
-// NSEventMask（マウス押下）。グローバル監視で「パネル外クリック」を捕捉するのに使う。
-#[allow(non_upper_case_globals)]
-const NSEventMaskLeftMouseDown: u64 = 1 << 1;
-#[allow(non_upper_case_globals)]
-const NSEventMaskRightMouseDown: u64 = 1 << 3;
-#[allow(non_upper_case_globals)]
-const NSEventMaskOtherMouseDown: u64 = 1 << 25;
-
-/// blur 時に「アンカーから動いていたら閉じない」判定の移動しきい値（px）。
-const DRAG_KEEP_OPEN_THRESHOLD: f64 = 20.0;
-
-/// パネル表示時のアンカー位置（左下原点のグローバル座標）。
+/// パネル表示時のアンカー位置（macOS は左下原点のグローバル座標、Windows は物理ピクセル）。
 /// ヘッダーをドラッグして動かした後は blur でも閉じずフローティングさせるための判定に使う。
 #[derive(Default)]
 struct AnchorPos(std::sync::Mutex<Option<(f64, f64)>>);
 
 /// Electron 版と同じデータディレクトリを返す。
-/// dev（debug ビルド）は juice-dev、本番は Juice（~/Library/Application Support 下）。
+/// dev（debug ビルド）は juice-dev、本番は Juice
+/// （macOS は ~/Library/Application Support 下、Windows は %APPDATA% 下）。
 fn resolve_data_dir() -> PathBuf {
     // テスト/検証用の明示上書き（本番経路には影響しない）
     if let Ok(dir) = std::env::var("JUICE_DATA_DIR") {
@@ -83,28 +55,54 @@ fn resolve_data_dir() -> PathBuf {
             return PathBuf::from(dir);
         }
     }
-    let home = std::env::var("HOME").unwrap_or_default();
     let name = if cfg!(debug_assertions) {
         "juice-dev"
     } else {
         "Juice"
     };
+    if cfg!(windows) {
+        let appdata = std::env::var("APPDATA").unwrap_or_default();
+        return PathBuf::from(appdata).join(name);
+    }
+    let home = std::env::var("HOME").unwrap_or_default();
     PathBuf::from(home)
         .join("Library/Application Support")
         .join(name)
 }
 
+/// Dock にアイコンを出すか（macOS の activation policy）。他 OS では何もしない。
+fn set_dock_visible(app: &AppHandle, visible: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let policy = if visible {
+            tauri::ActivationPolicy::Regular
+        } else {
+            tauri::ActivationPolicy::Accessory
+        };
+        let _ = app.set_activation_policy(policy);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, visible);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // 単一インスタンス化（最初に登録）。2つ目の起動は即終了させ、常駐トレイ/パネルの
         // 二重化や同一 JSON への同時書き込みを防ぐ。ログイン起動の重複や
         // 「再ログイン時にウインドウ再開」との併発でも1つに保つ。
         // 起動中にもう一度開かれたら、無反応で終わらせずポップオーバーを出す
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // Windows では juice:// のコールバックも2つ目の起動として届く。
+            // それは deep-link 側で処理するので、パネルは出さない。
+            if args.iter().any(|a| a.starts_with("juice://")) {
+                return;
+            }
             show_panel_now(app);
-        }))
-        .plugin(tauri_nspanel::init())
+        }));
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_nspanel::init());
+    builder
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
@@ -187,6 +185,12 @@ pub fn run() {
             // juice://auth コールバック（Slack サインイン）を deep-link で受ける。
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
+                // Windows の dev ビルドはインストーラを通らずスキームが未登録なので、ここで登録する
+                // （パッケージ版は NSIS インストーラが登録する）。
+                #[cfg(all(windows, debug_assertions))]
+                if let Err(e) = app.deep_link().register_all() {
+                    eprintln!("[juice] deep-link register failed: {e}");
+                }
                 let cb_handle = app.app_handle().clone();
                 app.deep_link().on_open_url(move |event| {
                     for url in event.urls() {
@@ -196,14 +200,14 @@ pub fn run() {
             }
 
             // メニューバー常駐アプリ：Dock にアイコンを出さない（Electron の app.dock.hide 相当）
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            set_dock_visible(app.app_handle(), false);
 
             let handle = app.app_handle();
             // アイドル監視ループを開始（engine 登録後）
             notif_scheduler::init(handle);
             // 起動時 + 6時間ごとの更新確認（Electron 版 startPeriodicCheck 相当）
             update::start_periodic_check(handle);
-            init_panel(handle);
+            panel::init(handle);
             build_tray(handle)?;
             // 初回起動（セットアップ未完了）はセットアップ窓を出す（Electron 版と同じ）
             if !handle.state::<SettingsStore>().is_setup_completed() {
@@ -215,143 +219,6 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-/// main ウィンドウを非アクティベート NSPanel に変換し、blur で閉じる挙動を仕込む。
-#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
-fn init_panel(app_handle: &AppHandle) {
-    let window: WebviewWindow = app_handle.get_webview_window("main").unwrap();
-    let panel = window.to_panel().unwrap();
-
-    // フローティングレベル（他ウィンドウより前面）
-    panel.set_level(NSFloatWindowLevel);
-    // ★ これがキモ：アプリをアクティブにせずに表示できる non-activating panel
-    panel.set_style_mask(NSWindowStyleMaskNonActivatingPanel);
-    // 表示時に現在の Space へ移動（全 Space 常駐＝「元画面に張り付く」のを回避）。
-    // FullScreenAuxiliary はフルスクリーンアプリ上にも出せる挙動として残す。
-    panel.set_collection_behaviour(
-        NSWindowCollectionBehavior::NSWindowCollectionBehaviorMoveToActiveSpace
-            | NSWindowCollectionBehavior::NSWindowCollectionBehaviorFullScreenAuxiliary,
-    );
-
-    // 背景ドラッグでのウィンドウ移動を無効化する。
-    // これが有効だと tao の send_event が LeftMouseDown ごとに
-    // performWindowDragWithEvent を呼び、一覧アイテムのドラッグでもウィンドウが動いて
-    // しまう → アンカーから移動＝フローティング誤判定で「張り付く」。
-    // ヘッダー移動は data-tauri-drag-region（DragWindow 経路）が別途担うため影響しない。
-    panel.set_moveable_by_window_background(false);
-
-    // blur-to-close：パネルが key ウィンドウでなくなったら（＝外側クリック）閉じる
-    let handle = app_handle.to_owned();
-    let delegate = panel_delegate!(JuicePanelDelegate {
-        window_did_become_key,
-        window_did_resign_key
-    });
-    delegate.set_listener(Box::new(move |name: String| {
-        if name.as_str() == "window_did_resign_key" {
-            // 「戻る」で出した直後は activation policy 切り替えで resign が飛ぶため無視する。
-            if blur_close_suppressed() {
-                return;
-            }
-            // ヘッダーをドラッグしてアンカーから動かしていたら閉じない（フローティング維持）。
-            if panel_moved_from_anchor(&handle) {
-                return;
-            }
-            if let Ok(panel) = handle.get_webview_panel("main") {
-                panel.order_out(None);
-            }
-        }
-    }));
-    panel.set_delegate(delegate);
-
-    // blur-to-close の取りこぼし対策（本命）。
-    // 非アクティベート NSPanel は WebKit の HTML5 ドラッグや2回目以降の show のあと
-    // windowDidResignKey が発火しないことがあり、外側クリックで閉じない（＝前面に張り付く）。
-    // key/blur 状態に依存しないグローバルマウス監視で確実に閉じる。
-    install_global_mouse_monitor(app_handle);
-}
-
-/// パネル表示中に「自アプリ外＝パネル外」がクリックされたら閉じる。
-/// グローバル監視は他アプリへ配送されるイベントだけを拾う（自アプリのトレイ/パネル内
-/// クリックは対象外）ため、外側クリックの検出に過不足がない。ヘッダードラッグで
-/// フローティング中（アンカーから移動済み）は維持する。
-#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
-fn install_global_mouse_monitor(app_handle: &AppHandle) {
-    let handle = app_handle.to_owned();
-    let block = ConcreteBlock::new(move |_event: id| {
-        if let Ok(panel) = handle.get_webview_panel("main") {
-            if panel.is_visible() && !panel_moved_from_anchor(&handle) {
-                panel.order_out(None);
-            }
-        }
-    });
-    let block = block.copy();
-    let mask: u64 =
-        NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskOtherMouseDown;
-    unsafe {
-        let monitor: id = msg_send![
-            class!(NSEvent),
-            addGlobalMonitorForEventsMatchingMask: mask
-            handler: &*block
-        ];
-        // monitor（自動解放オブジェクト）と block はアプリ存続中保持する。
-        let _: id = msg_send![monitor, retain];
-    }
-    // block は Cocoa 側が copy 済みだが、念のためアプリ存続中保持する。
-    std::mem::forget(block);
-
-    // フロート中（ヘッダードラッグでアンカーから移動 済み）の非アクティベート NSPanel は、
-    // 長時間稼働・外部ディスプレイ環境下で稀に「クリックしても key window にならない」
-    // ケースが起きる（WindowServer 側のキーウィンドウ管理と非アクティベートパネルの
-    // 組み合わせに起因する既知の相性問題。tauri-nspanel #75 等）。
-    // 見た目は最前面でもキーボード入力が背後のアプリに渡ってしまい、モーダルの
-    // フォームに入力できなくなる。パネル内クリックのたびに明示的に makeKeyWindow を
-    // 呼び直し、OS 側の暗黙の挙動に依存せず確実にキーウィンドウを奪い返す。
-    install_local_focus_reclaim_monitor(app_handle);
-}
-
-/// 自アプリ（パネル）内でのクリックのたびに明示的に makeKeyWindow する。
-/// ローカル監視は自アプリの各ウィンドウへ配送される直前のイベントを拾うため、
-/// パネル外クリックには反応しない（グローバル監視とは別役割）。
-#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
-fn install_local_focus_reclaim_monitor(app_handle: &AppHandle) {
-    let handle = app_handle.to_owned();
-    let block = ConcreteBlock::new(move |event: id| -> id {
-        // イベントの発生元が main パネル自身のときだけ奪還する。
-        // カレンダー窓など他ウィンドウのクリックで奪い返すと、そちらの
-        // キーボード入力が効かなくなる（#131）。
-        // 比較には Tauri 公式の ns_window()（NSWindow* を返す）を使う。
-        let main_ns_window = handle
-            .get_webview_window("main")
-            .and_then(|w| w.ns_window().ok());
-        let is_panel_event = match main_ns_window {
-            Some(ptr) => unsafe {
-                let event_window: id = msg_send![event, window];
-                !event_window.is_null() && event_window as *mut std::ffi::c_void == ptr
-            },
-            None => false,
-        };
-        if is_panel_event {
-            if let Ok(panel) = handle.get_webview_panel("main") {
-                if panel.is_visible() {
-                    panel.make_key_window();
-                }
-            }
-        }
-        event
-    });
-    let block = block.copy();
-    let mask: u64 =
-        NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskOtherMouseDown;
-    unsafe {
-        let monitor: id = msg_send![
-            class!(NSEvent),
-            addLocalMonitorForEventsMatchingMask: mask
-            handler: &*block
-        ];
-        let _: id = msg_send![monitor, retain];
-    }
-    std::mem::forget(block);
 }
 
 /// メニューバーのトレイアイコンを構築。左クリックでトグル、右クリックで終了メニュー。
@@ -366,12 +233,17 @@ fn build_tray(app_handle: &AppHandle) -> tauri::Result<()> {
 
     // メニューバー専用のトレイアイコン（黒シルエット）。template 指定で macOS が
     // ライト/ダークに合わせて自動反転する。アプリ(Dock)アイコンとは別素材を使う。
-    let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))
-        .expect("valid tray icon");
+    // Windows は反転されず暗いタスクバーで見えなくなるため、カラーのアプリアイコンを使う。
+    #[cfg(target_os = "macos")]
+    let tray_bytes: &[u8] = include_bytes!("../icons/tray.png");
+    #[cfg(not(target_os = "macos"))]
+    let tray_bytes: &[u8] = include_bytes!("../icons/32x32.png");
+    let tray_icon = tauri::image::Image::from_bytes(tray_bytes).expect("valid tray icon");
 
     TrayIconBuilder::with_id("main-tray")
         .icon(tray_icon)
         .icon_as_template(true) // ダーク/ライトメニューバーに追従
+        .tooltip("Juice")
         .menu(&menu)
         .show_menu_on_left_click(false) // 左クリックはメニューでなくトグルに使う
         .on_menu_event(|app, event| match event.id().as_ref() {
@@ -413,7 +285,7 @@ fn open_aux_window(
         let _ = win.set_focus();
         return;
     }
-    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    set_dock_visible(app, true);
     let url = tauri::WebviewUrl::App(format!("index.html#{hash}").into());
     match tauri::WebviewWindowBuilder::new(app, label, url)
         .title(title)
@@ -443,7 +315,7 @@ fn revert_activation_policy_if_no_aux(app: &AppHandle) {
         || app.get_webview_window("release-notes").is_some()
         || app.get_webview_window("release-notes-pending").is_some();
     if !has_aux {
-        let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+        set_dock_visible(app, false);
     }
 }
 
@@ -502,9 +374,12 @@ pub fn open_release_notes_pending(app: &AppHandle) {
 
 /// トレイアイコンの真下にパネルを表示／非表示でトグルする。
 fn toggle_panel(app: &AppHandle) {
-    let panel = app.get_webview_panel("main").unwrap();
-    if panel.is_visible() {
-        panel.order_out(None);
+    if panel::is_visible(app) {
+        panel::hide(app);
+        return;
+    }
+    // トレイを押した瞬間の blur で閉じたばかりなら、それが「閉じる」操作だったので開き直さない
+    if panel::hidden_by_blur_just_now() {
         return;
     }
     show_panel(app, PanelPlacement::Cursor);
@@ -537,7 +412,7 @@ static BLUR_CLOSE_SUPPRESSED_UNTIL_MS: AtomicU64 = AtomicU64::new(0);
 /// 表示直後の自動クローズ抑止時間。policy 切り替えが落ち着くまでの猶予。
 const BLUR_CLOSE_SUPPRESS_MS: u64 = 700;
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -545,7 +420,7 @@ fn now_ms() -> u64 {
 }
 
 /// 抑止期間中か。
-fn blur_close_suppressed() -> bool {
+pub(crate) fn blur_close_suppressed() -> bool {
     now_ms() < BLUR_CLOSE_SUPPRESSED_UNTIL_MS.load(Ordering::SeqCst)
 }
 
@@ -568,125 +443,17 @@ pub enum PanelPlacement {
 
 /// パネルを配置して表示する。既に表示中なら false を返す（何もしない）。
 pub fn show_panel(app: &AppHandle, placement: PanelPlacement) -> bool {
-    let Ok(panel) = app.get_webview_panel("main") else {
-        return false;
-    };
-    if panel.is_visible() {
+    if panel::is_visible(app) {
         return false;
     }
     let Some(window) = app.get_webview_window("main") else {
         return false;
     };
-    let restored = matches!(placement, PanelPlacement::LastAnchor) && restore_panel_position(&window);
+    let restored = matches!(placement, PanelPlacement::LastAnchor) && panel::restore_position(&window);
     if !restored {
-        position_native(&window);
+        panel::position_at_cursor(&window);
     }
-    panel.show();
+    panel::show(app);
     true
 }
 
-/// 前回パネルを出した位置（アンカー）へ戻す。記録が無ければ false。
-#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
-fn restore_panel_position(window: &WebviewWindow) -> bool {
-    let anchor = {
-        let g = window.state::<AnchorPos>();
-        let v = *g.0.lock().unwrap_or_else(|e| e.into_inner());
-        v
-    };
-    let Some((x, y)) = anchor else {
-        return false;
-    };
-    let ns_window = match window.ns_window() {
-        Ok(ptr) => ptr as id,
-        Err(_) => return false,
-    };
-    eprintln!("[juice] native place: restore anchor -> origin=({x:.0},{y:.0})");
-    unsafe {
-        let _: () = msg_send![ns_window, setFrameOrigin: NSPoint { x, y }];
-    }
-    true
-}
-
-/// AppKit を直接叩いてパネルを配置する。
-/// カーソルのグローバル座標（Cocoa の左下原点・全画面共通空間）からカーソルが居る
-/// NSScreen を特定し、その画面のメニューバー直下・カーソル中央に setFrameOrigin する。
-/// Tauri の座標変換（macOS マルチモニタでバグあり）を完全にバイパスする。
-#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
-fn position_native(window: &WebviewWindow) {
-    let ns_window = match window.ns_window() {
-        Ok(ptr) => ptr as id,
-        Err(_) => return,
-    };
-    unsafe {
-        // カーソルのグローバル座標（左下原点・全ディスプレイ共通）
-        let mouse: NSPoint = msg_send![class!(NSEvent), mouseLocation];
-
-        // カーソルを含む NSScreen の visibleFrame（メニューバー/Dock を除いた領域）を取得
-        let screens: id = msg_send![class!(NSScreen), screens];
-        let count: usize = msg_send![screens, count];
-        let mut visible: Option<NSRect> = None;
-        for i in 0..count {
-            let screen: id = msg_send![screens, objectAtIndex: i];
-            let frame: NSRect = msg_send![screen, frame];
-            let in_x = mouse.x >= frame.origin.x && mouse.x <= frame.origin.x + frame.size.width;
-            let in_y = mouse.y >= frame.origin.y && mouse.y <= frame.origin.y + frame.size.height;
-            if in_x && in_y {
-                visible = Some(msg_send![screen, visibleFrame]);
-                break;
-            }
-        }
-        let vis = match visible {
-            Some(v) => v,
-            None => return,
-        };
-
-        // 左下原点：可視領域の上端からパネル高さを引いた位置が origin.y
-        let top_y = vis.origin.y + vis.size.height;
-        let origin_x = mouse.x - PANEL_WIDTH / 2.0;
-        let origin_y = top_y - PANEL_HEIGHT;
-
-        eprintln!(
-            "[juice] native place: mouse=({:.0},{:.0}) visTop={:.0} -> origin=({:.0},{:.0})",
-            mouse.x, mouse.y, top_y, origin_x, origin_y
-        );
-        let origin = NSPoint {
-            x: origin_x,
-            y: origin_y,
-        };
-        let _: () = msg_send![ns_window, setFrameOrigin: origin];
-
-        // 表示位置をアンカーとして記録（blur 時の移動判定に使う）
-        *window
-            .state::<AnchorPos>()
-            .0
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some((origin_x, origin_y));
-    }
-}
-
-/// パネルが表示時アンカーから DRAG_KEEP_OPEN_THRESHOLD 以上ドラッグ移動されているか。
-#[allow(deprecated)] // tauri-nspanel の cocoa API（objc2 へ移行課題）
-fn panel_moved_from_anchor(app: &AppHandle) -> bool {
-    let anchor = {
-        let g = app.state::<AnchorPos>();
-        let v = *g.0.lock().unwrap_or_else(|e| e.into_inner());
-        v
-    };
-    let anchor = match anchor {
-        Some(a) => a,
-        None => return false,
-    };
-    let window = match app.get_webview_window("main") {
-        Some(w) => w,
-        None => return false,
-    };
-    let ns_window = match window.ns_window() {
-        Ok(p) => p as id,
-        Err(_) => return false,
-    };
-    unsafe {
-        let frame: NSRect = msg_send![ns_window, frame];
-        (frame.origin.x - anchor.0).abs() > DRAG_KEEP_OPEN_THRESHOLD
-            || (frame.origin.y - anchor.1).abs() > DRAG_KEEP_OPEN_THRESHOLD
-    }
-}
