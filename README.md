@@ -87,6 +87,8 @@ Windows 分を自動生成**する。タグを push するとドラフトリリ�
 4. CI が arm64 / x64 の DMG（`Juice_X.Y.Z_aarch64.dmg` / `Juice_X.Y.Z_x64.dmg`）と
    Windows インストーラ（`Juice_X.Y.Z_x64-setup.exe`）を**未署名**でビルドし、同タグの
    **ドラフトリリース**に添付する
+   - ドラフトは**全ビルドが成功したときだけ**作られる。1つでも失敗したらドラフトは作られない
+     ので、原因を直してタグを打ち直す（Actions の画面から失敗したジョブだけ再実行してもよい）
 5. ドラフトを開き、本文に CHANGELOG の該当節を貼って **公開（draft 解除）** する
    - アップデータは Tauri 命名（`_aarch64.dmg` / `_x64.dmg`）と Electron 命名
      （`-arm64.dmg` / 無印 `.dmg`）の**両方**で arch 一致アセットを選ぶ
