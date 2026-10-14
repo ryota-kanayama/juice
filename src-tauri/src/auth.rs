@@ -211,11 +211,22 @@ mod tests {
     }
 
     #[test]
-    fn file_backend_saves_and_reads_back() {
+    fn file_backend_has_no_token_initially() {
         let (s, _d) = file_store();
-        assert_eq!(s.get_token(), None);
+
+        let token = s.get_token();
+
+        assert_eq!(token, None);
+    }
+
+    #[test]
+    fn file_backend_reads_back_saved_token() {
+        let (s, _d) = file_store();
         s.save_token("jwt-value").unwrap();
-        assert_eq!(s.get_token().as_deref(), Some("jwt-value"));
+
+        let token = s.get_token();
+
+        assert_eq!(token.as_deref(), Some("jwt-value"));
     }
 
     #[test]
@@ -223,7 +234,10 @@ mod tests {
         let (s, _d) = file_store();
         s.save_token("old").unwrap();
         s.save_token("new").unwrap();
-        assert_eq!(s.get_token().as_deref(), Some("new"));
+
+        let token = s.get_token();
+
+        assert_eq!(token.as_deref(), Some("new"));
     }
 
     #[test]
@@ -231,16 +245,32 @@ mod tests {
         let (s, _d) = file_store();
         s.save_token("jwt-value").unwrap();
         s.clear_token();
-        assert_eq!(s.get_token(), None);
+
+        let token = s.get_token();
+
+        assert_eq!(token, None);
+    }
+
+    #[test]
+    fn file_backend_clear_twice_does_not_fail() {
+        let (s, _d) = file_store();
+        s.save_token("jwt-value").unwrap();
+        s.clear_token();
+
         // 消したあとにもう一度消しても落ちない
         s.clear_token();
+
+        assert_eq!(s.get_token(), None);
     }
 
     #[test]
     fn file_backend_treats_empty_file_as_no_token() {
         let (s, d) = file_store();
         std::fs::write(d.path().join("auth-token"), "   \n").unwrap();
-        assert_eq!(s.get_token(), None);
+
+        let token = s.get_token();
+
+        assert_eq!(token, None);
     }
 
     #[cfg(unix)]
@@ -249,6 +279,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let (s, d) = file_store();
         s.save_token("jwt-value").unwrap();
+
         let mode = std::fs::metadata(d.path().join("auth-token"))
             .unwrap()
             .permissions()
@@ -258,20 +289,49 @@ mod tests {
     }
 
     #[test]
-    fn file_backend_status_reflects_saved_token() {
+    fn file_backend_status_is_signed_in_with_saved_token() {
         let (s, _d) = file_store();
         s.save_token(&fake_jwt(json!({ "name": "金山", "exp": FUTURE }))).unwrap();
+
         let st = s.get_status(NOW_MS);
+
         assert!(st.signed_in);
+    }
+
+    #[test]
+    fn file_backend_status_has_name_of_saved_token() {
+        let (s, _d) = file_store();
+        s.save_token(&fake_jwt(json!({ "name": "金山", "exp": FUTURE }))).unwrap();
+
+        let st = s.get_status(NOW_MS);
+
         assert_eq!(st.name.as_deref(), Some("金山"));
     }
 
     #[test]
-    fn valid_token_returns_name_and_exp() {
+    fn valid_token_is_signed_in() {
         let token = fake_jwt(json!({ "name": "金山", "exp": FUTURE }));
+
         let s = parse_auth_status(&token, NOW_MS);
+
         assert!(s.signed_in);
+    }
+
+    #[test]
+    fn valid_token_returns_name() {
+        let token = fake_jwt(json!({ "name": "金山", "exp": FUTURE }));
+
+        let s = parse_auth_status(&token, NOW_MS);
+
         assert_eq!(s.name.as_deref(), Some("金山"));
+    }
+
+    #[test]
+    fn valid_token_returns_expiry_as_iso() {
+        let token = fake_jwt(json!({ "name": "金山", "exp": FUTURE }));
+
+        let s = parse_auth_status(&token, NOW_MS);
+
         // 2_000_000_000 秒 = 2033-05-18T03:33:20Z
         assert_eq!(s.expires_at.as_deref(), Some("2033-05-18T03:33:20.000Z"));
     }
@@ -279,48 +339,65 @@ mod tests {
     #[test]
     fn picture_becomes_avatar_url() {
         let token = fake_jwt(json!({ "name": "金山", "picture": "https://slack.test/a.png", "exp": FUTURE }));
-        assert_eq!(
-            parse_auth_status(&token, NOW_MS).avatar_url.as_deref(),
-            Some("https://slack.test/a.png")
-        );
+
+        let avatar = parse_auth_status(&token, NOW_MS).avatar_url;
+
+        assert_eq!(avatar.as_deref(), Some("https://slack.test/a.png"));
     }
 
     #[test]
     fn missing_picture_is_none() {
         let token = fake_jwt(json!({ "name": "金山", "exp": FUTURE }));
-        assert_eq!(parse_auth_status(&token, NOW_MS).avatar_url, None);
+
+        let avatar = parse_auth_status(&token, NOW_MS).avatar_url;
+
+        assert_eq!(avatar, None);
     }
 
     #[test]
     fn expired_token_is_signed_out() {
         let token = fake_jwt(json!({ "name": "x", "exp": PAST }));
-        assert_eq!(parse_auth_status(&token, NOW_MS), AuthStatus::default());
+
+        let status = parse_auth_status(&token, NOW_MS);
+
+        assert_eq!(status, AuthStatus::default());
     }
 
     #[test]
     fn non_jwt_is_signed_out() {
-        assert_eq!(parse_auth_status("not-a-jwt", NOW_MS), AuthStatus::default());
+        let status = parse_auth_status("not-a-jwt", NOW_MS);
+
+        assert_eq!(status, AuthStatus::default());
     }
 
     #[test]
     fn broken_payload_is_signed_out() {
         // 3パートだが payload が base64url JSON でない
-        assert_eq!(
-            parse_auth_status("aaa.!!!notbase64!!!.sig", NOW_MS),
-            AuthStatus::default()
-        );
+        let status = parse_auth_status("aaa.!!!notbase64!!!.sig", NOW_MS);
+
+        assert_eq!(status, AuthStatus::default());
     }
 
     #[test]
     fn missing_exp_is_signed_out() {
         let token = fake_jwt(json!({ "name": "x" }));
-        assert_eq!(parse_auth_status(&token, NOW_MS), AuthStatus::default());
+
+        let status = parse_auth_status(&token, NOW_MS);
+
+        assert_eq!(status, AuthStatus::default());
     }
 
     #[test]
     fn default_status_is_signed_out() {
         let s = AuthStatus::default();
+
         assert!(!s.signed_in);
+    }
+
+    #[test]
+    fn default_status_has_no_name() {
+        let s = AuthStatus::default();
+
         assert_eq!(s.name, None);
     }
 

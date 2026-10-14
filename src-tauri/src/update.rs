@@ -606,31 +606,81 @@ mod tests {
     use super::*;
 
     #[test]
-    fn normalize_strips_v_prefix_and_space() {
-        assert_eq!(normalize_version(" v1.2.3 "), "1.2.3");
-        assert_eq!(normalize_version("V2.0.0"), "2.0.0");
-        assert_eq!(normalize_version("1.0.0"), "1.0.0");
+    fn normalize_strips_lowercase_v_prefix_and_space() {
+        let v = normalize_version(" v1.2.3 ");
+
+        assert_eq!(v, "1.2.3");
     }
 
     #[test]
-    fn compare_basic() {
-        assert_eq!(compare_versions("1.0.0", "1.0.0"), Ordering::Equal);
-        assert_eq!(compare_versions("1.1.0", "1.0.9"), Ordering::Greater);
-        assert_eq!(compare_versions("1.0.0", "1.0.1"), Ordering::Less);
+    fn normalize_strips_uppercase_v_prefix() {
+        let v = normalize_version("V2.0.0");
+
+        assert_eq!(v, "2.0.0");
     }
 
     #[test]
-    fn compare_handles_missing_parts() {
+    fn normalize_keeps_plain_version() {
+        let v = normalize_version("1.0.0");
+
+        assert_eq!(v, "1.0.0");
+    }
+
+    #[test]
+    fn compare_same_versions_are_equal() {
+        let o = compare_versions("1.0.0", "1.0.0");
+
+        assert_eq!(o, Ordering::Equal);
+    }
+
+    #[test]
+    fn compare_higher_minor_is_greater() {
+        let o = compare_versions("1.1.0", "1.0.9");
+
+        assert_eq!(o, Ordering::Greater);
+    }
+
+    #[test]
+    fn compare_lower_patch_is_less() {
+        let o = compare_versions("1.0.0", "1.0.1");
+
+        assert_eq!(o, Ordering::Less);
+    }
+
+    #[test]
+    fn compare_treats_missing_part_as_zero() {
         // 桁欠落は 0 扱い（1.0 == 1.0.0）
-        assert_eq!(compare_versions("1.0", "1.0.0"), Ordering::Equal);
-        assert_eq!(compare_versions("1.2", "1.2.1"), Ordering::Less);
+        let o = compare_versions("1.0", "1.0.0");
+
+        assert_eq!(o, Ordering::Equal);
     }
 
     #[test]
-    fn is_newer_works() {
-        assert!(is_newer_version("v1.1.0", "1.0.0"));
-        assert!(!is_newer_version("1.0.0", "1.0.0"));
-        assert!(!is_newer_version("0.9.0", "1.0.0"));
+    fn compare_missing_part_is_less_than_nonzero_part() {
+        let o = compare_versions("1.2", "1.2.1");
+
+        assert_eq!(o, Ordering::Less);
+    }
+
+    #[test]
+    fn is_newer_true_for_higher_version() {
+        let newer = is_newer_version("v1.1.0", "1.0.0");
+
+        assert!(newer);
+    }
+
+    #[test]
+    fn is_newer_false_for_same_version() {
+        let newer = is_newer_version("1.0.0", "1.0.0");
+
+        assert!(!newer);
+    }
+
+    #[test]
+    fn is_newer_false_for_lower_version() {
+        let newer = is_newer_version("0.9.0", "1.0.0");
+
+        assert!(!newer);
     }
 
     fn assets() -> Vec<ReleaseAsset> {
@@ -646,24 +696,30 @@ mod tests {
     fn select_windows_picks_x64_setup_exe() {
         let mut list = assets();
         list.push(ReleaseAsset { name: "Juice_1.1.0_x64-setup.exe".into(), url: "u-win".into() });
+
         let a = select_windows_installer_asset(&list).unwrap();
+
         assert_eq!(a.url, "u-win");
     }
 
     #[test]
     fn select_windows_none_without_installer() {
-        assert!(select_windows_installer_asset(&assets()).is_none());
+        let a = select_windows_installer_asset(&assets());
+
+        assert!(a.is_none());
     }
 
     #[test]
     fn select_arm64_picks_aarch64_dmg() {
         let a = select_dmg_asset(&assets(), "arm64").unwrap();
+
         assert_eq!(a.url, "u-arm");
     }
 
     #[test]
     fn select_x64_picks_x64_dmg() {
         let a = select_dmg_asset(&assets(), "x64").unwrap();
+
         assert_eq!(a.url, "u-x64");
     }
 
@@ -671,7 +727,10 @@ mod tests {
     fn select_none_when_arch_absent() {
         // aarch64 のみ → x64 機は選べない（誤選択しない）
         let only_arm = vec![ReleaseAsset { name: "Juice_1.1.0_aarch64.dmg".into(), url: "u".into() }];
-        assert!(select_dmg_asset(&only_arm, "x64").is_none());
+
+        let a = select_dmg_asset(&only_arm, "x64");
+
+        assert!(a.is_none());
     }
 
     // ---- 橋渡し: Electron 命名（-arm64.dmg / 無印 .dmg）も受理する ----
@@ -686,6 +745,7 @@ mod tests {
     #[test]
     fn select_arm64_accepts_electron_naming() {
         let a = select_dmg_asset(&electron_assets(), "arm64").unwrap();
+
         assert_eq!(a.url, "e-arm");
     }
 
@@ -693,53 +753,130 @@ mod tests {
     fn select_x64_accepts_electron_plain_dmg_not_arm() {
         // Electron 無印 .dmg を選び、-arm64.dmg は誤選択しない
         let a = select_dmg_asset(&electron_assets(), "x64").unwrap();
+
         assert_eq!(a.url, "e-x64");
     }
 
     #[test]
     fn select_x64_electron_only_arm_is_none() {
         let only_arm = vec![ReleaseAsset { name: "Juice-1.4.0-arm64.dmg".into(), url: "e".into() }];
-        assert!(select_dmg_asset(&only_arm, "x64").is_none());
+
+        let a = select_dmg_asset(&only_arm, "x64");
+
+        assert!(a.is_none());
+    }
+
+    fn install_script_for_spaced_paths() -> String {
+        build_install_script(4242, "/tmp/a b.dmg", "/Applications/Juice.app", "/tmp/log")
     }
 
     #[test]
-    fn install_script_quotes_paths_and_embeds_pid() {
-        let s = build_install_script(4242, "/tmp/a b.dmg", "/Applications/Juice.app", "/tmp/log");
+    fn install_script_embeds_pid() {
+        let s = install_script_for_spaced_paths();
+
         assert!(s.contains("PID=4242"));
+    }
+
+    #[test]
+    fn install_script_quotes_dmg_path() {
+        let s = install_script_for_spaced_paths();
+
         assert!(s.contains("DMG='/tmp/a b.dmg'"));
+    }
+
+    #[test]
+    fn install_script_quotes_app_path() {
+        let s = install_script_for_spaced_paths();
+
         assert!(s.contains("APP='/Applications/Juice.app'"));
     }
 
     #[test]
     fn install_script_escapes_single_quote() {
         let s = build_install_script(1, "/tmp/x'y.dmg", "/A.app", "/l");
+
         // ' は '\'' へエスケープされる
         assert!(s.contains(r#"DMG='/tmp/x'\''y.dmg'"#));
     }
 
     #[test]
-    fn trusted_url_requires_https_github() {
-        assert!(is_trusted_github_url(
-            "https://github.com/ryota-kanayama/juice/releases/download/v1/Juice.dmg"
-        ));
-        assert!(is_trusted_github_url(
-            "https://objects.githubusercontent.com/abc/Juice.dmg"
-        ));
-        // http / 非GitHub / 別スキームは拒否
-        assert!(!is_trusted_github_url("http://github.com/x.dmg"));
-        assert!(!is_trusted_github_url("https://evil.com/x.dmg"));
-        assert!(!is_trusted_github_url("https://github.com.evil.com/x.dmg"));
-        assert!(!is_trusted_github_url("file:///etc/passwd"));
+    fn trusted_url_accepts_github_release() {
+        let ok = is_trusted_github_url(
+            "https://github.com/ryota-kanayama/juice/releases/download/v1/Juice.dmg",
+        );
+
+        assert!(ok);
     }
 
     #[test]
-    fn safe_asset_name_strips_path_components() {
-        assert_eq!(safe_asset_name("Juice-1.0.dmg").as_deref(), Some("Juice-1.0.dmg"));
+    fn trusted_url_accepts_github_objects_host() {
+        let ok = is_trusted_github_url("https://objects.githubusercontent.com/abc/Juice.dmg");
+
+        assert!(ok);
+    }
+
+    #[test]
+    fn trusted_url_rejects_http() {
+        let ok = is_trusted_github_url("http://github.com/x.dmg");
+
+        assert!(!ok);
+    }
+
+    #[test]
+    fn trusted_url_rejects_non_github_host() {
+        let ok = is_trusted_github_url("https://evil.com/x.dmg");
+
+        assert!(!ok);
+    }
+
+    #[test]
+    fn trusted_url_rejects_lookalike_subdomain_host() {
+        let ok = is_trusted_github_url("https://github.com.evil.com/x.dmg");
+
+        assert!(!ok);
+    }
+
+    #[test]
+    fn trusted_url_rejects_file_scheme() {
+        let ok = is_trusted_github_url("file:///etc/passwd");
+
+        assert!(!ok);
+    }
+
+    #[test]
+    fn safe_asset_name_keeps_plain_name() {
+        let n = safe_asset_name("Juice-1.0.dmg");
+
+        assert_eq!(n.as_deref(), Some("Juice-1.0.dmg"));
+    }
+
+    #[test]
+    fn safe_asset_name_reduces_traversal_to_file_name() {
         // パストラバーサルはファイル名成分だけに正規化される
-        assert_eq!(safe_asset_name("../../etc/passwd").as_deref(), Some("passwd"));
-        assert_eq!(safe_asset_name("/abs/evil.dmg").as_deref(), Some("evil.dmg"));
-        assert_eq!(safe_asset_name(".."), None);
-        assert_eq!(safe_asset_name(""), None);
+        let n = safe_asset_name("../../etc/passwd");
+
+        assert_eq!(n.as_deref(), Some("passwd"));
+    }
+
+    #[test]
+    fn safe_asset_name_reduces_absolute_path_to_file_name() {
+        let n = safe_asset_name("/abs/evil.dmg");
+
+        assert_eq!(n.as_deref(), Some("evil.dmg"));
+    }
+
+    #[test]
+    fn safe_asset_name_rejects_parent_dir() {
+        let n = safe_asset_name("..");
+
+        assert_eq!(n, None);
+    }
+
+    #[test]
+    fn safe_asset_name_rejects_empty() {
+        let n = safe_asset_name("");
+
+        assert_eq!(n, None);
     }
 
     fn sample_info(version: &str, notes: &str) -> UpdateInfo {
@@ -757,13 +894,19 @@ mod tests {
     #[test]
     fn wall_clock_reached_after_interval() {
         let last = SystemTime::now() - Duration::from_secs(7 * 60 * 60);
-        assert!(wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60)));
+
+        let reached = wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60));
+
+        assert!(reached);
     }
 
     #[test]
     fn wall_clock_not_reached_before_interval() {
         let last = SystemTime::now() - Duration::from_secs(60 * 60);
-        assert!(!wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60)));
+
+        let reached = wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60));
+
+        assert!(!reached);
     }
 
     #[test]
@@ -771,55 +914,87 @@ mod tests {
         // 時計が巻き戻されたとき elapsed は Err を返す。待ち続けると永久に確認しなくなるので
         // 経過扱いにして一度確認しに行く。
         let last = SystemTime::now() + Duration::from_secs(60 * 60);
-        assert!(wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60)));
+
+        let reached = wall_elapsed_reached(last, Duration::from_secs(6 * 60 * 60));
+
+        assert!(reached);
     }
 
     #[test]
     fn pending_update_returns_info_when_update_available() {
         let info = sample_info("2.2.0", "notes");
-        assert_eq!(pending_update(Some(info), "").unwrap().latest_version, "2.2.0");
+
+        let pending = pending_update(Some(info), "").unwrap();
+
+        assert_eq!(pending.latest_version, "2.2.0");
     }
 
     #[test]
     fn pending_update_is_none_when_no_update() {
         let mut info = sample_info("2.2.0", "notes");
         info.has_update = false;
-        assert!(pending_update(Some(info), "").is_none());
+
+        let pending = pending_update(Some(info), "");
+
+        assert!(pending.is_none());
     }
 
     #[test]
     fn pending_update_is_none_when_dismissed() {
         let info = sample_info("2.2.0", "notes");
-        assert!(pending_update(Some(info), "2.2.0").is_none());
+
+        let pending = pending_update(Some(info), "2.2.0");
+
+        assert!(pending.is_none());
     }
 
     #[test]
     fn pending_update_is_none_when_never_checked() {
-        assert!(pending_update(None, "").is_none());
+        let pending = pending_update(None, "");
+
+        assert!(pending.is_none());
     }
 
     #[test]
     fn pending_update_ignores_dismissal_of_another_version() {
         let info = sample_info("2.3.0", "notes");
-        assert_eq!(
-            pending_update(Some(info), "2.2.0").unwrap().latest_version,
-            "2.3.0"
-        );
+
+        let pending = pending_update(Some(info), "2.2.0").unwrap();
+
+        assert_eq!(pending.latest_version, "2.3.0");
     }
 
     #[test]
     fn last_checked_starts_empty() {
         let s = LastChecked::default();
-        assert!(s.get().is_none());
+
+        let got = s.get();
+
+        assert!(got.is_none());
     }
 
-    #[test]
-    fn last_checked_keeps_the_latest_value() {
+    fn last_checked_after_two_sets() -> LastChecked {
         let s = LastChecked::default();
         s.set(sample_info("2.2.0", "### ✨ 新機能\n\n- 何か"));
         s.set(sample_info("2.3.0", "### 🐛 修正\n\n- 別の何か"));
+        s
+    }
+
+    #[test]
+    fn last_checked_keeps_the_latest_version() {
+        let s = last_checked_after_two_sets();
+
         let got = s.get().unwrap();
+
         assert_eq!(got.latest_version, "2.3.0");
+    }
+
+    #[test]
+    fn last_checked_keeps_the_latest_notes() {
+        let s = last_checked_after_two_sets();
+
+        let got = s.get().unwrap();
+
         assert!(got.notes.contains("別の何か"));
     }
 }
