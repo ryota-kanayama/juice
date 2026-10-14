@@ -53,8 +53,9 @@ coverage
 .env.local
 .env.*.local
 
-# Claude Code project settings (personal)
-.claude/
+# Claude Code personal settings / worktrees
+.claude/settings.local.json
+.claude/worktrees/
 docs
 
 # TypeScript build info
