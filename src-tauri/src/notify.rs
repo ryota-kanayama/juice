@@ -77,10 +77,11 @@ fn windows_app_id(app: &AppHandle) -> String {
     }
 }
 
+/// クリックのイベントは WinRT のスレッドで届くので、メインスレッドへ移して画面を出す。
 #[cfg(windows)]
 fn activate(app: &AppHandle, on_click: OnClick) {
-    match on_click {
+    crate::on_main_thread(app, move |app| match on_click {
         OnClick::ShowPanel => crate::show_panel_now(app),
         OnClick::OpenSettings => crate::open_settings(app),
-    }
+    });
 }

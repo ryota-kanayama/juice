@@ -99,7 +99,8 @@ pub fn run() {
             if args.iter().any(|a| a.starts_with("juice://")) {
                 return;
             }
-            show_panel_now(app);
+            // このコールバックは tokio のワーカースレッドで呼ばれる（#166）
+            on_main_thread(app, show_panel_now);
         }));
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(tauri_nspanel::init());
@@ -346,16 +347,30 @@ fn maybe_show_release_notes(app: &AppHandle) {
 /// Slack サインインのコールバックを受けたあと、サインインを始めた画面を前に出す。
 /// サインインはセットアップ・設定・パネルのいずれかから始まるので、開いているものを
 /// この順で探し、どれも無ければパネルを出す。
+///
+/// Windows ではコールバックが2つ目の起動（single-instance）経由で別スレッドから届くため、
+/// メインスレッドで行う。
 pub fn show_after_sign_in(app: &AppHandle) {
-    for label in ["setup", "settings"] {
-        if let Some(win) = app.get_webview_window(label) {
-            let _ = win.unminimize();
-            let _ = win.show();
-            let _ = win.set_focus();
-            return;
+    on_main_thread(app, |app| {
+        for label in ["setup", "settings"] {
+            if let Some(win) = app.get_webview_window(label) {
+                let _ = win.unminimize();
+                let _ = win.show();
+                let _ = win.set_focus();
+                return;
+            }
         }
+        show_panel_now(app);
+    });
+}
+
+/// メインスレッドで f を実行する。macOS の AppKit（NSPanel の配置など）はメインスレッド
+/// 以外から触ると落ちるため、別スレッドから呼ばれうる表示処理はこれを通す（#166）。
+pub(crate) fn on_main_thread(app: &AppHandle, f: impl FnOnce(&AppHandle) + Send + 'static) {
+    let handle = app.clone();
+    if let Err(e) = app.run_on_main_thread(move || f(&handle)) {
+        eprintln!("[juice] run_on_main_thread failed: {e}");
     }
-    show_panel_now(app);
 }
 
 /// 設定ウィンドウを開く（トレイ「設定」から）。
