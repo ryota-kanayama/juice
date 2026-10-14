@@ -6,110 +6,149 @@ afterEach(() => vi.unstubAllGlobals())
 
 const OPTS = { apiUrl: 'https://wb.test', apiKey: 'WBKEY' }
 const EMAIL = 'kanayama@jsl.co.jp'
+const ATTENDANCE_URL = 'https://wb.test/api/attendance?apiKey=WBKEY'
+const MAGNET_URL = 'https://wb.test/api/magnet?apiKey=WBKEY'
 
-function mockFetchSequence(
-  responses: Array<{ ok: boolean; status?: number; json?: unknown }>
-): ReturnType<typeof vi.fn> {
+type Reply = { ok: boolean; status?: number; json?: unknown }
+
+/** fetch を、渡した順に応答するモックに差し替える */
+function stubFetch(...replies: Reply[]): ReturnType<typeof vi.fn> {
   const fn = vi.fn()
-  for (const r of responses) {
-    fn.mockResolvedValueOnce({ ok: r.ok, status: r.status, json: async () => r.json })
-  }
+  for (const r of replies) fn.mockResolvedValueOnce({ ok: r.ok, status: r.status, json: async () => r.json })
   vi.stubGlobal('fetch', fn)
   return fn
 }
 
-/** /api/users の成功レスポンス body（指定マグネット名のユーザー1件）を作る */
-function usersBody(magnetName: string): unknown {
-  return { code: 'OK', results: [{ magnet: { name: magnetName } }] }
-}
+/** GET /api/users の応答（そのユーザーの今のマグネット） */
+const currentMagnet = (name: string): Reply => ({ ok: true, json: { code: 'OK', results: [{ magnet: { name } }] } })
+
+const formOf = (call: unknown[]) => new URLSearchParams(String((call[1] as RequestInit).body))
+const jsonOf = (call: unknown[]) => JSON.parse(String((call[1] as RequestInit).body))
 
 describe('postWhiteboard', () => {
-  it('telework は 出勤打刻=true → magnet=2 を順に送る', async () => {
-    const fetchMock = mockFetchSequence([{ ok: true }, { ok: true }])
-    const result = await postWhiteboard('telework', EMAIL, OPTS)
-    expect(result).toEqual({ ok: true })
-    // 1回目: 打刻（表示ステータスより先に確定させる）
-    const [attUrl, attInit] = fetchMock.mock.calls[0]
-    expect(attUrl).toBe('https://wb.test/api/attendance?apiKey=WBKEY')
-    const params = new URLSearchParams(String(attInit.body))
-    expect(params.get('come_to_the_office')).toBe('true')
-    expect(params.get('email')).toBe(EMAIL)
-    // 2回目: magnet（表示ステータス）
-    const [magnetUrl, magnetInit] = fetchMock.mock.calls[1]
-    expect(magnetUrl).toBe('https://wb.test/api/magnet?apiKey=WBKEY')
-    expect(JSON.parse(magnetInit.body)).toEqual({ magnet_id: 2, email: EMAIL })
+  describe('telework（テレワーク開始）', () => {
+    it('今のマグネットを確かめず、最初に出勤を打刻する', async () => {
+      const fetchMock = stubFetch({ ok: true }, { ok: true })
+
+      await postWhiteboard('telework', EMAIL, OPTS)
+
+      expect(fetchMock.mock.calls[0][0]).toBe(ATTENDANCE_URL)
+    })
+
+    it('打刻はメールアドレスと「出勤 = true」を送る', async () => {
+      const fetchMock = stubFetch({ ok: true }, { ok: true })
+
+      await postWhiteboard('telework', EMAIL, OPTS)
+
+      const form = formOf(fetchMock.mock.calls[0])
+      expect([form.get('email'), form.get('come_to_the_office')]).toEqual([EMAIL, 'true'])
+    })
+
+    it('打刻のあとにマグネットを「テレワーク（2）」にする', async () => {
+      const fetchMock = stubFetch({ ok: true }, { ok: true })
+
+      await postWhiteboard('telework', EMAIL, OPTS)
+
+      expect(fetchMock.mock.calls[1][0]).toBe(MAGNET_URL)
+      expect(jsonOf(fetchMock.mock.calls[1])).toEqual({ magnet_id: 2, email: EMAIL })
+    })
+
+    it('両方成功したら ok を返す', async () => {
+      stubFetch({ ok: true }, { ok: true })
+
+      const result = await postWhiteboard('telework', EMAIL, OPTS)
+
+      expect(result).toEqual({ ok: true })
+    })
   })
 
-  it('leave は 現在値を確認後に 出勤打刻=false → magnet=3 を送る', async () => {
-    // 1回目: 現在値取得(GET /api/users) → 退勤以外, 2回目: 打刻, 3回目: magnet
-    const fetchMock = mockFetchSequence([
-      { ok: true, json: usersBody('出社') },
-      { ok: true },
-      { ok: true },
-    ])
-    const result = await postWhiteboard('leave', EMAIL, OPTS)
-    expect(result).toEqual({ ok: true })
-    // 1回目: 現在のマグネットを GET で取得
-    const [usersUrl, usersInit] = fetchMock.mock.calls[0]
-    expect(usersUrl).toBe(`https://wb.test/api/users?apiKey=WBKEY&id=${encodeURIComponent(EMAIL)}`)
-    expect(usersInit.method).toBe('GET')
-    // 2回目: 打刻=false
-    expect(
-      new URLSearchParams(String(fetchMock.mock.calls[1][1].body)).get('come_to_the_office')
-    ).toBe('false')
-    // 3回目: magnet=3
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body).magnet_id).toBe(3)
+  describe('leave（退勤）', () => {
+    it('まず今のマグネットを GET で確かめる', async () => {
+      const fetchMock = stubFetch(currentMagnet('出社'), { ok: true }, { ok: true })
+
+      await postWhiteboard('leave', EMAIL, OPTS)
+
+      const [url, init] = fetchMock.mock.calls[0]
+      expect(url).toBe(`https://wb.test/api/users?apiKey=WBKEY&id=${encodeURIComponent(EMAIL)}`)
+      expect(init.method).toBe('GET')
+    })
+
+    it('退勤でなければ「出勤 = false」を打刻する', async () => {
+      const fetchMock = stubFetch(currentMagnet('出社'), { ok: true }, { ok: true })
+
+      await postWhiteboard('leave', EMAIL, OPTS)
+
+      expect(formOf(fetchMock.mock.calls[1]).get('come_to_the_office')).toBe('false')
+    })
+
+    it('退勤でなければマグネットを「退勤（3）」にする', async () => {
+      const fetchMock = stubFetch(currentMagnet('出社'), { ok: true }, { ok: true })
+
+      await postWhiteboard('leave', EMAIL, OPTS)
+
+      expect(jsonOf(fetchMock.mock.calls[2]).magnet_id).toBe(3)
+    })
+
+    it('すでに退勤なら、打刻もマグネットも送らない', async () => {
+      const fetchMock = stubFetch(currentMagnet('退勤'))
+
+      await postWhiteboard('leave', EMAIL, OPTS)
+
+      expect(fetchMock).toHaveBeenCalledOnce()
+    })
+
+    it('すでに退勤でも ok を返す', async () => {
+      stubFetch(currentMagnet('退勤'))
+
+      const result = await postWhiteboard('leave', EMAIL, OPTS)
+
+      expect(result).toEqual({ ok: true })
+    })
+
+    it.each([
+      ['今のマグネットを取れない', { ok: false, status: 500 }],
+      ['ユーザーが見つからない', { ok: true, json: { code: 'OK', results: [] } }],
+    ])('%s ときも、そのまま退勤を送る（フェイルセーフ）', async (_label, reply) => {
+      const fetchMock = stubFetch(reply, { ok: true }, { ok: true })
+
+      const result = await postWhiteboard('leave', EMAIL, OPTS)
+
+      expect(result).toEqual({ ok: true })
+      expect(jsonOf(fetchMock.mock.calls[2]).magnet_id).toBe(3)
+    })
   })
 
-  it('leave で既に退勤なら 打刻も magnet も送らず ok を返す', async () => {
-    const fetchMock = mockFetchSequence([{ ok: true, json: usersBody('退勤') }])
-    const result = await postWhiteboard('leave', EMAIL, OPTS)
-    expect(result).toEqual({ ok: true })
-    // GET のみ。打刻・magnet の POST はしない
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
+  describe('失敗したとき（例外は投げず error を返す）', () => {
+    it('打刻に失敗したら attendance のエラー', async () => {
+      stubFetch({ ok: false, status: 502 })
 
-  it('leave で現在値取得が失敗しても 従来通り退勤を送る（フェイルセーフ）', async () => {
-    const fetchMock = mockFetchSequence([
-      { ok: false, status: 500 },
-      { ok: true },
-      { ok: true },
-    ])
-    expect(await postWhiteboard('leave', EMAIL, OPTS)).toEqual({ ok: true })
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body).magnet_id).toBe(3)
-  })
+      const result = await postWhiteboard('telework', EMAIL, OPTS)
 
-  it('leave で対象ユーザーが見つからなくても 従来通り退勤を送る', async () => {
-    const fetchMock = mockFetchSequence([
-      { ok: true, json: { code: 'OK', results: [] } },
-      { ok: true },
-      { ok: true },
-    ])
-    expect(await postWhiteboard('leave', EMAIL, OPTS)).toEqual({ ok: true })
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body).magnet_id).toBe(3)
-  })
+      expect(result).toEqual({ error: 'attendance: 502' })
+    })
 
-  it('telework は現在値を確認せず（GET を呼ばず）打刻・magnet を送る', async () => {
-    const fetchMock = mockFetchSequence([{ ok: true }, { ok: true }])
-    await postWhiteboard('telework', EMAIL, OPTS)
-    // 1回目が GET ではなく打刻であること（GET をスキップ）
-    expect(fetchMock.mock.calls[0][0]).toBe('https://wb.test/api/attendance?apiKey=WBKEY')
-  })
+    it('打刻に失敗したらマグネットは動かさない', async () => {
+      const fetchMock = stubFetch({ ok: false, status: 502 })
 
-  it('打刻失敗時は magnet を呼ばず error を返す', async () => {
-    const fetchMock = mockFetchSequence([{ ok: false, status: 502 }])
-    const result = await postWhiteboard('telework', EMAIL, OPTS)
-    expect(result).toEqual({ error: 'attendance: 502' })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
+      await postWhiteboard('telework', EMAIL, OPTS)
 
-  it('magnet 失敗は error を返す（打刻は成功済みなので誤表示は残らない）', async () => {
-    mockFetchSequence([{ ok: true }, { ok: false, status: 500 }])
-    expect(await postWhiteboard('telework', EMAIL, OPTS)).toEqual({ error: 'magnet: 500' })
-  })
+      expect(fetchMock).toHaveBeenCalledOnce()
+    })
 
-  it('ネットワークエラーでも throw しない', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ETIMEDOUT')))
-    expect(await postWhiteboard('telework', EMAIL, OPTS)).toEqual({ error: 'network: ETIMEDOUT' })
+    it('マグネットの更新に失敗したら magnet のエラー', async () => {
+      stubFetch({ ok: true }, { ok: false, status: 500 })
+
+      const result = await postWhiteboard('telework', EMAIL, OPTS)
+
+      expect(result).toEqual({ error: 'magnet: 500' })
+    })
+
+    it('通信に失敗したら network のエラー', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ETIMEDOUT')))
+
+      const result = await postWhiteboard('telework', EMAIL, OPTS)
+
+      expect(result).toEqual({ error: 'network: ETIMEDOUT' })
+    })
   })
 })

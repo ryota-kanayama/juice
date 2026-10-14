@@ -4,44 +4,86 @@ import { signState, verifyState } from './stateSign'
 
 const SECRET = 'test-secret'
 const NONCE = 'a'.repeat(32)
+const ISSUED = 1000
+const TTL = 10 * 60
 
-describe('signState / verifyState', () => {
-  it('署名した state を検証すると元の nonce が返る', () => {
-    const signed = signState(NONCE, SECRET, 1000)
-    expect(verifyState(signed, SECRET, 1000)).toBe(NONCE)
-  })
+describe('signState', () => {
+  it('元の nonce とは別の「本体.署名」の形にする', () => {
+    const signed = signState(NONCE, SECRET, ISSUED)
 
-  it('署名に使った state は raw nonce とは異なる', () => {
-    const signed = signState(NONCE, SECRET, 1000)
     expect(signed).not.toBe(NONCE)
     expect(signed.split('.')).toHaveLength(2)
   })
+})
 
-  it('別の secret では検証に失敗する（署名不一致）', () => {
-    const signed = signState(NONCE, SECRET, 1000)
-    expect(verifyState(signed, 'other-secret', 1000)).toBeNull()
+describe('verifyState', () => {
+  it('署名した state を検証すると、元の nonce を返す', () => {
+    const signed = signState(NONCE, SECRET, ISSUED)
+
+    const nonce = verifyState(signed, SECRET, ISSUED)
+
+    expect(nonce).toBe(NONCE)
   })
 
-  it('改竄された payload は検証に失敗する', () => {
-    const signed = signState(NONCE, SECRET, 1000)
-    const [, sig] = signed.split('.')
-    const forged = Buffer.from('evil.1000').toString('base64url') + '.' + sig
-    expect(verifyState(forged, SECRET, 1000)).toBeNull()
+  it('別の secret では無効', () => {
+    const signed = signState(NONCE, SECRET, ISSUED)
+
+    const nonce = verifyState(signed, 'other-secret', ISSUED)
+
+    expect(nonce).toBeNull()
   })
 
-  it('TTL（10分）を超えると失効する', () => {
-    const signed = signState(NONCE, SECRET, 1000)
-    expect(verifyState(signed, SECRET, 1000 + 10 * 60)).toBe(NONCE) // 境界は有効
-    expect(verifyState(signed, SECRET, 1000 + 10 * 60 + 1)).toBeNull()
+  it('本体を差し替えたら無効', () => {
+    const [, sig] = signState(NONCE, SECRET, ISSUED).split('.')
+    const forged = `${Buffer.from(`evil.${ISSUED}`).toString('base64url')}.${sig}`
+
+    const nonce = verifyState(forged, SECRET, ISSUED)
+
+    expect(nonce).toBeNull()
   })
 
-  it('未来すぎる発行時刻（時計ずれ60秒超）は弾く', () => {
-    const signed = signState(NONCE, SECRET, 2000)
-    expect(verifyState(signed, SECRET, 2000 - 61)).toBeNull()
+  describe('期限（10分）', () => {
+    it('ちょうど10分後までは有効', () => {
+      const signed = signState(NONCE, SECRET, ISSUED)
+
+      const nonce = verifyState(signed, SECRET, ISSUED + TTL)
+
+      expect(nonce).toBe(NONCE)
+    })
+
+    it('10分を1秒でも過ぎたら無効', () => {
+      const signed = signState(NONCE, SECRET, ISSUED)
+
+      const nonce = verifyState(signed, SECRET, ISSUED + TTL + 1)
+
+      expect(nonce).toBeNull()
+    })
   })
 
-  it('形式不正（ドット数違い・非base64url）は null', () => {
-    expect(verifyState('only-one-part', SECRET, 1000)).toBeNull()
-    expect(verifyState('a.b.c', SECRET, 1000)).toBeNull()
+  describe('時計のずれ（60秒まで許す）', () => {
+    it('発行時刻が60秒先までなら有効', () => {
+      const signed = signState(NONCE, SECRET, 2000)
+
+      const nonce = verifyState(signed, SECRET, 2000 - 60)
+
+      expect(nonce).toBe(NONCE)
+    })
+
+    it('発行時刻が60秒より先なら無効', () => {
+      const signed = signState(NONCE, SECRET, 2000)
+
+      const nonce = verifyState(signed, SECRET, 2000 - 61)
+
+      expect(nonce).toBeNull()
+    })
+  })
+
+  it.each([
+    ['区切りが無い', 'only-one-part'],
+    ['区切りが多い', 'a.b.c'],
+  ])('形式が不正（%s）なら無効', (_label, signed) => {
+    const nonce = verifyState(signed, SECRET, ISSUED)
+
+    expect(nonce).toBeNull()
   })
 })

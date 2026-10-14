@@ -5,67 +5,118 @@ import { parseAttendanceRequest, resolveUserName, postAttendance } from './atten
 afterEach(() => vi.unstubAllGlobals())
 
 describe('parseAttendanceRequest', () => {
-  it('正しいボディをパースする', () => {
-    expect(parseAttendanceRequest(JSON.stringify({ text: '勤怠\n8:30 17:30 60' })))
-      .toEqual({ text: '勤怠\n8:30 17:30 60' })
+  it('本文の text を取り出す', () => {
+    const body = JSON.stringify({ text: '勤怠\n8:30 17:30 60' })
+
+    const request = parseAttendanceRequest(body)
+
+    expect(request).toEqual({ text: '勤怠\n8:30 17:30 60' })
   })
 
-  it('text 欠落・空・型不正・2000字超・非JSONは null', () => {
-    expect(parseAttendanceRequest(JSON.stringify({}))).toBeNull()
-    expect(parseAttendanceRequest(JSON.stringify({ text: '  ' }))).toBeNull()
-    expect(parseAttendanceRequest(JSON.stringify({ text: 1 }))).toBeNull()
-    expect(parseAttendanceRequest(JSON.stringify({ text: 'あ'.repeat(2001) }))).toBeNull()
-    expect(parseAttendanceRequest('not json')).toBeNull()
+  it('2000字ちょうどまでは受け付ける', () => {
+    const body = JSON.stringify({ text: 'あ'.repeat(2000) })
+
+    const request = parseAttendanceRequest(body)
+
+    expect(request).not.toBeNull()
+  })
+
+  it.each([
+    ['text が無い', JSON.stringify({})],
+    ['text が空白だけ', JSON.stringify({ text: '  ' })],
+    ['text が文字列でない', JSON.stringify({ text: 1 })],
+    ['text が2000字を超える', JSON.stringify({ text: 'あ'.repeat(2001) })],
+    ['JSON として壊れている', 'not json'],
+    ['JSON の null', 'null'],
+  ])('%s なら null', (_label, body) => {
+    const request = parseAttendanceRequest(body)
+
+    expect(request).toBeNull()
   })
 })
 
 describe('resolveUserName', () => {
   const claims = { sub: 'U123', name: 'Ryota Kanayama', handle: 'kanayama' }
 
-  it('対応表に sub があれば最優先する', () => {
-    expect(resolveUserName(claims, '{"U123":"override"}')).toBe('override')
+  it('対応表に sub があれば、その名前を最優先する', () => {
+    const name = resolveUserName(claims, '{"U123":"override"}')
+
+    expect(name).toBe('override')
   })
 
-  it('対応表に無ければ handle（旧ハンドル）を使う', () => {
-    expect(resolveUserName(claims, '{}')).toBe('kanayama')
-    expect(resolveUserName(claims, '{"U999":"other"}')).toBe('kanayama')
+  it.each([
+    ['対応表が空', '{}'],
+    ['対応表に本人がいない', '{"U999":"other"}'],
+    ['対応表が JSON として壊れている', 'broken'],
+  ])('%s なら Slack のハンドルを使う', (_label, overrides) => {
+    const name = resolveUserName(claims, overrides)
+
+    expect(name).toBe('kanayama')
   })
 
-  it('handle が無ければ氏名にフォールバックする', () => {
-    expect(resolveUserName({ sub: 'U123', name: 'Ryota Kanayama' }, '{}')).toBe('Ryota Kanayama')
-  })
+  it('ハンドルも無ければ氏名を使う', () => {
+    const name = resolveUserName({ sub: 'U123', name: 'Ryota Kanayama' }, '{}')
 
-  it('対応表が不正な JSON でも handle にフォールバックする', () => {
-    expect(resolveUserName(claims, 'broken')).toBe('kanayama')
+    expect(name).toBe('Ryota Kanayama')
   })
 })
 
 describe('postAttendance', () => {
   const OPTS = { apiUrl: 'https://kintai.test/api/receive_slack_post', apiKey: 'KEY1' }
 
-  it('勤怠 API に form POST し ok/status/body と timeout signal を付ける', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('{}') })
+  function stubFetch(response: { ok: boolean; status: number; body: string }) {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: response.ok, status: response.status, text: () => Promise.resolve(response.body) })
     vi.stubGlobal('fetch', fetchMock)
-    const result = await postAttendance('kanayama', '勤怠テキスト', OPTS)
+    return fetchMock
+  }
+
+  it('API キーをクエリに付けた URL へ送る', async () => {
+    // 監査の指摘（#126）: キーをクエリに載せるとログに残る。現状の挙動を記録している
+    const fetchMock = stubFetch({ ok: true, status: 200, body: '{}' })
+
+    await postAttendance('kanayama', '勤怠テキスト', OPTS)
+
+    expect(fetchMock.mock.calls[0][0]).toBe('https://kintai.test/api/receive_slack_post?key=KEY1')
+  })
+
+  it('送信者と本文をフォーム形式で送る', async () => {
+    const fetchMock = stubFetch({ ok: true, status: 200, body: '{}' })
+
+    await postAttendance('kanayama', '勤怠テキスト', OPTS)
+
+    const params = new URLSearchParams(String(fetchMock.mock.calls[0][1].body))
+    expect([params.get('user_name'), params.get('text')]).toEqual(['kanayama', '勤怠テキスト'])
+  })
+
+  it('タイムアウトを付けて送る', async () => {
+    const fetchMock = stubFetch({ ok: true, status: 200, body: '{}' })
+
+    await postAttendance('kanayama', '勤怠テキスト', OPTS)
+
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('成功したら ok・status・本文を返す', async () => {
+    stubFetch({ ok: true, status: 200, body: '{}' })
+
+    const result = await postAttendance('a', 't', OPTS)
+
     expect(result).toEqual({ ok: true, status: 200, body: '{}' })
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('https://kintai.test/api/receive_slack_post?key=KEY1')
-    expect(init.signal).toBeInstanceOf(AbortSignal)
-    const params = new URLSearchParams(String(init.body))
-    expect(params.get('user_name')).toBe('kanayama')
-    expect(params.get('text')).toBe('勤怠テキスト')
   })
 
-  it('上流の 400 は ok:false で返す（body は診断用に保持）', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: false, status: 400, text: () => Promise.resolve('{"error_message":"format"}'),
-    }))
-    expect(await postAttendance('a', 't', OPTS))
-      .toEqual({ ok: false, status: 400, body: '{"error_message":"format"}' })
+  it('上流の 2xx 以外は ok:false で返す（本文は診断用に残す）', async () => {
+    stubFetch({ ok: false, status: 400, body: '{"error_message":"format"}' })
+
+    const result = await postAttendance('a', 't', OPTS)
+
+    expect(result).toEqual({ ok: false, status: 400, body: '{"error_message":"format"}' })
   })
 
-  it('ネットワークエラーは throw せず error を返す', async () => {
+  it('通信に失敗しても例外は投げず、error を返す', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')))
-    expect(await postAttendance('a', 't', OPTS)).toEqual({ error: 'network: ECONNRESET' })
+
+    const result = await postAttendance('a', 't', OPTS)
+
+    expect(result).toEqual({ error: 'network: ECONNRESET' })
   })
 })
