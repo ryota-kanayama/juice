@@ -1,148 +1,164 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { renderHook, act, type RenderHookResult } from '@testing-library/react'
+import type { SettingsState } from './useSettings'
 
-const mockGetTheme = vi.fn()
-const mockSetTheme = vi.fn()
-const mockOnThemeChanged = vi.fn()
-const mockGetIdle = vi.fn()
-const mockSetIdle = vi.fn()
-const mockGetElapsed = vi.fn()
-const mockSetElapsed = vi.fn()
-const mockGetPomodoro = vi.fn()
-const mockSetPomodoro = vi.fn()
-const mockGetWhiteboard = vi.fn()
-const mockSetWhiteboard = vi.fn()
-const mockGetBreakBehavior = vi.fn()
-const mockSetBreakBehavior = vi.fn()
-const mockGetMainProjectCode = vi.fn()
-const mockSetMainProjectCode = vi.fn()
-const mockGetLaunchAtLogin = vi.fn()
-const mockSetLaunchAtLogin = vi.fn()
-
-vi.mock('../repositories/settingsRepository', () => ({
-  settingsRepository: {
-    getTheme: () => mockGetTheme(),
-    setTheme: (t: string) => mockSetTheme(t),
-    onThemeChanged: (cb: (t: string) => void) => mockOnThemeChanged(cb),
-    getIdle: () => mockGetIdle(),
-    setIdle: (e: boolean, m: number) => mockSetIdle(e, m),
-    getElapsed: () => mockGetElapsed(),
-    setElapsed: (e: boolean, m: number) => mockSetElapsed(e, m),
-    getPomodoro: () => mockGetPomodoro(),
-    setPomodoro: (e: boolean) => mockSetPomodoro(e),
-    getWhiteboard: () => mockGetWhiteboard(),
-    setWhiteboard: (e: boolean) => mockSetWhiteboard(e),
-    getBreakBehavior: () => mockGetBreakBehavior(),
-    setBreakBehavior: (b: string) => mockSetBreakBehavior(b),
-    getMainProjectCode: () => mockGetMainProjectCode(),
-    setMainProjectCode: (c: string) => mockSetMainProjectCode(c),
-    getLaunchAtLogin: () => mockGetLaunchAtLogin(),
-    setLaunchAtLogin: (e: boolean) => mockSetLaunchAtLogin(e),
-  },
+const repo = vi.hoisted(() => ({
+  getTheme: vi.fn(),
+  setTheme: vi.fn(),
+  onThemeChanged: vi.fn(),
+  getIdle: vi.fn(),
+  setIdle: vi.fn(),
+  getElapsed: vi.fn(),
+  setElapsed: vi.fn(),
+  getPomodoro: vi.fn(),
+  setPomodoro: vi.fn(),
+  getWhiteboard: vi.fn(),
+  setWhiteboard: vi.fn(),
+  getBreakBehavior: vi.fn(),
+  setBreakBehavior: vi.fn(),
+  getMainProjectCode: vi.fn(),
+  setMainProjectCode: vi.fn(),
+  getLaunchAtLogin: vi.fn(),
+  setLaunchAtLogin: vi.fn(),
 }))
+vi.mock('../repositories/settingsRepository', () => ({ settingsRepository: repo }))
 
 const mockApplyTheme = vi.fn()
 vi.mock('../theme/applyTheme', () => ({ applyTheme: (t: string) => mockApplyTheme(t) }))
 
 import { useSettings } from './useSettings'
 
+let themeChanged: ((themeId: string) => void) | null = null
+const offThemeChanged = vi.fn()
+
 beforeEach(() => {
-  vi.clearAllMocks()
-  mockGetTheme.mockResolvedValue('milk')
-  mockOnThemeChanged.mockReturnValue(() => {})
-  mockGetIdle.mockResolvedValue({ enabled: false, minutes: 60 })
-  mockGetElapsed.mockResolvedValue({ enabled: false, minutes: 30 })
-  mockGetPomodoro.mockResolvedValue({ enabled: false })
-  mockGetWhiteboard.mockResolvedValue({ enabled: false })
-  mockGetBreakBehavior.mockResolvedValue({ behavior: 'stop' })
-  mockGetMainProjectCode.mockResolvedValue('')
-  mockGetLaunchAtLogin.mockResolvedValue(false)
+  vi.resetAllMocks()
+  repo.getTheme.mockResolvedValue('milk')
+  repo.onThemeChanged.mockImplementation((cb: (t: string) => void) => {
+    themeChanged = cb
+    return offThemeChanged
+  })
+  repo.getIdle.mockResolvedValue({ enabled: false, minutes: 60 })
+  repo.getElapsed.mockResolvedValue({ enabled: false, minutes: 30 })
+  repo.getPomodoro.mockResolvedValue({ enabled: false })
+  repo.getWhiteboard.mockResolvedValue({ enabled: false })
+  repo.getBreakBehavior.mockResolvedValue({ behavior: 'stop' })
+  repo.getMainProjectCode.mockResolvedValue('')
+  repo.getLaunchAtLogin.mockResolvedValue(false)
 })
 
+type Hook = RenderHookResult<SettingsState, unknown>
+
+async function renderLoaded(): Promise<Hook> {
+  const hook = renderHook(() => useSettings())
+  await act(async () => {})
+  return hook
+}
+
 describe('useSettings', () => {
-  it('初期ロードで全設定を反映する', async () => {
-    mockGetTheme.mockResolvedValue('rose')
-    mockGetIdle.mockResolvedValue({ enabled: true, minutes: 45 })
-    mockGetElapsed.mockResolvedValue({ enabled: true, minutes: 25 })
-    mockGetPomodoro.mockResolvedValue({ enabled: true })
-    mockGetWhiteboard.mockResolvedValue({ enabled: true })
-    mockGetBreakBehavior.mockResolvedValue({ behavior: 'pause' })
-    mockGetMainProjectCode.mockResolvedValue('PJ-1')
+  describe('初回の読み込み', () => {
+    it('保存済みの設定をすべて反映する', async () => {
+      repo.getTheme.mockResolvedValue('soda')
+      repo.getIdle.mockResolvedValue({ enabled: true, minutes: 45 })
+      repo.getElapsed.mockResolvedValue({ enabled: true, minutes: 25 })
+      repo.getPomodoro.mockResolvedValue({ enabled: true })
+      repo.getWhiteboard.mockResolvedValue({ enabled: true })
+      repo.getBreakBehavior.mockResolvedValue({ behavior: 'pause' })
+      repo.getMainProjectCode.mockResolvedValue('PJ-1')
+      repo.getLaunchAtLogin.mockResolvedValue(true)
 
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.activeThemeId).toBe('rose'))
-    expect(result.current.idleEnabled).toBe(true)
-    expect(result.current.idleMinutes).toBe(45)
-    expect(result.current.elapsedEnabled).toBe(true)
-    expect(result.current.elapsedMinutes).toBe(25)
-    expect(result.current.pomodoroEnabled).toBe(true)
-    expect(result.current.whiteboardEnabled).toBe(true)
-    expect(result.current.breakBehavior).toBe('pause')
-    expect(result.current.mainProjectCode).toBe('PJ-1')
+      const { result } = await renderLoaded()
+
+      expect(result.current).toMatchObject({
+        activeThemeId: 'soda',
+        idleEnabled: true,
+        idleMinutes: 45,
+        elapsedEnabled: true,
+        elapsedMinutes: 25,
+        pomodoroEnabled: true,
+        whiteboardEnabled: true,
+        breakBehavior: 'pause',
+        mainProjectCode: 'PJ-1',
+        launchAtLogin: true,
+      })
+    })
   })
 
-  it('setTheme で applyTheme と永続化を呼び state を更新する', async () => {
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.activeThemeId).toBe('milk'))
-    act(() => result.current.setTheme('graphite'))
-    expect(mockApplyTheme).toHaveBeenCalledWith('graphite')
-    expect(mockSetTheme).toHaveBeenCalledWith('graphite')
-    expect(result.current.activeThemeId).toBe('graphite')
+  describe('他のウィンドウでのテーマ変更', () => {
+    it('通知されたテーマを反映する', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => { themeChanged!('graphite') })
+
+      expect(result.current.activeThemeId).toBe('graphite')
+    })
+
+    it('アンマウントすると購読を解除する', async () => {
+      const { unmount } = await renderLoaded()
+
+      unmount()
+
+      expect(offThemeChanged).toHaveBeenCalledOnce()
+    })
   })
 
-  it('setIdle で永続化と state を更新する', async () => {
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.activeThemeId).toBe('milk'))
-    act(() => result.current.setIdle(true, 90))
-    expect(mockSetIdle).toHaveBeenCalledWith(true, 90)
-    expect(result.current.idleEnabled).toBe(true)
-    expect(result.current.idleMinutes).toBe(90)
+  describe('setTheme', () => {
+    it('保存を待たずにテーマを画面へ適用する', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setTheme('graphite'))
+
+      expect(mockApplyTheme).toHaveBeenCalledWith('graphite')
+    })
+
+    it('保存する', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setTheme('graphite'))
+
+      expect(repo.setTheme).toHaveBeenCalledWith('graphite')
+    })
+
+    it('選択中のテーマを変える', async () => {
+      const { result } = await renderLoaded()
+
+      act(() => result.current.setTheme('graphite'))
+
+      expect(result.current.activeThemeId).toBe('graphite')
+    })
   })
 
-  it('setElapsed で永続化と state を更新する', async () => {
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.activeThemeId).toBe('milk'))
-    act(() => result.current.setElapsed(true, 15))
-    expect(mockSetElapsed).toHaveBeenCalledWith(true, 15)
-    expect(result.current.elapsedEnabled).toBe(true)
-    expect(result.current.elapsedMinutes).toBe(15)
-  })
+  // 各 setter は「保存する」と「画面の状態を変える」の2つを行う
+  const setters: Array<{
+    name: string
+    call: (s: SettingsState) => void
+    saved: [keyof typeof repo, unknown[]]
+    state: Partial<SettingsState>
+  }> = [
+    { name: 'setIdle', call: s => s.setIdle(true, 90), saved: ['setIdle', [true, 90]], state: { idleEnabled: true, idleMinutes: 90 } },
+    { name: 'setElapsed', call: s => s.setElapsed(true, 15), saved: ['setElapsed', [true, 15]], state: { elapsedEnabled: true, elapsedMinutes: 15 } },
+    { name: 'setPomodoro', call: s => s.setPomodoro(true), saved: ['setPomodoro', [true]], state: { pomodoroEnabled: true } },
+    { name: 'setWhiteboard', call: s => s.setWhiteboard(true), saved: ['setWhiteboard', [true]], state: { whiteboardEnabled: true } },
+    { name: 'setBreakBehavior', call: s => s.setBreakBehavior('pause'), saved: ['setBreakBehavior', ['pause']], state: { breakBehavior: 'pause' } },
+    { name: 'setMainProjectCode', call: s => s.setMainProjectCode('PJ-9'), saved: ['setMainProjectCode', ['PJ-9']], state: { mainProjectCode: 'PJ-9' } },
+    { name: 'setLaunchAtLogin', call: s => s.setLaunchAtLogin(true), saved: ['setLaunchAtLogin', [true]], state: { launchAtLogin: true } },
+  ]
 
-  it('setPomodoro で永続化と state を更新する', async () => {
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.activeThemeId).toBe('milk'))
-    act(() => result.current.setPomodoro(true))
-    expect(mockSetPomodoro).toHaveBeenCalledWith(true)
-    expect(result.current.pomodoroEnabled).toBe(true)
-  })
+  describe.each(setters)('$name', ({ call, saved: [method, args], state }) => {
+    it('保存する', async () => {
+      const { result } = await renderLoaded()
 
-  it('setBreakBehavior で永続化と state を更新する', async () => {
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.activeThemeId).toBe('milk'))
-    act(() => result.current.setBreakBehavior('pause'))
-    expect(mockSetBreakBehavior).toHaveBeenCalledWith('pause')
-    expect(result.current.breakBehavior).toBe('pause')
-  })
+      act(() => call(result.current))
 
-  it('setMainProjectCode で永続化と state を更新する', async () => {
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.activeThemeId).toBe('milk'))
-    act(() => result.current.setMainProjectCode('PJ-9'))
-    expect(mockSetMainProjectCode).toHaveBeenCalledWith('PJ-9')
-    expect(result.current.mainProjectCode).toBe('PJ-9')
-  })
+      expect(repo[method]).toHaveBeenCalledWith(...args)
+    })
 
-  it('初期ロードで launchAtLogin を反映する', async () => {
-    mockGetLaunchAtLogin.mockResolvedValue(true)
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.launchAtLogin).toBe(true))
-  })
+    it('画面の状態を変える', async () => {
+      const { result } = await renderLoaded()
 
-  it('setLaunchAtLogin で永続化と state を更新する', async () => {
-    const { result } = renderHook(() => useSettings())
-    await waitFor(() => expect(result.current.activeThemeId).toBe('milk'))
-    act(() => result.current.setLaunchAtLogin(true))
-    expect(mockSetLaunchAtLogin).toHaveBeenCalledWith(true)
-    expect(result.current.launchAtLogin).toBe(true)
+      act(() => call(result.current))
+
+      expect(result.current).toMatchObject(state)
+    })
   })
 })

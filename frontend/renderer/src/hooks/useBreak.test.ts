@@ -1,21 +1,21 @@
-import { describe, it, expect, vi } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
-import { useBreak } from './useBreak'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { renderHook, act, type RenderHookResult } from '@testing-library/react'
+import { useBreak, type BreakState } from './useBreak'
 import type { TimerSessionState } from './useTimerSession'
 import type { WorkdayState } from './useWorkday'
+import { makeSession } from '../test/factories'
 
+const getBreakBehavior = vi.hoisted(() => vi.fn())
 vi.mock('../repositories/settingsRepository', () => ({
-  settingsRepository: {
-    getBreakBehavior: vi.fn().mockResolvedValue({ behavior: 'stop' }),
-  },
+  settingsRepository: { getBreakBehavior: () => getBreakBehavior() },
 }))
 
-const makeMockTs = (overrides: Partial<TimerSessionState> = {}): TimerSessionState => ({
+const makeTs = (overrides: Partial<TimerSessionState> = {}): TimerSessionState => ({
   isRunning: false,
   isPaused: false,
   elapsedSeconds: 0,
   baseSeconds: 0,
-  fillSeconds: 1500,
+  fillSeconds: 1800,
   juiceSeconds: 0,
   activeColor: '#FF9500',
   activeSessionId: null,
@@ -43,7 +43,7 @@ const makeMockTs = (overrides: Partial<TimerSessionState> = {}): TimerSessionSta
   ...overrides,
 })
 
-const makeMockWorkday = (overrides: Partial<WorkdayState> = {}): WorkdayState => ({
+const makeWorkday = (overrides: Partial<WorkdayState> = {}): WorkdayState => ({
   workStart: '09:00',
   workEnd: null,
   breakStart: null,
@@ -59,56 +59,171 @@ const makeMockWorkday = (overrides: Partial<WorkdayState> = {}): WorkdayState =>
   ...overrides,
 })
 
+type Hook = RenderHookResult<BreakState, unknown>['result']
+
+/** 休憩時の動作設定を読み込ませてから返す */
+async function renderBreak(ts: TimerSessionState, workday: WorkdayState): Promise<Hook> {
+  const { result } = renderHook(() => useBreak(ts, workday))
+  await act(async () => {})
+  return result
+}
+
+async function startBreak(hook: Hook): Promise<void> {
+  await act(async () => { await hook.current.handleBreakStart('PJ', 'dev') })
+}
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-06-18T12:00:00'))
+  getBreakBehavior.mockReset().mockResolvedValue({ behavior: 'stop' })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('useBreak', () => {
-  it('初期状態は isOnBreak = false', () => {
-    const { result } = renderHook(() => useBreak(makeMockTs(), makeMockWorkday()))
-    expect(result.current.isOnBreak).toBe(false)
+  it('初期状態は休憩中ではない', async () => {
+    const hook = await renderBreak(makeTs(), makeWorkday())
+
+    expect(hook.current.isOnBreak).toBe(false)
   })
 
-  it('handleBreakStart を呼ぶと isOnBreak = true になり startBreak が呼ばれる', async () => {
-    const workday = makeMockWorkday()
-    const { result } = renderHook(() => useBreak(makeMockTs(), workday))
-    await act(async () => { await result.current.handleBreakStart('PJ', 'dev') })
-    expect(result.current.isOnBreak).toBe(true)
-    expect(workday.startBreak).toHaveBeenCalledWith(expect.stringMatching(/^\d{2}:\d{2}$/))
+  describe('休憩開始（共通）', () => {
+    it('休憩中になる', async () => {
+      const hook = await renderBreak(makeTs(), makeWorkday())
+
+      await startBreak(hook)
+
+      expect(hook.current.isOnBreak).toBe(true)
+    })
+
+    it('現在時刻を休憩開始として記録する', async () => {
+      const workday = makeWorkday()
+      const hook = await renderBreak(makeTs(), workday)
+
+      await startBreak(hook)
+
+      expect(workday.startBreak).toHaveBeenCalledWith('12:00')
+    })
   })
 
-  it('タイマー稼働中の handleBreakStart は stopForBreak を呼ぶ', async () => {
-    const ts = makeMockTs({ isRunning: true })
-    const { result } = renderHook(() => useBreak(ts, makeMockWorkday()))
-    await act(async () => { await result.current.handleBreakStart('PJ', 'dev') })
-    expect(ts.stopForBreak).toHaveBeenCalledWith('PJ', 'dev')
+  describe('休憩終了（共通）', () => {
+    it('休憩中でなくなる', async () => {
+      const hook = await renderBreak(makeTs(), makeWorkday())
+      await startBreak(hook)
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(hook.current.isOnBreak).toBe(false)
+    })
+
+    it('現在時刻を休憩終了として記録する', async () => {
+      const workday = makeWorkday()
+      const hook = await renderBreak(makeTs(), workday)
+      await startBreak(hook)
+      vi.setSystemTime(new Date('2026-06-18T12:45:00'))
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(workday.endBreak).toHaveBeenCalledWith('12:45')
+    })
+
+    it('休憩開始からの差分を休憩分として記録する', async () => {
+      const workday = makeWorkday({ breakStart: '12:00' })
+      const hook = await renderBreak(makeTs(), workday)
+      await startBreak(hook)
+      vi.setSystemTime(new Date('2026-06-18T12:45:00'))
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(workday.setBreakMinutes).toHaveBeenCalledWith(45)
+    })
   })
 
-  it('handleBreakEnd を呼ぶと isOnBreak = false になり endBreak が呼ばれる', async () => {
-    const workday = makeMockWorkday()
-    const { result } = renderHook(() => useBreak(makeMockTs(), workday))
-    await act(async () => { await result.current.handleBreakStart('', '') })
-    act(() => { result.current.handleBreakEnd() })
-    expect(result.current.isOnBreak).toBe(false)
-    expect(workday.endBreak).toHaveBeenCalledWith(expect.stringMatching(/^\d{2}:\d{2}$/))
+  describe('休憩時の動作が「停止」', () => {
+    it('計測中なら、そのときの PJコード・作業区分で計測を止めて保存する', async () => {
+      const ts = makeTs({ isRunning: true })
+      const hook = await renderBreak(ts, makeWorkday())
+
+      await startBreak(hook)
+
+      expect(ts.stopForBreak).toHaveBeenCalledWith('PJ', 'dev')
+    })
+
+    it('計測していなければ止める処理を呼ばない', async () => {
+      const ts = makeTs({ isRunning: false })
+      const hook = await renderBreak(ts, makeWorkday())
+
+      await startBreak(hook)
+
+      expect(ts.stopForBreak).not.toHaveBeenCalled()
+    })
+
+    it('休憩終了で、止めた作業を「もう一杯」で再開する', async () => {
+      const session = makeSession()
+      const ts = makeTs({ isRunning: true, stopForBreak: vi.fn().mockResolvedValue(session) })
+      const hook = await renderBreak(ts, makeWorkday())
+      await startBreak(hook)
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(ts.startMore).toHaveBeenCalledWith(session)
+    })
+
+    it('休憩前に計測していなければ、休憩終了で何も再開しない', async () => {
+      const ts = makeTs({ isRunning: false })
+      const hook = await renderBreak(ts, makeWorkday())
+      await startBreak(hook)
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(ts.startMore).not.toHaveBeenCalled()
+    })
+
+    it('再開は一度きり（次の休憩終了で同じ作業を再開しない）', async () => {
+      const ts = makeTs({ isRunning: true, stopForBreak: vi.fn().mockResolvedValue(makeSession()) })
+      const hook = await renderBreak(ts, makeWorkday())
+      await startBreak(hook)
+      act(() => { hook.current.handleBreakEnd() })
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(ts.startMore).toHaveBeenCalledOnce()
+    })
   })
 
-  it('behavior=stop で break end 後、lastSession があれば startMore を呼ぶ', async () => {
-    const session = { id: 's1', taskId: 't1', name: 'test', projectCode: 'PJ', workCategory: 'dev', times: [], date: '2026-06-18', color: '#FF9500', totalTime: 30 }
-    const ts = makeMockTs({ isRunning: true, stopForBreak: vi.fn().mockResolvedValue(session) })
-    const { result } = renderHook(() => useBreak(ts, makeMockWorkday()))
-    await act(async () => { await result.current.handleBreakStart('PJ', 'dev') })
-    act(() => { result.current.handleBreakEnd() })
-    expect(ts.startMore).toHaveBeenCalledWith(session)
-  })
+  describe('休憩時の動作が「一時停止」', () => {
+    beforeEach(() => {
+      getBreakBehavior.mockResolvedValue({ behavior: 'pause' })
+    })
 
-  it('handleBreakEnd は setBreakMinutes を呼ぶ（breakStart からの差分）', async () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-06-18T13:00:00'))
-    try {
-      const workday = makeMockWorkday({ breakStart: '12:00' })
-      const { result } = renderHook(() => useBreak(makeMockTs(), workday))
-      await act(async () => { await result.current.handleBreakStart('', '') })
-      act(() => { result.current.handleBreakEnd() })
-      expect(workday.setBreakMinutes).toHaveBeenCalledWith(60)
-    } finally {
-      vi.useRealTimers()
-    }
+    it('休憩開始でタイマーを一時停止する', async () => {
+      const ts = makeTs({ isRunning: true })
+      const hook = await renderBreak(ts, makeWorkday())
+
+      await startBreak(hook)
+
+      expect(ts.pause).toHaveBeenCalledOnce()
+    })
+
+    it('計測を止めて保存はしない', async () => {
+      const ts = makeTs({ isRunning: true })
+      const hook = await renderBreak(ts, makeWorkday())
+
+      await startBreak(hook)
+
+      expect(ts.stopForBreak).not.toHaveBeenCalled()
+    })
+
+    it('休憩終了でタイマーを再開する', async () => {
+      const ts = makeTs({ isRunning: true })
+      const hook = await renderBreak(ts, makeWorkday())
+      await startBreak(hook)
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(ts.resume).toHaveBeenCalledOnce()
+    })
   })
 })
