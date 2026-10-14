@@ -214,24 +214,63 @@ mod tests {
     }
 
     #[test]
-    fn non_existent_month_is_empty() {
+    fn non_existent_month_has_version_1() {
         let (s, _d) = new_store();
+
         let m = s.get_month("2026-06").unwrap();
+
         assert_eq!(m.version, 1);
-        assert!(m.days.is_empty());
-        assert!(s.get_day("2026-06-17").unwrap().is_none());
     }
 
     #[test]
-    fn set_day_merges_and_stamps_updated_at() {
+    fn non_existent_month_has_no_days() {
+        let (s, _d) = new_store();
+
+        let m = s.get_month("2026-06").unwrap();
+
+        assert!(m.days.is_empty());
+    }
+
+    #[test]
+    fn non_existent_day_is_none() {
+        let (s, _d) = new_store();
+
+        let day = s.get_day("2026-06-17").unwrap();
+
+        assert!(day.is_none());
+    }
+
+    #[test]
+    fn set_day_keeps_earlier_fields_when_merging() {
         let (s, _d) = new_store();
         s.set_day("2026-06-17", json!({ "workStart": "09:00", "telework": true }))
             .unwrap();
         s.set_day("2026-06-17", json!({ "workEnd": "18:00" })).unwrap();
+
         let day = s.get_day("2026-06-17").unwrap().unwrap();
+
         assert_eq!(day["workStart"], "09:00");
         assert_eq!(day["telework"], true);
+    }
+
+    #[test]
+    fn set_day_adds_new_fields_when_merging() {
+        let (s, _d) = new_store();
+        s.set_day("2026-06-17", json!({ "workStart": "09:00" })).unwrap();
+        s.set_day("2026-06-17", json!({ "workEnd": "18:00" })).unwrap();
+
+        let day = s.get_day("2026-06-17").unwrap().unwrap();
+
         assert_eq!(day["workEnd"], "18:00");
+    }
+
+    #[test]
+    fn set_day_stamps_updated_at_as_utc_iso() {
+        let (s, _d) = new_store();
+        s.set_day("2026-06-17", json!({ "workStart": "09:00" })).unwrap();
+
+        let day = s.get_day("2026-06-17").unwrap().unwrap();
+
         let updated = day["updatedAt"].as_str().unwrap();
         // /^\d{4}-\d{2}-\d{2}T.*Z$/ 相当
         assert!(updated.contains('T') && updated.ends_with('Z'));
@@ -239,30 +278,44 @@ mod tests {
     }
 
     #[test]
-    fn written_with_version_1() {
+    fn file_is_written_with_version_1() {
         let (s, dir) = new_store();
         s.set_day("2026-06-17", json!({ "workStart": "09:00" })).unwrap();
+
         let raw: Value = serde_json::from_str(
             &std::fs::read_to_string(dir.path().join("daily-2026-06.json")).unwrap(),
         )
         .unwrap();
+
         assert_eq!(raw["version"], 1);
+    }
+
+    #[test]
+    fn file_holds_day_record_under_its_date() {
+        let (s, dir) = new_store();
+        s.set_day("2026-06-17", json!({ "workStart": "09:00" })).unwrap();
+
+        let raw: Value = serde_json::from_str(
+            &std::fs::read_to_string(dir.path().join("daily-2026-06.json")).unwrap(),
+        )
+        .unwrap();
+
         assert_eq!(raw["days"]["2026-06-17"]["workStart"], "09:00");
     }
 
     #[test]
-    fn restore_from_bak_on_corrupt() {
+    fn corrupt_file_is_restored_from_bak() {
         let (s, dir) = new_store();
         s.set_day("2026-06-17", json!({ "workStart": "09:00" })).unwrap();
         s.set_day("2026-06-17", json!({ "workEnd": "18:00" })).unwrap(); // .bak が作られる
         std::fs::write(dir.path().join("daily-2026-06.json"), "{ broken").unwrap();
+
         let day = s.get_day("2026-06-17").unwrap().unwrap();
+
         assert_eq!(day["workStart"], "09:00"); // .bak の内容（workEnd 前）
     }
 
-    #[test]
-    fn import_legacy_groups_and_skips_existing() {
-        let (s, _d) = new_store();
+    fn import_three_legacy_entries(s: &DailyStore) {
         s.set_day("2026-06-17", json!({ "workStart": "08:00" })).unwrap();
         s.import_legacy(vec![
             LegacyEntry {
@@ -279,26 +332,74 @@ mod tests {
             },
         ])
         .unwrap();
-        assert_eq!(s.get_day("2026-06-17").unwrap().unwrap()["workStart"], "08:00");
-        assert_eq!(s.get_day("2026-06-18").unwrap().unwrap()["telework"], true);
-        assert_eq!(s.get_day("2026-05-01").unwrap().unwrap()["workStart"], "10:00");
     }
 
     #[test]
-    fn prune_removes_old_days() {
+    fn import_legacy_skips_existing_day() {
+        let (s, _d) = new_store();
+        import_three_legacy_entries(&s);
+
+        let day = s.get_day("2026-06-17").unwrap().unwrap();
+
+        assert_eq!(day["workStart"], "08:00");
+    }
+
+    #[test]
+    fn import_legacy_adds_new_day_in_existing_month() {
+        let (s, _d) = new_store();
+        import_three_legacy_entries(&s);
+
+        let day = s.get_day("2026-06-18").unwrap().unwrap();
+
+        assert_eq!(day["telework"], true);
+    }
+
+    #[test]
+    fn import_legacy_adds_day_in_another_month() {
+        let (s, _d) = new_store();
+        import_three_legacy_entries(&s);
+
+        let day = s.get_day("2026-05-01").unwrap().unwrap();
+
+        assert_eq!(day["workStart"], "10:00");
+    }
+
+    #[test]
+    fn prune_removes_days_older_than_limit() {
+        let (s, _d) = new_store();
+        s.set_day("2000-01-01", json!({ "workStart": "09:00" })).unwrap();
+
+        s.prune(90).unwrap();
+
+        assert!(s.get_day("2000-01-01").unwrap().is_none());
+    }
+
+    #[test]
+    fn prune_keeps_recent_days() {
         let (s, _d) = new_store();
         let recent = chrono::Local::now().format("%Y-%m-%d").to_string();
-        s.set_day("2000-01-01", json!({ "workStart": "09:00" })).unwrap();
         s.set_day(&recent, json!({ "workStart": "09:00" })).unwrap();
+
         s.prune(90).unwrap();
-        assert!(s.get_day("2000-01-01").unwrap().is_none());
+
         assert!(s.get_day(&recent).unwrap().is_some());
     }
 
     #[test]
-    fn rejects_invalid_year_month_and_date() {
+    fn get_month_rejects_invalid_year_month() {
         let (s, _d) = new_store();
-        assert!(s.get_month("2026/06").is_err());
-        assert!(s.set_day("2026-6-1", json!({})).is_err());
+
+        let result = s.get_month("2026/06");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn set_day_rejects_invalid_date() {
+        let (s, _d) = new_store();
+
+        let result = s.set_day("2026-6-1", json!({}));
+
+        assert!(result.is_err());
     }
 }
