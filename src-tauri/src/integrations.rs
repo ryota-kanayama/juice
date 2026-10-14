@@ -9,7 +9,6 @@ use crate::settings_store::SettingsStore;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Manager};
-use tauri_plugin_notification::NotificationExt;
 
 pub const NEED_SIGNIN_MSG: &str = "Slack サインインが必要です（設定 > アカウント）";
 
@@ -130,12 +129,11 @@ fn prompt_sign_in(app: &AppHandle) {
     if PROMPTED.swap(true, Ordering::SeqCst) {
         return;
     }
-    let _ = app
-        .notification()
-        .builder()
-        .title("Juice")
-        .body("連携機能には Slack サインインが必要です。設定 > アカウントからサインインしてください。")
-        .show();
+    crate::notify::show(
+        app,
+        "連携機能には Slack サインインが必要です。設定 > アカウントからサインインしてください。",
+        crate::notify::OnClick::OpenSettings,
+    );
 }
 
 /// 勤怠を Lambda に送信。成功時はホワイトボード退勤を非同期発火する。

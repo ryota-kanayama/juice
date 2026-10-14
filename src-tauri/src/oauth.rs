@@ -9,7 +9,6 @@
 use crate::auth::AuthStore;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_notification::NotificationExt;
 
 const STATE_TTL_MS: i64 = 10 * 60 * 1000;
 
@@ -89,6 +88,7 @@ pub fn handle_callback(app: &AppHandle, raw_url: &str) -> bool {
     {
         eprintln!("[oauth] callback rejected: state mismatch or expired");
         notify(app, "サインインに失敗しました。やり直してください。");
+        crate::show_after_sign_in(app);
         return false;
     }
 
@@ -96,6 +96,7 @@ pub fn handle_callback(app: &AppHandle, raw_url: &str) -> bool {
     if let Err(e) = store.save_token(&token.unwrap()) {
         eprintln!("[oauth] save_token failed: {e}");
         notify(app, "サインインに失敗しました。やり直してください。");
+        crate::show_after_sign_in(app);
         return false;
     }
     let status = store.get_status(now_ms());
@@ -104,14 +105,11 @@ pub fn handle_callback(app: &AppHandle, raw_url: &str) -> bool {
         app,
         &format!("Slack にサインインしました（{}）", status.name.clone().unwrap_or_default()),
     );
+    // ブラウザから戻ってきたので、サインインを始めた画面を前に出す（#149）
+    crate::show_after_sign_in(app);
     true
 }
 
 fn notify(app: &AppHandle, body: &str) {
-    let _ = app
-        .notification()
-        .builder()
-        .title("Juice")
-        .body(body)
-        .show();
+    crate::notify::show(app, body, crate::notify::OnClick::ShowPanel);
 }
