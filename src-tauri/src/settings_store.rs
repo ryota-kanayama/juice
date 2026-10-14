@@ -278,124 +278,253 @@ mod tests {
         (SettingsStore::new(dir.path().to_path_buf()), dir)
     }
 
+    // --- テーマ ---
+
     #[test]
-    fn default_theme_is_milk() {
+    fn theme_defaults_to_milk() {
         let (s, _d) = new_store();
-        assert_eq!(s.get_theme(), "milk");
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "milk");
     }
 
     #[test]
-    fn save_and_get_theme() {
+    fn saved_theme_is_returned() {
         let (s, _d) = new_store();
         s.set_theme("soda").unwrap();
-        assert_eq!(s.get_theme(), "soda");
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "soda");
     }
 
     #[test]
-    fn change_theme() {
+    fn changing_theme_returns_latest() {
         let (s, _d) = new_store();
         s.set_theme("berry").unwrap();
         s.set_theme("soda").unwrap();
-        assert_eq!(s.get_theme(), "soda");
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "soda");
     }
 
     #[test]
-    fn migrate_old_theme_ids() {
+    fn old_theme_ids_migrate_to_new_ids() {
         let cases = [
             ("slate", "milk"),
             ("rose", "berry"),
             ("sky", "soda"),
             ("lemon", "mandarin"),
-            ("graphite", "graphite"),
         ];
         for (old, new) in cases {
             let (s, _d) = new_store();
             s.set_theme(old).unwrap();
-            assert_eq!(s.get_theme(), new, "{old} should migrate to {new}");
+
+            let theme = s.get_theme();
+
+            assert_eq!(theme, new, "{old} should migrate to {new}");
         }
     }
 
     #[test]
-    fn new_theme_id_kept() {
+    fn graphite_theme_is_kept() {
+        let (s, _d) = new_store();
+        s.set_theme("graphite").unwrap();
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "graphite");
+    }
+
+    #[test]
+    fn new_theme_id_is_kept() {
         let (s, _d) = new_store();
         s.set_theme("cassis").unwrap();
-        assert_eq!(s.get_theme(), "cassis");
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "cassis");
     }
 
     #[test]
     fn unknown_theme_falls_back_to_milk() {
         let (s, _d) = new_store();
         s.set_theme("unknown-xyz").unwrap();
-        assert_eq!(s.get_theme(), "milk");
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "milk");
     }
 
+    // --- 経過通知 ---
+
     #[test]
-    fn elapsed_default() {
+    fn elapsed_settings_default_to_off_30() {
         let (s, _d) = new_store();
-        assert_eq!(s.get_elapsed_settings(), (false, 30));
+
+        let settings = s.get_elapsed_settings();
+
+        assert_eq!(settings, (false, 30));
     }
 
     #[test]
-    fn elapsed_save_and_change() {
+    fn saved_elapsed_settings_are_returned() {
         let (s, _d) = new_store();
         s.set_elapsed_settings(true, 60).unwrap();
-        assert_eq!(s.get_elapsed_settings(), (true, 60));
+
+        let settings = s.get_elapsed_settings();
+
+        assert_eq!(settings, (true, 60));
+    }
+
+    #[test]
+    fn changing_elapsed_settings_returns_latest() {
+        let (s, _d) = new_store();
+        s.set_elapsed_settings(true, 60).unwrap();
         s.set_elapsed_settings(false, 15).unwrap();
-        assert_eq!(s.get_elapsed_settings(), (false, 15));
+
+        let settings = s.get_elapsed_settings();
+
+        assert_eq!(settings, (false, 15));
+    }
+
+    // --- 離席検知 ---
+
+    #[test]
+    fn idle_settings_default_to_off_60() {
+        let (s, _d) = new_store();
+
+        let settings = s.get_idle_settings();
+
+        assert_eq!(settings, (false, 60));
     }
 
     #[test]
-    fn idle_default_and_save() {
+    fn saved_idle_settings_are_returned() {
         let (s, _d) = new_store();
-        assert_eq!(s.get_idle_settings(), (false, 60));
         s.set_idle_settings(true, 45).unwrap();
-        assert_eq!(s.get_idle_settings(), (true, 45));
+
+        let settings = s.get_idle_settings();
+
+        assert_eq!(settings, (true, 45));
+    }
+
+    // --- ホワイトボード ---
+
+    #[test]
+    fn whiteboard_is_disabled_by_default() {
+        let (s, _d) = new_store();
+
+        let enabled = s.get_whiteboard_enabled();
+
+        assert!(!enabled);
     }
 
     #[test]
-    fn whiteboard_default_and_save() {
+    fn whiteboard_can_be_enabled() {
         let (s, _d) = new_store();
-        assert!(!s.get_whiteboard_enabled());
         s.set_whiteboard_enabled(true).unwrap();
-        assert!(s.get_whiteboard_enabled());
+
+        let enabled = s.get_whiteboard_enabled();
+
+        assert!(enabled);
     }
 
+    // --- ポモドーロ ---
+
     #[test]
-    fn pomodoro_default_save_change() {
+    fn pomodoro_is_disabled_by_default() {
         let (s, _d) = new_store();
-        assert!(!s.get_pomodoro_enabled());
-        s.set_pomodoro_enabled(true).unwrap();
-        assert!(s.get_pomodoro_enabled());
-        s.set_pomodoro_enabled(false).unwrap();
-        assert!(!s.get_pomodoro_enabled());
+
+        let enabled = s.get_pomodoro_enabled();
+
+        assert!(!enabled);
     }
 
     #[test]
-    fn restore_from_bak_on_corrupt() {
+    fn pomodoro_can_be_enabled() {
+        let (s, _d) = new_store();
+        s.set_pomodoro_enabled(true).unwrap();
+
+        let enabled = s.get_pomodoro_enabled();
+
+        assert!(enabled);
+    }
+
+    #[test]
+    fn pomodoro_can_be_disabled_again() {
+        let (s, _d) = new_store();
+        s.set_pomodoro_enabled(true).unwrap();
+        s.set_pomodoro_enabled(false).unwrap();
+
+        let enabled = s.get_pomodoro_enabled();
+
+        assert!(!enabled);
+    }
+
+    // --- 書き込みの堅牢性 ---
+
+    #[test]
+    fn corrupt_settings_are_restored_from_bak() {
         let (s, dir) = new_store();
         s.set_theme("soda").unwrap();
         s.set_elapsed_settings(true, 45).unwrap();
         std::fs::write(dir.path().join("settings.json"), "INVALID JSON").unwrap();
+
         // .bak には setTheme('soda') 直後の状態が入っている
-        assert_eq!(s.get_theme(), "soda");
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "soda");
     }
 
     #[test]
-    fn bak_created_on_write() {
+    fn bak_holds_previous_state_after_write() {
         let (s, dir) = new_store();
         s.set_theme("berry").unwrap();
         s.set_theme("matcha").unwrap();
+
         let bak: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(dir.path().join("settings.json.bak")).unwrap(),
         )
         .unwrap();
+
         assert_eq!(bak["themeId"], "berry");
     }
 
     #[test]
-    fn concurrent_sets_all_applied() {
+    fn concurrent_sets_keep_theme() {
         let (s, _d) = new_store();
         let s = Arc::new(s);
+
+        run_concurrent_sets(&s);
+
+        assert_eq!(s.get_theme(), "soda");
+    }
+
+    #[test]
+    fn concurrent_sets_keep_elapsed_settings() {
+        let (s, _d) = new_store();
+        let s = Arc::new(s);
+
+        run_concurrent_sets(&s);
+
+        assert_eq!(s.get_elapsed_settings(), (true, 60));
+    }
+
+    #[test]
+    fn concurrent_sets_keep_pomodoro_and_whiteboard() {
+        let (s, _d) = new_store();
+        let s = Arc::new(s);
+
+        run_concurrent_sets(&s);
+
+        assert!(s.get_pomodoro_enabled());
+        assert!(s.get_whiteboard_enabled());
+    }
+
+    fn run_concurrent_sets(s: &Arc<SettingsStore>) {
         let tasks: Vec<Box<dyn FnOnce() + Send>> = vec![
             {
                 let s = s.clone();
@@ -418,54 +547,124 @@ mod tests {
         for h in handles {
             h.join().unwrap();
         }
-        assert_eq!(s.get_theme(), "soda");
-        assert_eq!(s.get_elapsed_settings(), (true, 60));
-        assert!(s.get_pomodoro_enabled());
-        assert!(s.get_whiteboard_enabled());
+    }
+
+    // --- 休憩時の動作 ---
+
+    #[test]
+    fn break_behavior_defaults_to_stop() {
+        let (s, _d) = new_store();
+
+        let behavior = s.get_break_behavior();
+
+        assert_eq!(behavior, BreakBehavior::Stop);
     }
 
     #[test]
-    fn break_behavior_default_and_set() {
+    fn saved_break_behavior_is_returned() {
         let (s, _d) = new_store();
-        assert_eq!(s.get_break_behavior(), BreakBehavior::Stop);
         s.set_break_behavior(BreakBehavior::Pause).unwrap();
-        assert_eq!(s.get_break_behavior(), BreakBehavior::Pause);
+
+        let behavior = s.get_break_behavior();
+
+        assert_eq!(behavior, BreakBehavior::Pause);
+    }
+
+    // --- バージョン記録 ---
+
+    #[test]
+    fn dismissed_update_version_defaults_to_empty() {
+        let (s, _d) = new_store();
+
+        let version = s.get_dismissed_update_version();
+
+        assert_eq!(version, "");
     }
 
     #[test]
-    fn dismissed_update_version() {
+    fn saved_dismissed_update_version_is_returned() {
         let (s, _d) = new_store();
-        assert_eq!(s.get_dismissed_update_version(), "");
         s.set_dismissed_update_version("1.2.0").unwrap();
-        assert_eq!(s.get_dismissed_update_version(), "1.2.0");
+
+        let version = s.get_dismissed_update_version();
+
+        assert_eq!(version, "1.2.0");
     }
 
     #[test]
-    fn last_seen_version() {
+    fn last_seen_version_defaults_to_empty() {
         let (s, _d) = new_store();
+
         // 初期値は空（＝まだ一度も記録していない）
-        assert_eq!(s.get_last_seen_version(), "");
+        let version = s.get_last_seen_version();
+
+        assert_eq!(version, "");
+    }
+
+    #[test]
+    fn saved_last_seen_version_is_returned() {
+        let (s, _d) = new_store();
         s.set_last_seen_version("2.2.0").unwrap();
-        assert_eq!(s.get_last_seen_version(), "2.2.0");
+
+        let version = s.get_last_seen_version();
+
+        assert_eq!(version, "2.2.0");
+    }
+
+    // --- メインのプロジェクトコード ---
+
+    #[test]
+    fn main_project_code_defaults_to_empty() {
+        let (s, _d) = new_store();
+
+        let code = s.get_main_project_code();
+
+        assert_eq!(code, "");
     }
 
     #[test]
-    fn main_project_code_default_set_reset() {
+    fn saved_main_project_code_is_returned() {
         let (s, _d) = new_store();
-        assert_eq!(s.get_main_project_code(), "");
         s.set_main_project_code("PROJ-001").unwrap();
-        assert_eq!(s.get_main_project_code(), "PROJ-001");
-        s.set_main_project_code("").unwrap();
-        assert_eq!(s.get_main_project_code(), "");
+
+        let code = s.get_main_project_code();
+
+        assert_eq!(code, "PROJ-001");
     }
 
     #[test]
-    fn setup_completed_flag() {
+    fn main_project_code_can_be_reset_to_empty() {
         let (s, _d) = new_store();
-        assert!(!s.is_setup_completed());
-        s.complete_setup().unwrap();
-        assert!(s.is_setup_completed());
+        s.set_main_project_code("PROJ-001").unwrap();
+        s.set_main_project_code("").unwrap();
+
+        let code = s.get_main_project_code();
+
+        assert_eq!(code, "");
     }
+
+    // --- セットアップ ---
+
+    #[test]
+    fn setup_is_not_completed_by_default() {
+        let (s, _d) = new_store();
+
+        let completed = s.is_setup_completed();
+
+        assert!(!completed);
+    }
+
+    #[test]
+    fn setup_is_completed_after_complete_setup() {
+        let (s, _d) = new_store();
+        s.complete_setup().unwrap();
+
+        let completed = s.is_setup_completed();
+
+        assert!(completed);
+    }
+
+    // --- 旧キー ---
 
     #[test]
     fn unknown_keys_are_dropped_on_rewrite() {
@@ -476,11 +675,25 @@ mod tests {
             r#"{"themeId":"grape","slackProjectCode":"SE26010","userName":"Ryota"}"#,
         )
         .unwrap();
+
         s.set_theme("grape").unwrap(); // 書き戻しを誘発
+
         let written: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert!(written.get("slackProjectCode").is_none());
         assert!(written.get("userName").is_none());
+    }
+
+    #[test]
+    fn known_keys_are_kept_on_rewrite() {
+        let (s, dir) = new_store();
+        let path = dir.path().join("settings.json");
+        std::fs::write(&path, r#"{"themeId":"grape","userName":"Ryota"}"#).unwrap();
+
+        s.set_theme("grape").unwrap(); // 書き戻しを誘発
+
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(written["themeId"], "grape");
     }
 }
