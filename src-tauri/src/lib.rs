@@ -15,6 +15,7 @@ mod holidays;
 mod integrations;
 mod notif_scheduler;
 mod notifications;
+mod notify;
 mod oauth;
 // ポップオーバー（main ウィンドウ）の OS 別実装。公開 API は両 OS で揃える。
 #[cfg_attr(target_os = "macos", path = "panel/macos.rs")]
@@ -340,6 +341,21 @@ fn maybe_show_release_notes(app: &AppHandle) {
         return;
     }
     open_release_notes(app);
+}
+
+/// Slack サインインのコールバックを受けたあと、サインインを始めた画面を前に出す。
+/// サインインはセットアップ・設定・パネルのいずれかから始まるので、開いているものを
+/// この順で探し、どれも無ければパネルを出す。
+pub fn show_after_sign_in(app: &AppHandle) {
+    for label in ["setup", "settings"] {
+        if let Some(win) = app.get_webview_window(label) {
+            let _ = win.unminimize();
+            let _ = win.show();
+            let _ = win.set_focus();
+            return;
+        }
+    }
+    show_panel_now(app);
 }
 
 /// 設定ウィンドウを開く（トレイ「設定」から）。

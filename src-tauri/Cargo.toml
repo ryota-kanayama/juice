@@ -45,6 +45,10 @@ objc = "0.2"
 # NSEvent のグローバルマウス監視ハンドラに渡す ObjC ブロック生成用
 block = "0.1"
 
+# Windows の通知をクリックで受け取るため直接使う（tauri-plugin-notification が内部で使うものと同じ）
+[target.'cfg(windows)'.dependencies]
+tauri-winrt-notification = "0.7"
+
 [dev-dependencies]
 tempfile = "3"
 

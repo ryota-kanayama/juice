@@ -4,14 +4,13 @@
 
 use crate::notifications::{
     elapsed_body, elapsed_due, pomodoro_cycle_pos, pomodoro_message, pomodoro_next_delay,
-    should_notify_idle, ActivityState, IDLE_BODY, NOTIF_TITLE,
+    should_notify_idle, ActivityState, IDLE_BODY,
 };
 use crate::settings_store::SettingsStore;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_notification::NotificationExt;
 
 fn now_ms() -> i64 {
     chrono::Utc::now().timestamp_millis()
@@ -42,15 +41,7 @@ impl NotificationEngine {
 }
 
 fn show(app: &AppHandle, body: &str) {
-    if let Err(e) = app
-        .notification()
-        .builder()
-        .title(NOTIF_TITLE)
-        .body(body)
-        .show()
-    {
-        eprintln!("[notif] show error: {e}");
-    }
+    crate::notify::show(app, body, crate::notify::OnClick::ShowPanel);
 }
 
 /// 即時通知（配線の動作確認用）。
