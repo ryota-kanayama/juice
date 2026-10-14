@@ -997,4 +997,84 @@ mod tests {
 
         assert!(got.notes.contains("別の何か"));
     }
+
+    #[test]
+    fn trusted_url_accepts_github_subdomain() {
+        let ok = is_trusted_github_url("https://api.github.com/repos/x/y/releases/latest");
+
+        assert!(ok);
+    }
+
+    #[test]
+    fn trusted_url_accepts_bare_githubusercontent_host() {
+        let ok = is_trusted_github_url("https://githubusercontent.com/x.dmg");
+
+        assert!(ok);
+    }
+
+    #[test]
+    fn trusted_url_rejects_host_merely_ending_with_github_com() {
+        let ok = is_trusted_github_url("https://evilgithub.com/x.dmg");
+
+        assert!(!ok);
+    }
+
+    #[test]
+    fn trusted_url_rejects_host_merely_ending_with_githubusercontent_com() {
+        let ok = is_trusted_github_url("https://evilgithubusercontent.com/x.dmg");
+
+        assert!(!ok);
+    }
+
+    #[test]
+    fn str_field_returns_string_value() {
+        let v = serde_json::json!({ "body": "notes" });
+
+        let got = str_field(&v, "body");
+
+        assert_eq!(got, "notes");
+    }
+
+    #[test]
+    fn str_field_returns_empty_when_key_missing() {
+        let v = serde_json::json!({});
+
+        let got = str_field(&v, "body");
+
+        assert_eq!(got, "");
+    }
+
+    #[test]
+    fn str_field_returns_empty_when_value_is_not_string() {
+        let v = serde_json::json!({ "body": 1 });
+
+        let got = str_field(&v, "body");
+
+        assert_eq!(got, "");
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    #[test]
+    fn current_arch_is_arm64_on_aarch64() {
+        assert_eq!(current_arch(), "arm64");
+    }
+
+    #[cfg(not(target_arch = "aarch64"))]
+    #[test]
+    fn current_arch_is_x64_elsewhere() {
+        assert_eq!(current_arch(), "x64");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn select_platform_asset_picks_dmg_on_macos() {
+        let list = vec![
+            ReleaseAsset { name: "Juice_1.1.0_aarch64.dmg".into(), url: "u-arm".into() },
+            ReleaseAsset { name: "Juice_1.1.0_x64.dmg".into(), url: "u-x64".into() },
+        ];
+
+        let a = select_platform_asset(&list);
+
+        assert!(a.is_some());
+    }
 }

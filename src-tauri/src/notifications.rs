@@ -271,4 +271,35 @@ mod tests {
 
         assert_eq!(pos, MIN); // 30分周期を1分超過
     }
+
+    #[test]
+    fn pomodoro_delay_mid_work_phase_counts_down_to_work_boundary() {
+        // 作業フェーズの10分地点では、作業境界(25分)まで残り15分
+        let delay = pomodoro_next_delay(10 * MIN, 0);
+
+        assert_eq!(delay, 15 * MIN);
+    }
+
+    #[test]
+    fn pomodoro_delay_mid_break_phase_counts_down_to_cycle_end() {
+        // 休憩フェーズの27分地点では、周期末(30分)まで残り3分
+        let delay = pomodoro_next_delay(27 * MIN, 0);
+
+        assert_eq!(delay, 3 * MIN);
+    }
+
+    #[test]
+    fn pomodoro_delay_is_relative_to_start() {
+        // 開始が100分、現在が110分なら周期内位置は10分
+        let delay = pomodoro_next_delay(110 * MIN, 100 * MIN);
+
+        assert_eq!(delay, 15 * MIN);
+    }
+
+    #[test]
+    fn pomodoro_cycle_pos_is_relative_to_start() {
+        let pos = pomodoro_cycle_pos(110 * MIN, 100 * MIN);
+
+        assert_eq!(pos, 10 * MIN);
+    }
 }

@@ -1009,4 +1009,111 @@ mod tests {
         let migrated = got.iter().find(|s| s.id == "a").unwrap();
         assert_eq!(migrated.times[0].end_time.as_deref(), Some("2026-05-20T10:30:00"));
     }
+
+    // --- is_date ---
+
+    #[test]
+    fn is_date_accepts_yyyy_mm_dd() {
+        assert!(is_date("2026-02-25"));
+    }
+
+    #[test]
+    fn is_date_rejects_wrong_length() {
+        assert!(!is_date("2026-02-255"));
+    }
+
+    #[test]
+    fn is_date_rejects_non_digit_in_year() {
+        assert!(!is_date("20x6-02-25"));
+    }
+
+    #[test]
+    fn is_date_rejects_wrong_first_separator() {
+        assert!(!is_date("2026/02-25"));
+    }
+
+    #[test]
+    fn is_date_rejects_non_digit_in_month_tens() {
+        assert!(!is_date("2026-x2-25"));
+    }
+
+    #[test]
+    fn is_date_rejects_non_digit_in_month_ones() {
+        assert!(!is_date("2026-0x-25"));
+    }
+
+    #[test]
+    fn is_date_rejects_wrong_second_separator() {
+        assert!(!is_date("2026-02/25"));
+    }
+
+    #[test]
+    fn is_date_rejects_non_digit_in_day_tens() {
+        assert!(!is_date("2026-02-x5"));
+    }
+
+    #[test]
+    fn is_date_rejects_non_digit_in_day_ones() {
+        assert!(!is_date("2026-02-2x"));
+    }
+
+    // --- StoreError の表示 ---
+
+    #[test]
+    fn invalid_year_month_error_message_names_the_input() {
+        let msg = StoreError::InvalidYearMonth("2026/06".into()).to_string();
+
+        assert_eq!(msg, "invalid yearMonth: 2026/06");
+    }
+
+    #[test]
+    fn invalid_date_error_message_names_the_input() {
+        let msg = StoreError::InvalidDate("x".into()).to_string();
+
+        assert_eq!(msg, "invalid session.date: x");
+    }
+
+    // --- migrate_sessions の境界値 ---
+
+    #[test]
+    fn migrate_leaves_zero_total_time_alone() {
+        let sessions = vec![session_with(
+            "a",
+            vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:10:00"))],
+            0,
+        )];
+
+        let (_, changed) = migrate_sessions(sessions);
+
+        assert_eq!(changed, 0);
+    }
+
+    #[test]
+    fn migrate_leaves_negative_total_time_alone() {
+        let sessions = vec![session_with(
+            "a",
+            vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:10:00"))],
+            -5,
+        )];
+
+        let (_, changed) = migrate_sessions(sessions);
+
+        assert_eq!(changed, 0);
+    }
+
+    #[test]
+    fn migrate_fixes_session_with_total_time_of_one_minute() {
+        let sessions = vec![session_with(
+            "a",
+            vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:10:00"))],
+            1,
+        )];
+
+        let (migrated, _) = migrate_sessions(sessions);
+
+        assert_eq!(
+            migrated[0].times[0].end_time.as_deref(),
+            Some("2026-05-20T10:01:00")
+        );
+    }
 }

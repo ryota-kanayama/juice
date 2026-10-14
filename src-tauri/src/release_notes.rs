@@ -362,4 +362,33 @@ mod tests {
 
         assert!(got.is_empty());
     }
+
+    // --- 埋め込み CHANGELOG を使うラッパー ---
+
+    #[test]
+    fn since_last_seen_includes_current_version_section() {
+        let current = env!("CARGO_PKG_VERSION");
+
+        let got = entries_since_last_seen("0.0.1", current, true);
+
+        assert!(got.iter().any(|e| e.version == current));
+    }
+
+    #[test]
+    fn since_last_seen_is_empty_for_fresh_install() {
+        let current = env!("CARGO_PKG_VERSION");
+
+        let got = entries_since_last_seen("", current, false);
+
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn for_display_returns_current_version_section_when_already_seen() {
+        let current = env!("CARGO_PKG_VERSION");
+
+        let got = entries_for_display(current, current, true);
+
+        assert!(got.iter().any(|e| e.version == current));
+    }
 }
