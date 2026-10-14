@@ -100,8 +100,10 @@ Windows 分を自動生成**する。タグを push するとドラフトリリ�
    ワンクリックで更新できる（macOS は .app を差し替えて再起動、Windows はインストーラを
    パッシブモードで実行して再起動）
 
-> ローカルで手元ビルドする場合は `npm run tauri build`（macOS は `src-tauri/target/release/bundle/dmg/`、
-> Windows は `src-tauri/target/release/bundle/nsis/` に出力）。マウント中の「Juice」ボリュームがあると `bundle_dmg.sh` が失敗するので
+> ローカルで手元ビルドする場合は `npm run tauri build`
+> （macOS は `src-tauri/target/release/bundle/dmg/`、
+> Windows は `src-tauri/target/release/bundle/nsis/` に出力）。
+> macOS では、マウント中の「Juice」ボリュームがあると `bundle_dmg.sh` が失敗するので
 > `mount | grep -i juice` で確認し、あれば `hdiutil detach '/Volumes/Juice'` で外す。
 
 ### Electron → Tauri 引き継ぎリリース（初回のみ）
