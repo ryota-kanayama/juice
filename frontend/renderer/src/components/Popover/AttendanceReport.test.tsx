@@ -1,153 +1,246 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import type { ReactNode } from 'react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { DailyDataProvider } from '../../daily/DailyDataContext'
 import { AttendanceReport } from './AttendanceReport'
 import type { Session } from '../../types/session'
-import { attendanceRepository } from '../../repositories/attendanceRepository'
+import type { DayRecord } from '../../../../shared/types'
+import { makeSession } from '../../test/factories'
 
+const TODAY = '2026-06-12'
+
+const send = vi.hoisted(() => vi.fn())
 vi.mock('../../repositories/attendanceRepository', () => ({
-  attendanceRepository: { send: vi.fn().mockResolvedValue({ ok: true, status: 200, body: '{}' }) },
+  attendanceRepository: { send: (text: string) => send(text) },
 }))
 
+const setDailyDay = vi.fn()
+let day: DayRecord = {}
 vi.stubGlobal('bridge', {
-  getDailyMonth: vi.fn().mockResolvedValue({
-    version: 1,
-    days: {
-      '2026-06-12': { workStart: '09:00', workEnd: '18:00', breakMinutes: 60 },
-    },
-  }),
-  setDailyDay: vi.fn().mockResolvedValue(undefined),
-  onDailyChanged: vi.fn(() => () => {}),
+  getDailyMonth: () => Promise.resolve({ version: 1, days: { [TODAY]: day } }),
+  setDailyDay,
+  onDailyChanged: () => () => {},
 })
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-  <DailyDataProvider>{children}</DailyDataProvider>
-)
+const task = (overrides: Partial<Session> = {}): Session => makeSession({
+  name: '作業',
+  projectCode: 'P',
+  workCategory: 'C',
+  date: TODAY,
+  times: [],
+  totalTime: 480,
+  ...overrides,
+})
 
-function makeSession(): Session {
-  return {
-    id: '1', taskId: '1', name: '作業', projectCode: 'P', workCategory: 'C',
-    times: [{ startTime: '2026-06-12T10:00:00', endTime: '2026-06-12T11:00:00' }],
-    date: '2026-06-12', color: '#FF9500', totalTime: 60,
-  }
+// 09:00〜18:00、休憩60分 → 実労働 480分
+const FULL_DAY: DayRecord = { workStart: '09:00', workEnd: '18:00', breakMinutes: 60 }
+
+/** 描画して、日次データの読み込み（出勤時刻の表示）を待つ */
+async function renderReport(sessions: Session[] = [task()], record: DayRecord = FULL_DAY) {
+  day = record
+  const view = render(<DailyDataProvider><AttendanceReport sessions={sessions} today={TODAY} /></DailyDataProvider>)
+  if (record.workStart) await screen.findByText(record.workStart)
+  return view
 }
 
-describe('AttendanceReport — 表示行', () => {
-  it('出勤・退勤・休憩が表示される', async () => {
-    render(<AttendanceReport sessions={[makeSession()]} today="2026-06-12" />, { wrapper })
-    expect(await screen.findByText('09:00')).toBeInTheDocument()
-    expect(screen.getByText('18:00')).toBeInTheDocument()
-    expect(screen.getByText('60分')).toBeInTheDocument()
-  })
+const sendButton = (container: HTMLElement) => container.querySelector('[data-tour="att-send"]') as HTMLButtonElement
 
-  it('出勤をダブルクリックするとダイアログが開く', async () => {
-    render(<AttendanceReport sessions={[makeSession()]} today="2026-06-12" />, { wrapper })
-    const startValue = await screen.findByText('09:00')
-    fireEvent.dblClick(startValue)
-    expect(await screen.findByText('出勤時刻')).toBeInTheDocument()
-  })
-
-  it('退勤をダブルクリックするとダイアログが開く', async () => {
-    render(<AttendanceReport sessions={[makeSession()]} today="2026-06-12" />, { wrapper })
-    const endValue = await screen.findByText('18:00')
-    fireEvent.dblClick(endValue)
-    expect(await screen.findByText('退勤時刻')).toBeInTheDocument()
-  })
-
-  it('休憩をダブルクリックするとダイアログが開く', async () => {
-    render(<AttendanceReport sessions={[makeSession()]} today="2026-06-12" />, { wrapper })
-    const breakValue = await screen.findByText('60分')
-    fireEvent.dblClick(breakValue)
-    expect(await screen.findByText('休憩時間')).toBeInTheDocument()
-  })
-
-  it('コピー・送るボタンに data-tour が付く', async () => {
-    const { container } = render(<AttendanceReport sessions={[makeSession()]} today="2026-06-12" />, { wrapper })
-    await screen.findByText('09:00')
-    expect(container.querySelector('[data-tour="att-copy"]')).not.toBeNull()
-    expect(container.querySelector('[data-tour="att-send"]')).not.toBeNull()
-  })
+beforeEach(() => {
+  send.mockReset().mockResolvedValue({ ok: true, status: 200, body: '{}' })
+  setDailyDay.mockReset().mockResolvedValue(undefined)
 })
 
-describe('AttendanceReport — 超過調整時の送信確認', () => {
-  beforeEach(() => {
-    vi.mocked(attendanceRepository.send).mockClear()
+describe('AttendanceReport', () => {
+  describe('表示', () => {
+    it('出勤・退勤・休憩を出す', async () => {
+      await renderReport()
+
+      expect(screen.getByText('18:00')).toBeInTheDocument()
+      expect(screen.getByText('60分')).toBeInTheDocument()
+    })
+
+    it('記録が無い時刻は --:-- にする', async () => {
+      await renderReport([task()], {})
+
+      expect(await screen.findAllByText('--:--')).toHaveLength(2)
+    })
+
+    it('勤怠テキストを出す', async () => {
+      await renderReport()
+
+      expect(screen.getByText(/勤怠\s+09:00 18:00 60\s+P 作業 C 480/)).toBeInTheDocument()
+    })
+
+    it('コピー・送るボタンにツアー用のアンカーを付ける', async () => {
+      const { container } = await renderReport()
+
+      expect(container.querySelector('[data-tour="att-copy"]')).not.toBeNull()
+      expect(container.querySelector('[data-tour="att-send"]')).not.toBeNull()
+    })
   })
 
-  // 実労働 480分（09:00〜18:00 − 休憩60分）。タイマー合計 510分 → 超過30分で
-  // 末尾タスクが 0 分になる。
-  function zeroTaskSessions(): Session[] {
-    return [
-      { id: '1', taskId: '1', name: '設計', projectCode: 'P', workCategory: 'C',
-        times: [], date: '2026-06-12', color: '#FF9500', totalTime: 480 },
-      { id: '2', taskId: '2', name: 'レビュー', projectCode: 'P', workCategory: 'C',
-        times: [], date: '2026-06-12', color: '#FF9500', totalTime: 30 },
-    ]
-  }
+  describe('時刻・休憩の編集', () => {
+    it.each([
+      ['出勤', '09:00', '出勤時刻'],
+      ['退勤', '18:00', '退勤時刻'],
+      ['休憩', '60分', '休憩時間'],
+    ])('%s をダブルクリックすると編集ダイアログを開く', async (_label, shown, title) => {
+      await renderReport()
 
-  // タイマー合計 500分 → 超過20分。1タスクが 480 に減るだけで 0 分タスクは無い。
-  function noZeroOverageSessions(): Session[] {
-    return [
-      { id: '1', taskId: '1', name: '設計', projectCode: 'P', workCategory: 'C',
-        times: [], date: '2026-06-12', color: '#FF9500', totalTime: 500 },
-    ]
-  }
+      fireEvent.dblClick(screen.getByText(shown))
 
-  it('超過時の送るボタンは「調整して送る」になる', async () => {
-    render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
-    expect(await screen.findByText('調整して送る')).toBeInTheDocument()
+      expect(await screen.findByText(title)).toBeInTheDocument()
+    })
+
+    it('休憩の分を確定すると保存する', async () => {
+      await renderReport()
+      fireEvent.dblClick(screen.getByText('60分'))
+      fireEvent.change(await screen.findByRole('textbox'), { target: { value: '45' } })
+
+      fireEvent.click(screen.getByRole('button', { name: '確定' }))
+
+      expect(setDailyDay).toHaveBeenCalledWith(TODAY, { breakMinutes: 45 })
+    })
+
+    it('休憩に数でない値を入れても保存しない', async () => {
+      await renderReport()
+      fireEvent.dblClick(screen.getByText('60分'))
+      fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'abc' } })
+
+      fireEvent.click(screen.getByRole('button', { name: '確定' }))
+
+      expect(setDailyDay).not.toHaveBeenCalled()
+    })
+
+    it('出勤時刻を確定すると保存する', async () => {
+      await renderReport()
+      fireEvent.dblClick(screen.getByText('09:00'))
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.change(within(dialog).getByLabelText('時'), { target: { value: '08' } })
+
+      fireEvent.click(screen.getByRole('button', { name: '確定' }))
+
+      expect(setDailyDay).toHaveBeenCalledWith(TODAY, { workStart: '08:00' })
+    })
+
+    it('キャンセルすると保存しない', async () => {
+      await renderReport()
+      fireEvent.dblClick(screen.getByText('60分'))
+      fireEvent.change(await screen.findByRole('textbox'), { target: { value: '45' } })
+
+      fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }))
+
+      expect(setDailyDay).not.toHaveBeenCalled()
+    })
   })
 
-  it('超過調整がある送信は確認ダイアログを出し、確定で送信する', async () => {
-    const { container } = render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
-    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
-    await screen.findByText('調整して送る')
-    fireEvent.click(sendBtn)
-    // この時点ではまだ送信されない
-    expect(attendanceRepository.send).not.toHaveBeenCalled()
-    // 確認ダイアログが出る
-    expect(await screen.findByText('超過分を調整して送信します。よろしいですか？')).toBeInTheDocument()
-    // 確定で送信
-    fireEvent.click(screen.getByRole('button', { name: '送信' }))
-    expect(attendanceRepository.send).toHaveBeenCalledTimes(1)
+  describe('送信（超過なし）', () => {
+    it('確認なしですぐ送る', async () => {
+      const { container } = await renderReport()
+
+      fireEvent.click(sendButton(container))
+
+      expect(send).toHaveBeenCalledOnce()
+    })
+
+    it('成功したら「送信しました」にする', async () => {
+      const { container } = await renderReport()
+
+      fireEvent.click(sendButton(container))
+
+      expect(await screen.findByText('送信しました')).toBeInTheDocument()
+    })
+
+    it('未サインインなら「認証が必要です」にする', async () => {
+      send.mockResolvedValue({ ok: false, status: 0, body: '' })
+      const { container } = await renderReport()
+
+      fireEvent.click(sendButton(container))
+
+      expect(await screen.findByText('認証が必要です')).toBeInTheDocument()
+    })
+
+    it('出勤・退勤が揃っていなければ押せない', async () => {
+      const { container } = await renderReport([task()], { workStart: '09:00' })
+
+      expect(sendButton(container)).toBeDisabled()
+    })
   })
 
-  it('0分タスクが無い超過調整でも確認ダイアログを出す', async () => {
-    const { container } = render(<AttendanceReport sessions={noZeroOverageSessions()} today="2026-06-12" />, { wrapper })
-    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
-    await screen.findByText('調整して送る')
-    fireEvent.click(sendBtn)
-    expect(attendanceRepository.send).not.toHaveBeenCalled()
-    expect(await screen.findByText('超過分を調整して送信します。よろしいですか？')).toBeInTheDocument()
-  })
+  describe('送信（タイマー合計が実労働を超える）', () => {
+    // 実労働 480分に対しタイマー合計 510分 → 超過30分で末尾タスクが 0 分になる
+    const withZeroTask = [task({ id: '1', taskId: '1', name: '設計', totalTime: 480 }), task({ id: '2', taskId: '2', name: 'レビュー', totalTime: 30 })]
+    // タイマー合計 500分 → 超過20分。0 分になるタスクは無い
+    const withoutZeroTask = [task({ totalTime: 500 })]
+    const CONFIRM = '超過分を調整して送信します。よろしいですか？'
 
-  it('確認ダイアログをキャンセルすると送信しない', async () => {
-    const { container } = render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
-    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
-    await screen.findByText('調整して送る')
-    fireEvent.click(sendBtn)
-    fireEvent.click(await screen.findByRole('button', { name: 'キャンセル' }))
-    expect(attendanceRepository.send).not.toHaveBeenCalled()
-  })
+    it('送るボタンを「調整して送る」にする', async () => {
+      await renderReport(withZeroTask)
 
-  it('超過調整の送信が成功すると「送信しました」に切り替わる', async () => {
-    const { container } = render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
-    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
-    await screen.findByText('調整して送る')
-    fireEvent.click(sendBtn)
-    fireEvent.click(await screen.findByRole('button', { name: '送信' }))
-    expect(await screen.findByText('送信しました')).toBeInTheDocument()
-  })
+      expect(screen.getByText('調整して送る')).toBeInTheDocument()
+    })
 
-  it('超過調整の送信が失敗すると「送信失敗」に切り替わる', async () => {
-    vi.mocked(attendanceRepository.send).mockResolvedValueOnce({ ok: false, status: 500, body: '' })
-    const { container } = render(<AttendanceReport sessions={zeroTaskSessions()} today="2026-06-12" />, { wrapper })
-    const sendBtn = container.querySelector('[data-tour="att-send"]') as HTMLElement
-    await screen.findByText('調整して送る')
-    fireEvent.click(sendBtn)
-    fireEvent.click(await screen.findByRole('button', { name: '送信' }))
-    expect(await screen.findByText('送信失敗')).toBeInTheDocument()
+    it.each([
+      ['0分のタスクがある', withZeroTask],
+      ['0分のタスクが無い', withoutZeroTask],
+    ])('%s 場合も、送る前に確認を出す', async (_label, sessions) => {
+      const { container } = await renderReport(sessions)
+
+      fireEvent.click(sendButton(container))
+
+      expect(await screen.findByText(CONFIRM)).toBeInTheDocument()
+    })
+
+    it('確認の時点ではまだ送らない', async () => {
+      const { container } = await renderReport(withZeroTask)
+
+      fireEvent.click(sendButton(container))
+
+      expect(send).not.toHaveBeenCalled()
+    })
+
+    it('0分のタスクがあれば確認でそれを知らせる', async () => {
+      const { container } = await renderReport(withZeroTask)
+
+      fireEvent.click(sendButton(container))
+
+      expect(await screen.findByText(/0分になるタスクがあります/)).toBeInTheDocument()
+    })
+
+    it('0分のタスクが無ければ、その知らせは出さない', async () => {
+      const { container } = await renderReport(withoutZeroTask)
+      fireEvent.click(sendButton(container))
+      await screen.findByText(CONFIRM)
+
+      expect(screen.queryByText(/0分になるタスクがあります/)).not.toBeInTheDocument()
+    })
+
+    it('確認で「送信」を押すと送る', async () => {
+      const { container } = await renderReport(withZeroTask)
+      fireEvent.click(sendButton(container))
+
+      fireEvent.click(await screen.findByRole('button', { name: '送信' }))
+
+      expect(send).toHaveBeenCalledOnce()
+    })
+
+    it('確認でキャンセルすると送らない', async () => {
+      const { container } = await renderReport(withZeroTask)
+      fireEvent.click(sendButton(container))
+
+      fireEvent.click(await screen.findByRole('button', { name: 'キャンセル' }))
+
+      expect(send).not.toHaveBeenCalled()
+    })
+
+    it('送信に失敗したら「送信失敗」にする', async () => {
+      send.mockResolvedValue({ ok: false, status: 500, body: '' })
+      const { container } = await renderReport(withZeroTask)
+      fireEvent.click(sendButton(container))
+
+      fireEvent.click(await screen.findByRole('button', { name: '送信' }))
+
+      expect(await screen.findByText('送信失敗')).toBeInTheDocument()
+    })
   })
 })

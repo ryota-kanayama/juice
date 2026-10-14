@@ -1,214 +1,140 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { ActiveTimer } from './ActiveTimer'
 
+type Props = ComponentProps<typeof ActiveTimer>
+
+function renderTimer(props: Partial<Props> = {}) {
+  return render(<ActiveTimer name="テスト" elapsedSeconds={0} color="#FF9500" onStop={vi.fn()} {...props} />)
+}
+
+/** 液面の y 座標（0 = 満杯、120 = 空）を描画パスから読む */
+function surfaceY(): number {
+  const d = screen.getByTestId('juice-level').getAttribute('d') ?? ''
+  return Number(/^M-120,([\d.]+) /.exec(d)?.[1])
+}
+
 describe('ActiveTimer', () => {
-  it('タイマー名と経過時間を表示する', () => {
-    render(
-      <ActiveTimer
-        name="企画書作業"
-        elapsedSeconds={125}
-        color="#FF9500"
-        onStop={vi.fn()}
-      />
-    )
-    expect(screen.getByText('企画書作業')).toBeInTheDocument()
-    expect(screen.getByText('2分経過')).toBeInTheDocument()
+  describe('表示', () => {
+    it('作業名を出す', () => {
+      renderTimer({ name: '企画書作業' })
+
+      expect(screen.getByText('企画書作業')).toBeInTheDocument()
+    })
+
+    it('経過時間を分で出す（125秒 → 2分）', () => {
+      renderTimer({ elapsedSeconds: 125 })
+
+      expect(screen.getByText('2分経過')).toBeInTheDocument()
+    })
+
+    it('延長中は累計を足した分を出す（25分 + 2分 = 27分）', () => {
+      renderTimer({ elapsedSeconds: 120, baseSeconds: 1500 })
+
+      expect(screen.getByText('27分経過')).toBeInTheDocument()
+    })
+
+    it('色キーを CSS 変数に解決して塗る', () => {
+      renderTimer({ color: 'strawberry' })
+
+      expect(screen.getByTestId('juice-level')).toHaveStyle({ fill: 'var(--juice-strawberry)' })
+    })
   })
 
-  it('停止ボタンを押すとonStopが呼ばれる', async () => {
-    const onStop = vi.fn()
-    render(
-      <ActiveTimer name="テスト" elapsedSeconds={0} color="#FF9500" onStop={onStop} />
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'やめる' }))
-    expect(onStop).toHaveBeenCalled()
+  describe('ジュースの水位', () => {
+    it.each([
+      ['0秒なら空', 0, undefined, 120],
+      ['既定の満杯秒数（1500秒）で満杯', 1500, undefined, 0],
+      ['満杯秒数を超えても満杯のまま', 3000, undefined, 0],
+      ['fillSeconds=1800 の半分（900秒）で半分', 900, 1800, 60],
+      ['fillSeconds=1800 なら 1800秒で満杯', 1800, 1800, 0],
+      ['fillSeconds=0 でも壊れず空', 60, 0, 120],
+    ])('%s', (_label, elapsedSeconds, fillSeconds, expected) => {
+      renderTimer({ elapsedSeconds, fillSeconds })
+
+      expect(surfaceY()).toBe(expected)
+    })
+
+    it('延長の累計（baseSeconds）は水位に含めない', () => {
+      renderTimer({ elapsedSeconds: 0, baseSeconds: 1500 })
+
+      expect(surfaceY()).toBe(120)
+    })
+
+    it('juiceSeconds を渡したら、経過秒ではなくそちらで水位を決める', () => {
+      renderTimer({ elapsedSeconds: 3000, juiceSeconds: 0, fillSeconds: 1800 })
+
+      expect(surfaceY()).toBe(120)
+    })
+
+    it('juiceSeconds を渡しても、表示する経過時間は変わらない', () => {
+      renderTimer({ elapsedSeconds: 3000, juiceSeconds: 0, fillSeconds: 1800 })
+
+      expect(screen.getByText('50分経過')).toBeInTheDocument()
+    })
   })
 
-  it('initialProjectCode と initialWorkCategory が input に反映される', () => {
-    render(
-      <ActiveTimer
-        name="テスト"
-        elapsedSeconds={0}
-        color="#FF9500"
-        onStop={vi.fn()}
-        initialProjectCode="P001"
-        initialWorkCategory="設計"
-      />
-    )
-    expect(screen.getByRole('textbox', { name: 'PJコード' })).toHaveValue('P001')
-    expect(screen.getByRole('textbox', { name: '作業区分' })).toHaveValue('設計')
+  describe('PJコード・作業区分', () => {
+    it('初期値を入力欄に入れておく', () => {
+      renderTimer({ initialProjectCode: 'P001', initialWorkCategory: '設計' })
+
+      expect(screen.getByRole('textbox', { name: 'PJコード' })).toHaveValue('P001')
+      expect(screen.getByRole('textbox', { name: '作業区分' })).toHaveValue('設計')
+    })
+
+    it('PJコードの候補を選ぶと入力欄に入る', async () => {
+      renderTimer({ projectCodeSuggestions: ['P001', 'P002'] })
+      await userEvent.click(screen.getByLabelText('PJコード'))
+
+      await userEvent.click(screen.getByText('P002'))
+
+      expect(screen.getByLabelText('PJコード')).toHaveValue('P002')
+    })
+
+    it('作業区分の候補を選ぶと入力欄に入る', async () => {
+      renderTimer({ workCategorySuggestions: ['設計', '会議'] })
+      await userEvent.click(screen.getByLabelText('作業区分'))
+
+      await userEvent.click(screen.getByText('会議'))
+
+      expect(screen.getByLabelText('作業区分')).toHaveValue('会議')
+    })
   })
 
-  it('elapsedSecondsが1500（デフォルト満杯秒数）の時、液面が最上部（surfaceY: 0）になる', () => {
-    const { container } = render(
-      <ActiveTimer name="テスト" elapsedSeconds={1500} color="#FF9500" onStop={vi.fn()} />
-    )
-    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
-  })
+  describe('やめる', () => {
+    it('入力中の PJコード・作業区分を添えて onStop を呼ぶ', async () => {
+      const onStop = vi.fn()
+      renderTimer({ onStop, initialProjectCode: 'P001' })
+      await userEvent.type(screen.getByLabelText('作業区分'), '実装')
 
-  it('elapsedSecondsが0の時、液面が最下部（surfaceY: 120）になる', () => {
-    const { container } = render(
-      <ActiveTimer name="テスト" elapsedSeconds={0} color="#FF9500" onStop={vi.fn()} />
-    )
-    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
-  })
+      await userEvent.click(screen.getByRole('button', { name: 'やめる' }))
 
-  it('色キーを渡すと CSS 変数に解決される', () => {
-    render(
-      <ActiveTimer name="テスト" elapsedSeconds={0} color="strawberry" onStop={vi.fn()} />
-    )
-    expect(screen.getByTestId('juice-level')).toHaveStyle({ fill: 'var(--juice-strawberry)' })
-  })
-
-  it('PJコードの候補を選択すると入力に反映される', async () => {
-    render(
-      <ActiveTimer
-        name="テスト"
-        elapsedSeconds={60}
-        color="#ff6b6b"
-        onStop={vi.fn()}
-        projectCodeSuggestions={['P001', 'P002']}
-        workCategorySuggestions={['設計']}
-      />
-    )
-    await userEvent.click(screen.getByLabelText('PJコード'))
-    await userEvent.click(screen.getByText('P002'))
-    expect(screen.getByLabelText('PJコード')).toHaveValue('P002')
-  })
-
-  it('作業区分の候補を選択すると入力に反映される', async () => {
-    render(
-      <ActiveTimer
-        name="テスト"
-        elapsedSeconds={60}
-        color="#ff6b6b"
-        onStop={vi.fn()}
-        projectCodeSuggestions={[]}
-        workCategorySuggestions={['設計', '会議']}
-      />
-    )
-    await userEvent.click(screen.getByLabelText('作業区分'))
-    await userEvent.click(screen.getByText('会議'))
-    expect(screen.getByLabelText('作業区分')).toHaveValue('会議')
-  })
-
-  it('baseSecondsがあると累計込みの分数を表示する（25分 + 2分 = 27分）', () => {
-    render(
-      <ActiveTimer
-        name="テスト"
-        elapsedSeconds={120}
-        baseSeconds={1500}
-        color="#FF9500"
-        onStop={vi.fn()}
-      />
-    )
-    expect(screen.getByText('27分経過')).toBeInTheDocument()
-  })
-
-  it('baseSecondsはジュースの水位に影響しない（elapsed=0なら液面は最下部のまま）', () => {
-    const { container } = render(
-      <ActiveTimer
-        name="テスト"
-        elapsedSeconds={0}
-        baseSeconds={1500}
-        color="#FF9500"
-        onStop={vi.fn()}
-      />
-    )
-    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
-  })
-
-  it('fillSeconds=1800のとき、elapsedSeconds=1800で液面が最上部になる', () => {
-    const { container } = render(
-      <ActiveTimer name="テスト" elapsedSeconds={1800} fillSeconds={1800} color="#FF9500" onStop={vi.fn()} />
-    )
-    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
-  })
-
-  it('fillSeconds=1800のとき、elapsedSeconds=900で液面が50%（surfaceY: 60）になる', () => {
-    const { container } = render(
-      <ActiveTimer name="テスト" elapsedSeconds={900} fillSeconds={1800} color="#FF9500" onStop={vi.fn()} />
-    )
-    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,60 /)
-  })
-
-  it('fillSeconds=0でもNaNにならず液面は最下部になる', () => {
-    const { container } = render(
-      <ActiveTimer name="テスト" elapsedSeconds={60} fillSeconds={0} color="#FF9500" onStop={vi.fn()} />
-    )
-    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
-  })
-
-  it('elapsedSecondsがfillSecondsを超えても液面は最上部のまま', () => {
-    const { container } = render(
-      <ActiveTimer name="テスト" elapsedSeconds={3000} color="#FF9500" onStop={vi.fn()} />
-    )
-    const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-    expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,0 /)
+      expect(onStop).toHaveBeenCalledWith('P001', '実装')
+    })
   })
 
   describe('休憩ボタン', () => {
-    const basePropsWithOnBreak = {
-      name: 'テスト作業',
-      elapsedSeconds: 300,
-      baseSeconds: 0,
-      fillSeconds: 1500,
-      color: '#FF9500',
-      initialProjectCode: 'PJ',
-      initialWorkCategory: '開発',
-      projectCodeSuggestions: [],
-      workCategorySuggestions: [],
-      onStop: vi.fn(),
-    }
-
-    it('onBreak が渡されると「休憩」ボタンが表示される', () => {
-      render(<ActiveTimer {...basePropsWithOnBreak} onBreak={vi.fn()} isOnBreak={false} />)
-      expect(screen.getByRole('button', { name: '休憩' })).toBeDefined()
-    })
-
-    it('「休憩」を押すと onBreak が呼ばれる', async () => {
+    it('onBreak を渡すと「休憩」を出し、押すと onBreak を呼ぶ', async () => {
       const onBreak = vi.fn()
-      render(<ActiveTimer {...basePropsWithOnBreak} onBreak={onBreak} isOnBreak={false} />)
+      renderTimer({ onBreak, isOnBreak: false })
+
       await userEvent.click(screen.getByRole('button', { name: '休憩' }))
-      expect(onBreak).toHaveBeenCalled()
+
+      expect(onBreak).toHaveBeenCalledOnce()
     })
 
-    it('isOnBreak=true のとき「休憩終了」が表示される', () => {
-      render(<ActiveTimer {...basePropsWithOnBreak} onBreak={vi.fn()} isOnBreak={true} />)
-      expect(screen.getByRole('button', { name: '休憩終了' })).toBeDefined()
+    it('休憩中は「休憩終了」を出す', () => {
+      renderTimer({ onBreak: vi.fn(), isOnBreak: true })
+
+      expect(screen.getByRole('button', { name: '休憩終了' })).toBeInTheDocument()
     })
 
-    it('onBreak が渡されないと休憩ボタンは表示されない', () => {
-      render(<ActiveTimer {...basePropsWithOnBreak} />)
-      expect(screen.queryByRole('button', { name: '休憩' })).toBeNull()
-    })
-  })
+    it('onBreak を渡さなければ出さない', () => {
+      renderTimer()
 
-  describe('juiceSeconds（水位専用の経過秒）', () => {
-    it('juiceSeconds未指定時はelapsedSecondsで水位を計算する（後方互換）', () => {
-      const { container } = render(
-        <ActiveTimer name="テスト" elapsedSeconds={900} fillSeconds={1800} color="#FF9500" onStop={vi.fn()} />
-      )
-      const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-      expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,60 /)
-    })
-
-    it('juiceSeconds指定時はelapsedSecondsと異なっていてもjuiceSecondsで水位を計算する', () => {
-      const { container } = render(
-        <ActiveTimer name="テスト" elapsedSeconds={3000} juiceSeconds={0} fillSeconds={1800} color="#FF9500" onStop={vi.fn()} />
-      )
-      const juiceLevel = container.querySelector('[data-testid="juice-level"]')
-      expect(juiceLevel?.getAttribute('d')).toMatch(/^M-120,120 /)
-      // 表示テキストは elapsedSeconds ベースのまま（juiceSecondsの影響を受けない）
-      expect(screen.getByText('50分経過')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '休憩' })).not.toBeInTheDocument()
     })
   })
 })

@@ -8,51 +8,101 @@ const SUGGESTIONS = [
   { name: 'レビュー', projectCode: 'P002', workCategory: '会議' },
 ]
 
+const nameInput = () => screen.getByPlaceholderText('どんなジュースにしますか？')
+const pourButton = () => screen.getByRole('button', { name: '注ぐ' })
+
 describe('TimerForm', () => {
-  it('タイマー名を入力してスタートボタンを押すとonStartが呼ばれる', async () => {
+  it('入力した作業名で onStart を呼ぶ（PJコード・作業区分は無し）', async () => {
     const onStart = vi.fn()
     render(<TimerForm onStart={onStart} />)
-    const input = screen.getByPlaceholderText('どんなジュースにしますか？')
-    await userEvent.type(input, 'テスト作業')
-    await userEvent.click(screen.getByRole('button', { name: '注ぐ' }))
+    await userEvent.type(nameInput(), 'テスト作業')
+
+    await userEvent.click(pourButton())
+
     expect(onStart).toHaveBeenCalledWith('テスト作業', undefined, undefined)
   })
 
-  it('空の入力ではスタートボタンが無効', () => {
-    render(<TimerForm onStart={vi.fn()} />)
-    expect(screen.getByRole('button', { name: '注ぐ' })).toBeDisabled()
+  it('前後の空白を除いた作業名を渡す', async () => {
+    const onStart = vi.fn()
+    render(<TimerForm onStart={onStart} />)
+    await userEvent.type(nameInput(), '  テスト作業  ')
+
+    await userEvent.click(pourButton())
+
+    expect(onStart).toHaveBeenCalledWith('テスト作業', undefined, undefined)
   })
 
-  it('スタート後に入力フィールドがリセットされる', async () => {
-    render(<TimerForm onStart={vi.fn()} />)
-    const input = screen.getByPlaceholderText('どんなジュースにしますか？')
-    await userEvent.type(input, 'テスト')
-    await userEvent.click(screen.getByRole('button', { name: '注ぐ' }))
-    expect(input).toHaveValue('')
+  it('Enter でも開始する', async () => {
+    const onStart = vi.fn()
+    render(<TimerForm onStart={onStart} />)
+
+    await userEvent.type(nameInput(), 'テスト作業{Enter}')
+
+    expect(onStart).toHaveBeenCalledOnce()
   })
 
-  it('候補を選択して開始すると PJコード・作業区分も渡される', async () => {
+  it('作業名が空なら「注ぐ」を押せない', () => {
+    render(<TimerForm onStart={vi.fn()} />)
+
+    expect(pourButton()).toBeDisabled()
+  })
+
+  it('作業名が空白だけなら「注ぐ」を押せない', async () => {
+    render(<TimerForm onStart={vi.fn()} />)
+
+    await userEvent.type(nameInput(), '   ')
+
+    expect(pourButton()).toBeDisabled()
+  })
+
+  it('開始したら入力欄を空にする', async () => {
+    render(<TimerForm onStart={vi.fn()} />)
+    await userEvent.type(nameInput(), 'テスト')
+
+    await userEvent.click(pourButton())
+
+    expect(nameInput()).toHaveValue('')
+  })
+
+  it('候補を選んで開始すると、その候補の PJコード・作業区分も渡す', async () => {
     const onStart = vi.fn()
     render(<TimerForm onStart={onStart} nameSuggestions={SUGGESTIONS} />)
-    await userEvent.click(screen.getByPlaceholderText('どんなジュースにしますか？'))
+    await userEvent.click(nameInput())
     await userEvent.click(screen.getByText('資料作成'))
-    await userEvent.click(screen.getByRole('button', { name: '注ぐ' }))
+
+    await userEvent.click(pourButton())
+
     expect(onStart).toHaveBeenCalledWith('資料作成', 'P001', '設計')
   })
 
-  it('候補選択後に名前を手入力で変えると PJコード・作業区分は渡されない', async () => {
+  it('候補を選んだあとに名前を書き換えたら、PJコード・作業区分は渡さない', async () => {
     const onStart = vi.fn()
     render(<TimerForm onStart={onStart} nameSuggestions={SUGGESTIONS} />)
-    const input = screen.getByPlaceholderText('どんなジュースにしますか？')
-    await userEvent.click(input)
+    await userEvent.click(nameInput())
     await userEvent.click(screen.getByText('資料作成'))
-    await userEvent.type(input, '2')
-    await userEvent.click(screen.getByRole('button', { name: '注ぐ' }))
+    await userEvent.type(nameInput(), '2')
+
+    await userEvent.click(pourButton())
+
     expect(onStart).toHaveBeenCalledWith('資料作成2', undefined, undefined)
   })
 
-  it('「注ぐ」ボタンに data-tour が付く', () => {
+  it('候補を選んで開始したあと、次の開始には候補を引き継がない', async () => {
+    const onStart = vi.fn()
+    render(<TimerForm onStart={onStart} nameSuggestions={SUGGESTIONS} />)
+    await userEvent.click(nameInput())
+    await userEvent.click(screen.getByText('資料作成'))
+    await userEvent.click(pourButton())
+    await userEvent.type(nameInput(), '別の作業')
+
+    await userEvent.click(pourButton())
+
+    expect(onStart).toHaveBeenLastCalledWith('別の作業', undefined, undefined)
+  })
+
+  it('「注ぐ」ボタンにツアー用のアンカーを付ける', () => {
     render(<TimerForm onStart={vi.fn()} />)
-    expect(screen.getByRole('button', { name: '注ぐ' })).toHaveAttribute('data-tour', 'demo-pour')
+
+    expect(pourButton()).toHaveAttribute('data-tour', 'demo-pour')
   })
 })
