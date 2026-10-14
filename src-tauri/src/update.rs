@@ -1,6 +1,9 @@
 // アプリ内アップデート（Electron 版 src/main/update/* の Rust 完全移植）。
-// 署名なし GitHub Releases から arch 一致の DMG を取得し、アプリ終了後に bash スクリプトで
-// .app を自己差し替えする。dev / .app パス不明時は DMG を開くだけ（従来挙動）。
+// 署名なし GitHub Releases から OS / arch に合うアセットを取得して差し替える。
+//   macOS  : DMG を取得し、アプリ終了後に bash スクリプトで .app を自己差し替えする。
+//   Windows: NSIS インストーラを取得し、パッシブモードで起動してアプリを終了する
+//            （インストーラが入れ替え後にアプリを起動し直す）。
+// dev / .app パス不明時は取得したファイルを開くだけ（従来挙動）。
 //
 // renderer へのイベント名はブリッジ(bridge.ts)の購読に合わせる:
 //   update-available / update-progress / update-prepare-quit
@@ -143,6 +146,27 @@ fn select_dmg_asset(assets: &[ReleaseAsset], arch: &str) -> Option<ReleaseAsset>
         .cloned()
 }
 
+/// Windows 向け NSIS インストーラ（Tauri 命名 `{productName}_{version}_x64-setup.exe`）を選ぶ。
+/// 配布は x64 のみ（Arm 版 Windows は x64 エミュレーションで動く）。
+fn select_windows_installer_asset(assets: &[ReleaseAsset]) -> Option<ReleaseAsset> {
+    assets
+        .iter()
+        .find(|a| a.name.ends_with("_x64-setup.exe"))
+        .cloned()
+}
+
+/// 実行中の OS に合うアセットを選ぶ。自己差し替えに対応しない OS は None
+/// （install 時にリリースページを開く従来挙動へ落ちる）。
+fn select_platform_asset(assets: &[ReleaseAsset]) -> Option<ReleaseAsset> {
+    if cfg!(target_os = "macos") {
+        select_dmg_asset(assets, current_arch())
+    } else if cfg!(windows) {
+        select_windows_installer_asset(assets)
+    } else {
+        None
+    }
+}
+
 /// std の ARCH を Electron の process.arch 表記へ。
 fn current_arch() -> &'static str {
     match std::env::consts::ARCH {
@@ -242,7 +266,7 @@ fn current_version(app: &AppHandle) -> String {
 pub async fn check_for_update(app: &AppHandle) -> Result<UpdateInfo, String> {
     let release = fetch_latest_release().await?;
     let latest = normalize_version(&release.tag_name);
-    let asset = select_dmg_asset(&release.assets, current_arch());
+    let asset = select_platform_asset(&release.assets);
     let current = current_version(app);
     let info = UpdateInfo {
         has_update: is_newer_version(&latest, &current),
@@ -350,11 +374,13 @@ async fn download_file(app: &AppHandle, url: &str, dest: &PathBuf) -> Result<(),
 // ---- インストール（.app 自己差し替え） ----
 
 /// bash 用にシングルクォートで安全に囲む。
+#[cfg_attr(windows, allow(dead_code))] // macOS の .app 差し替え専用
 fn shq(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
 /// アプリ終了後に .app を差し替える bash スクリプトを生成する（Electron 版 installScript.ts 相当）。
+#[cfg_attr(windows, allow(dead_code))] // macOS の .app 差し替え専用
 fn build_install_script(pid: u32, dmg_path: &str, app_path: &str, log_path: &str) -> String {
     format!(
         r#"#!/bin/bash
@@ -400,8 +426,8 @@ open "$APP"
 
 /// 差し替えスクリプトを一時ファイルへ書き、アプリと切り離して起動する（detached）。
 /// work_dir はプロセス専用ディレクトリ（共有 /tmp の予測可能パスを避ける）。
+#[cfg_attr(windows, allow(dead_code))] // macOS の .app 差し替え専用
 fn run_installer(work_dir: &PathBuf, dmg_path: &str, app_path: &str) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
     let log_path = work_dir.join("juice-update.log");
     let script_path = work_dir.join("juice-update.sh");
     let script = build_install_script(
@@ -411,8 +437,12 @@ fn run_installer(work_dir: &PathBuf, dmg_path: &str, app_path: &str) -> Result<(
         &log_path.to_string_lossy(),
     );
     std::fs::write(&script_path, script).map_err(|e| e.to_string())?;
-    std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755))
-        .map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755))
+            .map_err(|e| e.to_string())?;
+    }
     // detached: 親(アプリ)が exit してもスクリプトは生き残る。
     std::process::Command::new("/bin/bash")
         .arg(&script_path)
@@ -425,11 +455,24 @@ fn run_installer(work_dir: &PathBuf, dmg_path: &str, app_path: &str) -> Result<(
 }
 
 /// 実行中の .app バンドルのパス（.../Juice.app）。dev など特定できなければ None。
+#[cfg_attr(windows, allow(dead_code))] // macOS の .app 差し替え専用
 fn app_bundle_path() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     exe.ancestors()
         .find(|p| p.extension().map(|e| e == "app").unwrap_or(false))
         .map(|p| p.to_path_buf())
+}
+
+/// NSIS インストーラをパッシブモード（進捗表示のみ・操作不要）で起動する。
+/// /R はインストール完了後にアプリを起動し直すオプション。インストーラは起動中の
+/// Juice を終了させてから入れ替えるが、呼び出し側でもすぐ exit して待たせない。
+#[cfg(windows)]
+fn run_windows_installer(installer: &std::path::Path) -> Result<(), String> {
+    std::process::Command::new(installer)
+        .args(["/P", "/R"])
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 /// パッケージ版か（dev=debug ビルドは false）。
@@ -520,16 +563,38 @@ pub async fn install(app: &AppHandle) {
             return;
         }
     }
+    #[cfg(windows)]
+    {
+        // dev は自己差し替えしない → インストーラを開く（対話で入れる）
+        if !is_packaged() {
+            open_path_with_default(app, &dest);
+            return;
+        }
+        wait_for_renderer(app).await;
+        if let Err(e) = run_windows_installer(&dest) {
+            eprintln!("[update] run_windows_installer failed: {e}");
+            emit_progress(app, 0, true, Some("インストーラの起動に失敗しました".into()));
+            return;
+        }
+        app.exit(0);
+    }
+    #[cfg(not(windows))]
+    install_macos(app, &work_dir, &dest).await;
+}
+
+/// macOS: アプリ終了後に .app を DMG の中身へ差し替える。
+#[cfg(not(windows))]
+async fn install_macos(app: &AppHandle, work_dir: &PathBuf, dest: &PathBuf) {
     // dev / .app パス不明は自己差し替え不可 → DMG を開く従来挙動
     let app_path = match (is_packaged(), app_bundle_path()) {
         (true, Some(p)) => p,
         _ => {
-            open_path_with_default(app, &dest);
+            open_path_with_default(app, dest);
             return;
         }
     };
     wait_for_renderer(app).await;
-    if let Err(e) = run_installer(&work_dir, &dest.to_string_lossy(), &app_path.to_string_lossy()) {
+    if let Err(e) = run_installer(work_dir, &dest.to_string_lossy(), &app_path.to_string_lossy()) {
         eprintln!("[update] run_installer failed: {e}");
         return;
     }
@@ -575,6 +640,19 @@ mod tests {
             ReleaseAsset { name: "Juice_1.1.0_x64.dmg".into(), url: "u-x64".into() },
             ReleaseAsset { name: "Juice_1.1.0_aarch64.dmg.tar.gz".into(), url: "u-sig".into() },
         ]
+    }
+
+    #[test]
+    fn select_windows_picks_x64_setup_exe() {
+        let mut list = assets();
+        list.push(ReleaseAsset { name: "Juice_1.1.0_x64-setup.exe".into(), url: "u-win".into() });
+        let a = select_windows_installer_asset(&list).unwrap();
+        assert_eq!(a.url, "u-win");
+    }
+
+    #[test]
+    fn select_windows_none_without_installer() {
+        assert!(select_windows_installer_asset(&assets()).is_none());
     }
 
     #[test]

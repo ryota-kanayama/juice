@@ -22,7 +22,8 @@
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  -webkit-app-region: drag;
+  /* ウィンドウ移動は data-tauri-drag-region が担う。-webkit-app-region: drag は付けない
+     （Windows の WebView2 はこれを解釈してマウスイベントを JS に渡さず、ドラッグが効かなくなる） */
   user-select: none;
   flex-shrink: 0;
 }

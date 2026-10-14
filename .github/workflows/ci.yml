@@ -49,3 +49,24 @@ jobs:
 
       - name: Knip (dead code)
         run: npm run knip
+
+  # Rust 側の Windows ビルドとテスト。普段の開発は macOS なので、OS 別に分けた
+  # コード（panel/windows.rs、cfg 分岐など）の破損をここで検出する。
+  rust-windows:
+    name: cargo test (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Test
+        run: cargo test --lib --manifest-path src-tauri/Cargo.toml

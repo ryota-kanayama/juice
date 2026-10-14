@@ -381,13 +381,10 @@ pub async fn whiteboard_telework_start(app: tauri::AppHandle) {
 
 // ---- ウィンドウ / 外部連携（Electron 版 window:hide / shell.openExternal / app.getVersion 相当） ----
 
-/// ポップオーバー（NSPanel）を隠す。blur-to-close と同じ `order_out` を使う。
+/// ポップオーバーを隠す。blur-to-close と同じ経路を使う。
 #[tauri::command]
 pub fn window_hide(app: tauri::AppHandle) {
-    use tauri_nspanel::ManagerExt;
-    if let Ok(panel) = app.get_webview_panel("main") {
-        panel.order_out(None);
-    }
+    crate::panel::hide(&app);
 }
 
 /// 外部 URL を既定ブラウザで開く。
@@ -420,8 +417,11 @@ pub fn window_resize(app: tauri::AppHandle, width: f64, height: f64) -> CmdResul
 }
 
 /// カレンダー専用ウィンドウを開く（既にあれば前面化）。
+///
+/// ウィンドウを作るコマンドは async にする。同期コマンドはメインスレッドで動くため、
+/// Windows（WebView2）ではその中で WebView を作るとデッドロックし、中身が描画されない。
 #[tauri::command]
-pub fn open_calendar_window(app: tauri::AppHandle) {
+pub async fn open_calendar_window(app: tauri::AppHandle) {
     crate::open_calendar(&app);
 }
 
@@ -478,22 +478,26 @@ pub fn release_notes_mark_seen(
     map(store.set_last_seen_version(&current))
 }
 
+/// 同期コマンドで WebView を作ると Windows でデッドロックするため async にする。
 #[tauri::command]
-pub fn open_release_notes_window(app: tauri::AppHandle) {
+pub async fn open_release_notes_window(app: tauri::AppHandle) {
     crate::open_release_notes(&app);
 }
 
 /// 更新前のノートのウィンドウを開く。
 /// 見せる本文が無いとき（チェック未実行・本文が空）は空のウィンドウが出るだけなので開かない。
+/// 同期コマンドで WebView を作ると Windows でデッドロックするため async にする
+/// （State を借用する async コマンドは Result を返す必要がある）。
 #[tauri::command]
-pub fn open_release_notes_pending_window(
+pub async fn open_release_notes_pending_window(
     app: tauri::AppHandle,
     state: State<'_, crate::update::LastChecked>,
-) {
+) -> CmdResult<()> {
     if pending_entries(&state).is_empty() {
-        return;
+        return Ok(());
     }
     crate::open_release_notes_pending(&app);
+    Ok(())
 }
 
 /// リリースノートのウィンドウを閉じる（パネル内の「閉じる」ボタンから）。

@@ -272,7 +272,7 @@ export function SettingsView() {
                 <div>
                   <p className="text-sm font-medium">ログイン時に起動</p>
                   <p className="text-xs text-muted-foreground">
-                    macOS のログイン時に Juice を自動で起動します
+                    PC へのログイン時に Juice を自動で起動します
                   </p>
                 </div>
                 <Switch checked={launchAtLogin} onCheckedChange={setLaunchAtLogin} />

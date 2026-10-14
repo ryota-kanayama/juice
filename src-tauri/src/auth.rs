@@ -1,5 +1,5 @@
 // Electron 版 src/main/auth/authStore.ts の Rust 移植。
-// セッション JWT を macOS Keychain(keyring) に保存し、payload から表示用ステータスを作る。
+// セッション JWT を OS の資格情報ストア（macOS Keychain / Windows 資格情報マネージャー）に保存し、payload から表示用ステータスを作る。
 // 署名検証は Lambda 側の責務。ここは payload を読むだけ（base64url JSON）。
 //
 // 注: Electron 版は safeStorage で auth.enc を暗号化していた。互換性は無いため、
@@ -88,7 +88,7 @@ impl Default for AuthStore {
 }
 
 impl AuthStore {
-    /// 本番は macOS Keychain、dev（debug ビルド）は data_dir 配下のファイルに置く。
+    /// 本番は OS の資格情報ストア、dev（debug ビルド）は data_dir 配下のファイルに置く。
     ///
     /// dev で Keychain を使うと、再ビルドのたびに実行ファイルの署名が変わって
     /// Keychain の ACL と一致しなくなり、起動のたびにパスワードを求められる。
@@ -168,23 +168,25 @@ impl AuthStore {
 }
 
 /// トークンを本人だけが読める権限（0600）で書く。
+/// Windows はパーミッションビットが無いので、ユーザー専用の %APPDATA% 配下に置くことで代える。
 fn write_token_file(path: &std::path::Path, jwt: &str) -> Result<(), String> {
     use std::io::Write;
+    #[cfg(unix)]
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    let mut f = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(path)
-        .map_err(|e| e.to_string())?;
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    opts.mode(0o600);
+    let mut f = opts.open(path).map_err(|e| e.to_string())?;
     f.write_all(jwt.as_bytes()).map_err(|e| e.to_string())?;
     // 既存ファイルを開いた場合は mode(0o600) が効かないため、明示的に締め直す
+    #[cfg(unix)]
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -241,6 +243,7 @@ mod tests {
         assert_eq!(s.get_token(), None);
     }
 
+    #[cfg(unix)]
     #[test]
     fn file_backend_is_readable_only_by_owner() {
         use std::os::unix::fs::PermissionsExt;
