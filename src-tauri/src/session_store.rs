@@ -372,139 +372,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn non_existent_month_returns_empty() {
-        let (store, _d) = new_store();
-        assert_eq!(store.get_sessions("2026-02").unwrap(), vec![]);
-    }
-
-    #[test]
-    fn save_and_retrieve() {
-        let (store, _d) = new_store();
-        let mut s = sample("test-id", "2026-02-25");
-        s.project_code = "P001".to_string();
-        s.work_category = "開発".to_string();
-        store.save_session(s.clone()).unwrap();
-        let got = store.get_sessions("2026-02").unwrap();
-        assert_eq!(got.len(), 1);
-        assert_eq!(got[0], s);
-    }
-
-    #[test]
-    fn append_times_via_update() {
-        let (store, _d) = new_store();
-        let s = sample("test-id", "2026-02-25");
-        store.save_session(s.clone()).unwrap();
-        let mut updated = s.clone();
-        updated.times.push(TimeInterval {
-            start_time: "2026-02-25T11:00:00".to_string(),
-            end_time: Some("2026-02-25T11:30:00".to_string()),
-        });
-        store.update_session(updated).unwrap();
-        let got = store.get_sessions("2026-02").unwrap();
-        assert_eq!(got[0].times.len(), 2);
-        assert_eq!(got[0].times[1].end_time.as_deref(), Some("2026-02-25T11:30:00"));
-    }
-
-    #[test]
-    fn delete_by_id() {
-        let (store, _d) = new_store();
-        store.save_session(sample("delete-me", "2026-02-27")).unwrap();
-        store.delete_session("delete-me", "2026-02").unwrap();
-        assert_eq!(store.get_sessions("2026-02").unwrap().len(), 0);
-    }
-
-    #[test]
-    fn delete_nonexistent_id_is_noop() {
-        let (store, _d) = new_store();
-        assert!(store.delete_session("no-such-id", "2026-02").is_ok());
-    }
-
-    #[test]
-    fn restore_from_bak_on_corrupt_primary() {
-        let (store, dir) = new_store();
-        let s = sample("bak-id", "2026-02-25");
-        store.save_session(s.clone()).unwrap();
-        let mut updated = s.clone();
-        updated.name = "更新済み".to_string();
-        store.update_session(updated).unwrap();
-        // プライマリを破損させる（.bak には1回目のデータが残っている）
-        let primary = dir.path().join("sessions-2026-02.json");
-        std::fs::write(&primary, "INVALID JSON").unwrap();
-        let got = store.get_sessions("2026-02").unwrap();
-        assert_eq!(got.len(), 1);
-        assert_eq!(got[0].id, "bak-id");
-    }
-
-    #[test]
-    fn both_corrupt_returns_empty() {
-        let (store, dir) = new_store();
-        let primary = dir.path().join("sessions-2026-02.json");
-        std::fs::write(&primary, "BAD").unwrap();
-        std::fs::write(format!("{}.bak", primary.display()), "BAD").unwrap();
-        assert_eq!(store.get_sessions("2026-02").unwrap(), vec![]);
-    }
-
-    #[test]
-    fn reject_path_traversal_year_month() {
-        let (store, _d) = new_store();
-        assert!(store.get_sessions("../../etc/passwd").is_err());
-        assert!(store.delete_session("x", "../../../tmp/evil").is_err());
-    }
-
-    #[test]
-    fn reject_invalid_date_on_save() {
-        let (store, _d) = new_store();
-        let mut bad = sample("bad", "2026-02-25");
-        bad.date = "../../../tmp/evil".to_string();
-        assert!(store.save_session(bad).is_err());
-    }
-
-    #[test]
-    fn concurrent_saves_all_persisted() {
-        let (store, _d) = new_store();
-        let store = Arc::new(store);
-        let handles: Vec<_> = (0..10)
-            .map(|i| {
-                let s = store.clone();
-                std::thread::spawn(move || {
-                    s.save_session(sample(&format!("id-{i}"), "2026-02-25")).unwrap()
-                })
-            })
-            .collect();
-        for h in handles {
-            h.join().unwrap();
-        }
-        assert_eq!(store.get_sessions("2026-02").unwrap().len(), 10);
-    }
-
-    #[test]
-    fn legacy_without_total_time_is_migrated() {
-        let (store, dir) = new_store();
-        let primary = dir.path().join("sessions-2026-02.json");
-        let legacy = r##"{
-          "sessions": [
-            {
-              "id": "legacy-id",
-              "taskId": "legacy-id",
-              "name": "旧データ",
-              "projectCode": "",
-              "workCategory": "",
-              "times": [
-                { "startTime": "2026-02-25T10:00:00", "endTime": "2026-02-25T10:30:00" },
-                { "startTime": "2026-02-25T11:00:00", "endTime": "2026-02-25T11:15:00" }
-              ],
-              "date": "2026-02-25",
-              "color": "#FF9500"
-            }
-          ]
-        }"##;
-        std::fs::write(&primary, legacy).unwrap();
-        let got = store.get_sessions("2026-02").unwrap();
-        assert_eq!(got.len(), 1);
-        assert_eq!(got[0].total_time, 45);
-    }
-
     fn interval(start: &str, end: Option<&str>) -> TimeInterval {
         TimeInterval {
             start_time: start.to_string(),
@@ -527,15 +394,264 @@ mod tests {
         }
     }
 
+    /// 未移行（version 無し・単区間が totalTime と食い違う）の月ファイルを置く。
+    fn write_legacy_month(dir: &TempDir) {
+        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
+        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+    }
+
+    // --- 読み書き ---
+
     #[test]
-    fn migrate_fixes_single_interval_mismatch() {
+    fn non_existent_month_returns_empty() {
+        let (store, _d) = new_store();
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got, vec![]);
+    }
+
+    #[test]
+    fn saved_session_is_the_only_one_retrieved() {
+        let (store, _d) = new_store();
+        store.save_session(sample("test-id", "2026-02-25")).unwrap();
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got.len(), 1);
+    }
+
+    #[test]
+    fn saved_session_is_retrieved_unchanged() {
+        let (store, _d) = new_store();
+        let mut s = sample("test-id", "2026-02-25");
+        s.project_code = "P001".to_string();
+        s.work_category = "開発".to_string();
+        store.save_session(s.clone()).unwrap();
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got[0], s);
+    }
+
+    fn append_interval_via_update(store: &SessionStore) {
+        let s = sample("test-id", "2026-02-25");
+        store.save_session(s.clone()).unwrap();
+        let mut updated = s;
+        updated.times.push(TimeInterval {
+            start_time: "2026-02-25T11:00:00".to_string(),
+            end_time: Some("2026-02-25T11:30:00".to_string()),
+        });
+        store.update_session(updated).unwrap();
+    }
+
+    #[test]
+    fn update_appends_interval() {
+        let (store, _d) = new_store();
+        append_interval_via_update(&store);
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got[0].times.len(), 2);
+    }
+
+    #[test]
+    fn update_keeps_appended_interval_end_time() {
+        let (store, _d) = new_store();
+        append_interval_via_update(&store);
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got[0].times[1].end_time.as_deref(), Some("2026-02-25T11:30:00"));
+    }
+
+    #[test]
+    fn delete_removes_session_by_id() {
+        let (store, _d) = new_store();
+        store.save_session(sample("delete-me", "2026-02-27")).unwrap();
+        store.delete_session("delete-me", "2026-02").unwrap();
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got.len(), 0);
+    }
+
+    #[test]
+    fn delete_nonexistent_id_is_noop() {
+        let (store, _d) = new_store();
+
+        let result = store.delete_session("no-such-id", "2026-02");
+
+        assert!(result.is_ok());
+    }
+
+    // --- 破損からの復旧 ---
+
+    fn corrupt_primary_after_two_writes(store: &SessionStore, dir: &TempDir) {
+        let s = sample("bak-id", "2026-02-25");
+        store.save_session(s.clone()).unwrap();
+        let mut updated = s;
+        updated.name = "更新済み".to_string();
+        store.update_session(updated).unwrap();
+        // プライマリを破損させる（.bak には1回目のデータが残っている）
+        let primary = dir.path().join("sessions-2026-02.json");
+        std::fs::write(&primary, "INVALID JSON").unwrap();
+    }
+
+    #[test]
+    fn corrupt_primary_is_restored_from_bak() {
+        let (store, dir) = new_store();
+        corrupt_primary_after_two_writes(&store, &dir);
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got.len(), 1);
+    }
+
+    #[test]
+    fn restored_session_is_from_bak_content() {
+        let (store, dir) = new_store();
+        corrupt_primary_after_two_writes(&store, &dir);
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got[0].name, "テスト作業");
+    }
+
+    #[test]
+    fn both_corrupt_returns_empty() {
+        let (store, dir) = new_store();
+        let primary = dir.path().join("sessions-2026-02.json");
+        std::fs::write(&primary, "BAD").unwrap();
+        std::fs::write(format!("{}.bak", primary.display()), "BAD").unwrap();
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got, vec![]);
+    }
+
+    // --- 入力検証 ---
+
+    #[test]
+    fn get_sessions_rejects_path_traversal_year_month() {
+        let (store, _d) = new_store();
+
+        let result = store.get_sessions("../../etc/passwd");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn delete_session_rejects_path_traversal_year_month() {
+        let (store, _d) = new_store();
+
+        let result = store.delete_session("x", "../../../tmp/evil");
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn save_rejects_invalid_date() {
+        let (store, _d) = new_store();
+        let mut bad = sample("bad", "2026-02-25");
+        bad.date = "../../../tmp/evil".to_string();
+
+        let result = store.save_session(bad);
+
+        assert!(result.is_err());
+    }
+
+    // --- 並行書き込み ---
+
+    #[test]
+    fn concurrent_saves_all_persisted() {
+        let (store, _d) = new_store();
+        let store = Arc::new(store);
+
+        let handles: Vec<_> = (0..10)
+            .map(|i| {
+                let s = store.clone();
+                std::thread::spawn(move || {
+                    s.save_session(sample(&format!("id-{i}"), "2026-02-25")).unwrap()
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        assert_eq!(store.get_sessions("2026-02").unwrap().len(), 10);
+    }
+
+    // --- 旧データの読み込み ---
+
+    fn write_legacy_without_total_time(dir: &TempDir) {
+        let primary = dir.path().join("sessions-2026-02.json");
+        let legacy = r##"{
+          "sessions": [
+            {
+              "id": "legacy-id",
+              "taskId": "legacy-id",
+              "name": "旧データ",
+              "projectCode": "",
+              "workCategory": "",
+              "times": [
+                { "startTime": "2026-02-25T10:00:00", "endTime": "2026-02-25T10:30:00" },
+                { "startTime": "2026-02-25T11:00:00", "endTime": "2026-02-25T11:15:00" }
+              ],
+              "date": "2026-02-25",
+              "color": "#FF9500"
+            }
+          ]
+        }"##;
+        std::fs::write(&primary, legacy).unwrap();
+    }
+
+    #[test]
+    fn legacy_without_total_time_is_still_one_session() {
+        let (store, dir) = new_store();
+        write_legacy_without_total_time(&dir);
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got.len(), 1);
+    }
+
+    #[test]
+    fn legacy_without_total_time_sums_intervals() {
+        let (store, dir) = new_store();
+        write_legacy_without_total_time(&dir);
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got[0].total_time, 45);
+    }
+
+    // --- migrate_sessions ---
+
+    #[test]
+    fn migrate_counts_single_interval_mismatch() {
         let sessions = vec![session_with(
             "a",
             vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:01:00"))],
             30,
         )];
-        let (migrated, changed) = migrate_sessions(sessions);
+
+        let (_, changed) = migrate_sessions(sessions);
+
         assert_eq!(changed, 1);
+    }
+
+    #[test]
+    fn migrate_extends_single_interval_to_total_time() {
+        let sessions = vec![session_with(
+            "a",
+            vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:01:00"))],
+            30,
+        )];
+
+        let (migrated, _) = migrate_sessions(sessions);
+
         assert_eq!(
             migrated[0].times[0].end_time.as_deref(),
             Some("2026-05-20T10:30:00")
@@ -543,33 +659,63 @@ mod tests {
     }
 
     #[test]
-    fn migrate_shrinks_overlong_interval() {
+    fn migrate_counts_overlong_interval() {
         let sessions = vec![session_with(
             "a",
             vec![interval("2026-05-20T09:00:00", Some("2026-05-20T18:22:00"))],
             65,
         )];
-        let (migrated, changed) = migrate_sessions(sessions);
+
+        let (_, changed) = migrate_sessions(sessions);
+
         assert_eq!(changed, 1);
+    }
+
+    #[test]
+    fn migrate_shrinks_overlong_interval_to_total_time() {
+        let sessions = vec![session_with(
+            "a",
+            vec![interval("2026-05-20T09:00:00", Some("2026-05-20T18:22:00"))],
+            65,
+        )];
+
+        let (migrated, _) = migrate_sessions(sessions);
+
         assert_eq!(
             migrated[0].times[0].end_time.as_deref(),
             Some("2026-05-20T10:05:00")
         );
     }
 
-    #[test]
-    fn migrate_leaves_multi_interval_alone() {
-        let sessions = vec![session_with(
+    fn multi_interval_session() -> Vec<Session> {
+        vec![session_with(
             "a",
             vec![
                 interval("2026-05-20T09:00:00", Some("2026-05-20T10:00:00")),
                 interval("2026-05-20T13:00:00", Some("2026-05-20T14:00:00")),
             ],
             200,
-        )];
-        let (migrated, changed) = migrate_sessions(sessions);
+        )]
+    }
+
+    #[test]
+    fn migrate_does_not_count_multi_interval() {
+        let (_, changed) = migrate_sessions(multi_interval_session());
+
         assert_eq!(changed, 0);
+    }
+
+    #[test]
+    fn migrate_keeps_multi_interval_total_time() {
+        let (migrated, _) = migrate_sessions(multi_interval_session());
+
         assert_eq!(migrated[0].total_time, 200);
+    }
+
+    #[test]
+    fn migrate_keeps_multi_interval_end_times() {
+        let (migrated, _) = migrate_sessions(multi_interval_session());
+
         assert_eq!(
             migrated[0].times[1].end_time.as_deref(),
             Some("2026-05-20T14:00:00")
@@ -577,22 +723,42 @@ mod tests {
     }
 
     #[test]
-    fn migrate_leaves_empty_times_alone() {
+    fn migrate_does_not_count_empty_times() {
         let sessions = vec![session_with("a", vec![], 45)];
-        let (migrated, changed) = migrate_sessions(sessions);
+
+        let (_, changed) = migrate_sessions(sessions);
+
         assert_eq!(changed, 0);
-        assert!(migrated[0].times.is_empty());
     }
 
     #[test]
-    fn migrate_leaves_running_interval_alone() {
-        let sessions = vec![session_with(
+    fn migrate_keeps_empty_times_empty() {
+        let sessions = vec![session_with("a", vec![], 45)];
+
+        let (migrated, _) = migrate_sessions(sessions);
+
+        assert!(migrated[0].times.is_empty());
+    }
+
+    fn running_interval_session() -> Vec<Session> {
+        vec![session_with(
             "a",
             vec![interval("2026-05-20T10:00:00", None)],
             30,
-        )];
-        let (migrated, changed) = migrate_sessions(sessions);
+        )]
+    }
+
+    #[test]
+    fn migrate_does_not_count_running_interval() {
+        let (_, changed) = migrate_sessions(running_interval_session());
+
         assert_eq!(changed, 0);
+    }
+
+    #[test]
+    fn migrate_keeps_running_interval_open() {
+        let (migrated, _) = migrate_sessions(running_interval_session());
+
         assert!(migrated[0].times[0].end_time.is_none());
     }
 
@@ -603,28 +769,72 @@ mod tests {
             vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:30:00"))],
             30,
         )];
+
         let (_, changed) = migrate_sessions(sessions);
+
+        assert_eq!(changed, 0);
+    }
+
+    // 手で壊されうる値。panic せずそのセッションを触らないこと
+    fn out_of_range_total_time_session() -> Vec<Session> {
+        vec![session_with(
+            "a",
+            vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:01:00"))],
+            999_999_999_999_999,
+        )]
+    }
+
+    #[test]
+    fn migrate_does_not_count_out_of_range_total_time() {
+        let (_, changed) = migrate_sessions(out_of_range_total_time_session());
+
         assert_eq!(changed, 0);
     }
 
     #[test]
-    fn get_sessions_migrates_once_and_marks_version() {
-        // 既存の new_store() は TempDir を返す。dir は drop されると消えるので束縛を保つ
-        let (store, dir) = new_store();
-        // version 無しの旧フォーマットを直接書く
-        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
-        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+    fn migrate_keeps_end_time_when_total_time_out_of_range() {
+        let (migrated, _) = migrate_sessions(out_of_range_total_time_session());
 
-        let first = store.get_sessions("2026-05").unwrap();
         assert_eq!(
-            first[0].times[0].end_time.as_deref(),
+            migrated[0].times[0].end_time.as_deref(),
+            Some("2026-05-20T10:01:00")
+        );
+    }
+
+    // --- 読み込み時の移行 ---
+
+    #[test]
+    fn get_sessions_applies_migration() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+
+        let got = store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            got[0].times[0].end_time.as_deref(),
             Some("2026-05-20T10:30:00")
         );
+    }
 
-        // 移行時に version が書かれ、2回目は再実行されない
+    #[test]
+    fn get_sessions_marks_file_as_version_2() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+
+        store.get_sessions("2026-05").unwrap();
+
         let content = std::fs::read_to_string(dir.path().join("sessions-2026-05.json")).unwrap();
         assert!(content.contains("\"version\": 2"));
+    }
+
+    #[test]
+    fn second_get_sessions_returns_same_result() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        store.get_sessions("2026-05").unwrap();
+
         let second = store.get_sessions("2026-05").unwrap();
+
         assert_eq!(
             second[0].times[0].end_time.as_deref(),
             Some("2026-05-20T10:30:00")
@@ -634,8 +844,7 @@ mod tests {
     #[test]
     fn migration_keeps_original_in_pre_migration_backup() {
         let (store, dir) = new_store();
-        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
-        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+        write_legacy_month(&dir);
 
         store.get_sessions("2026-05").unwrap();
 
@@ -646,12 +855,11 @@ mod tests {
     }
 
     #[test]
-    fn pre_migration_backup_survives_later_save() {
+    fn pre_migration_backup_keeps_original_after_later_save() {
         let (store, dir) = new_store();
-        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
-        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
-
+        write_legacy_month(&dir);
         store.get_sessions("2026-05").unwrap();
+
         // 移行後に保存すると write() の .bak は移行後の内容で潰れるが、
         // 専用の退避ファイルは移行前のままでなければならない
         store.save_session(sample("later", "2026-05-21")).unwrap();
@@ -659,63 +867,105 @@ mod tests {
         let pre =
             std::fs::read_to_string(dir.path().join("sessions-2026-05.json.pre-v2.bak")).unwrap();
         assert!(pre.contains("2026-05-20T10:01:00"));
-        assert!(!pre.contains("2026-05-20T10:30:00"));
     }
 
     #[test]
-    fn already_v2_file_is_not_migrated() {
+    fn pre_migration_backup_has_no_migrated_content_after_later_save() {
         let (store, dir) = new_store();
-        // version 2 と明記されていれば、合計が食い違っていても触らない
+        write_legacy_month(&dir);
+        store.get_sessions("2026-05").unwrap();
+
+        store.save_session(sample("later", "2026-05-21")).unwrap();
+
+        let pre =
+            std::fs::read_to_string(dir.path().join("sessions-2026-05.json.pre-v2.bak")).unwrap();
+        assert!(!pre.contains("2026-05-20T10:30:00"));
+    }
+
+    // version 2 と明記されていれば、合計が食い違っていても触らない
+    fn write_v2_month(dir: &TempDir) {
         let raw = r##"{"version":2,"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
         std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+    }
+
+    #[test]
+    fn already_v2_file_keeps_end_time() {
+        let (store, dir) = new_store();
+        write_v2_month(&dir);
 
         let got = store.get_sessions("2026-05").unwrap();
+
         assert_eq!(
             got[0].times[0].end_time.as_deref(),
             Some("2026-05-20T10:01:00")
         );
+    }
+
+    #[test]
+    fn already_v2_file_creates_no_pre_migration_backup() {
+        let (store, dir) = new_store();
+        write_v2_month(&dir);
+
+        store.get_sessions("2026-05").unwrap();
+
         // 移行が走っていないので退避ファイルも作られない
         assert!(!dir.path().join("sessions-2026-05.json.pre-v2.bak").exists());
     }
 
-    /// 未移行（version 無し・単区間が totalTime と食い違う）の月ファイルを置く。
-    fn write_legacy_month(dir: &TempDir) {
-        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
-        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+    // --- ロックの直列化 ---
+
+    /// 未移行の月へ別スレッドで保存し、デッドロックしないかを時間を計って確かめる。
+    /// save_session はロックを保持したまま読み取りへ入る。読み取り側が同じ
+    /// 非再入 Mutex を取り直すと自己デッドロックする。
+    fn save_on_unmigrated_month(store: Arc<SessionStore>) -> Result<bool, String> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let r = store.save_session(sample("later", "2026-05-21"));
+            let _ = tx.send(r.is_ok());
+        });
+        // タイムアウト時に store へ触れると本体側がロックを握ったままなので更にブロックする
+        rx.recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|_| "deadlock".to_string())
     }
 
     #[test]
     fn save_on_unmigrated_month_does_not_deadlock() {
-        // save_session はロックを保持したまま読み取りへ入る。読み取り側が同じ
-        // 非再入 Mutex を取り直すと自己デッドロックするので、別スレッドで時間を計る。
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+
+        let result = save_on_unmigrated_month(Arc::new(store));
+
+        assert_eq!(result, Ok(true));
+    }
+
+    #[test]
+    fn save_on_unmigrated_month_keeps_both_sessions() {
         let (store, dir) = new_store();
         write_legacy_month(&dir);
         let store = Arc::new(store);
-        let (tx, rx) = std::sync::mpsc::channel();
-        let s = store.clone();
-        std::thread::spawn(move || {
-            let r = s.save_session(sample("later", "2026-05-21"));
-            let _ = tx.send(r.is_ok());
-        });
-        match rx.recv_timeout(std::time::Duration::from_secs(5)) {
-            Ok(ok) => assert!(ok, "save_session が失敗した"),
-            // ここで store に触れると本体側がロックを握ったままなので更にブロックする
-            Err(_) => panic!("save_session がデッドロックした（移行を伴う読み取りでロックを取り直している）"),
-        }
+        save_on_unmigrated_month(store.clone()).unwrap();
+
         let got = store.get_sessions("2026-05").unwrap();
+
         assert_eq!(got.len(), 2);
-        // 移行（単区間の終了時刻補正）も適用されている
+    }
+
+    #[test]
+    fn save_on_unmigrated_month_also_applies_migration() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        let store = Arc::new(store);
+        save_on_unmigrated_month(store.clone()).unwrap();
+
+        let got = store.get_sessions("2026-05").unwrap();
+
         let migrated = got.iter().find(|s| s.id == "a").unwrap();
         assert_eq!(migrated.times[0].end_time.as_deref(), Some("2026-05-20T10:30:00"));
     }
 
-    #[test]
-    fn read_migration_and_writes_are_serialized() {
-        // 読み取り経由の移行も write を伴うため、書き込みと直列化されないと
-        // 直前に保存されたセッションを移行側の write が消しうる。
-        let (store, dir) = new_store();
-        write_legacy_month(&dir);
-        let store = Arc::new(store);
+    /// 読み取り経由の移行も write を伴うため、書き込みと直列化されないと
+    /// 直前に保存されたセッションを移行側の write が消しうる。
+    fn race_reads_and_writes(store: &Arc<SessionStore>) {
         let handles: Vec<_> = (0..8)
             .flat_map(|i| {
                 let w = store.clone();
@@ -733,26 +983,30 @@ mod tests {
         for h in handles {
             h.join().unwrap();
         }
-        let got = store.get_sessions("2026-05").unwrap();
-        // 移行対象の1件 + 保存した8件がすべて残る
-        assert_eq!(got.len(), 9);
-        let migrated = got.iter().find(|s| s.id == "a").unwrap();
-        assert_eq!(migrated.times[0].end_time.as_deref(), Some("2026-05-20T10:30:00"));
     }
 
     #[test]
-    fn migrate_skips_out_of_range_total_time() {
-        // ユーザーが手で壊しうる値。panic せずそのセッションを触らないこと
-        let sessions = vec![session_with(
-            "a",
-            vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:01:00"))],
-            999_999_999_999_999,
-        )];
-        let (migrated, changed) = migrate_sessions(sessions);
-        assert_eq!(changed, 0);
-        assert_eq!(
-            migrated[0].times[0].end_time.as_deref(),
-            Some("2026-05-20T10:01:00")
-        );
+    fn read_migration_does_not_drop_concurrent_saves() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        let store = Arc::new(store);
+
+        race_reads_and_writes(&store);
+
+        // 移行対象の1件 + 保存した8件がすべて残る
+        assert_eq!(store.get_sessions("2026-05").unwrap().len(), 9);
+    }
+
+    #[test]
+    fn read_migration_still_applies_under_concurrent_saves() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        let store = Arc::new(store);
+
+        race_reads_and_writes(&store);
+
+        let got = store.get_sessions("2026-05").unwrap();
+        let migrated = got.iter().find(|s| s.id == "a").unwrap();
+        assert_eq!(migrated.times[0].end_time.as_deref(), Some("2026-05-20T10:30:00"));
     }
 }
