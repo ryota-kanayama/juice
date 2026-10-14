@@ -7,33 +7,29 @@ import { contrastRatio } from './colorUtils'
 describe.each(THEME_PARAMS.map(p => [p.id, p] as const))('テーマ %s のコントラスト', (_id, params) => {
   const { cssVars, juiceColors } = generateThemeTokens(params)
 
-  it('text-primary vs bg ≥ 4.5', () => {
-    expect(contrastRatio(cssVars['--text-primary'], cssVars['--bg'])).toBeGreaterThanOrEqual(4.5)
+  it.each([
+    ['--text-primary', '--bg', 4.5],
+    ['--text-primary', '--bg-card', 4.5],
+    ['--text-secondary', '--bg', 4.5],
+    ['--text-muted', '--bg', 3.0],
+    ['--text-on-accent', '--accent', 4.5],
+  ])('%s と %s は %s:1 以上', (fg, bg, minimum) => {
+    const ratio = contrastRatio(cssVars[fg], cssVars[bg])
+
+    expect(ratio).toBeGreaterThanOrEqual(minimum)
   })
 
-  it('text-primary vs bg-card ≥ 4.5', () => {
-    expect(contrastRatio(cssVars['--text-primary'], cssVars['--bg-card'])).toBeGreaterThanOrEqual(4.5)
-  })
+  it.each(JUICE_KEYS)('ジュース色 %s と --bg は 3:1 以上', key => {
+    const ratio = contrastRatio(juiceColors[key], cssVars['--bg'])
 
-  it('text-secondary vs bg ≥ 4.5', () => {
-    expect(contrastRatio(cssVars['--text-secondary'], cssVars['--bg'])).toBeGreaterThanOrEqual(4.5)
-  })
-
-  it('text-muted vs bg ≥ 3.0', () => {
-    expect(contrastRatio(cssVars['--text-muted'], cssVars['--bg'])).toBeGreaterThanOrEqual(3.0)
-  })
-
-  it('text-on-accent vs accent ≥ 4.5', () => {
-    expect(contrastRatio(cssVars['--text-on-accent'], cssVars['--accent'])).toBeGreaterThanOrEqual(4.5)
-  })
-
-  it.each(JUICE_KEYS)('ジュース色 %s vs bg ≥ 3.0', key => {
-    expect(contrastRatio(juiceColors[key], cssVars['--bg'])).toBeGreaterThanOrEqual(3.0)
+    expect(ratio).toBeGreaterThanOrEqual(3.0)
   })
 })
 
 describe('スナップショット', () => {
   it.each(THEME_PARAMS.map(p => [p.id, p] as const))('%s のトークンが意図せず変わっていない', (_id, params) => {
-    expect(generateThemeTokens(params)).toMatchSnapshot()
+    const tokens = generateThemeTokens(params)
+
+    expect(tokens).toMatchSnapshot()
   })
 })

@@ -20,40 +20,67 @@ function makeTour(overrides: Partial<TourState> = {}): TourState {
   }
 }
 
+const button = (name: string) => screen.queryByRole('button', { name })
+
 describe('TourOverlay', () => {
-  it('非アクティブなら何も描画しない', () => {
+  it('ツアー中でなければ何も描画しない', () => {
     const { container } = render(<TourOverlay tour={makeTour({ isActive: false })} />)
+
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('現在ステップの文言と進捗を表示する', () => {
+  it('現在のステップのタイトルと本文を表示する', () => {
     render(<TourOverlay tour={makeTour()} />)
+
     expect(screen.getByText('ようこそ')).toBeInTheDocument()
     expect(screen.getByText('案内します')).toBeInTheDocument()
-    expect(screen.getByText('1 / 7')).toBeInTheDocument()
   })
 
-  it('「次へ」で next、「スキップ」で skip を呼ぶ', async () => {
+  it('進み具合を「現在 / 全体」で表示する', () => {
+    render(<TourOverlay tour={makeTour({ index: 2, total: 7 })} />)
+
+    expect(screen.getByText('3 / 7')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['次へ', 'next'],
+    ['スキップ', 'skip'],
+  ] as const)('「%s」で %s を呼ぶ', async (label, method) => {
     const tour = makeTour()
-    const user = userEvent.setup()
     render(<TourOverlay tour={tour} />)
-    await user.click(screen.getByRole('button', { name: '次へ' }))
-    expect(tour.next).toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'スキップ' }))
-    expect(tour.skip).toHaveBeenCalled()
+
+    await userEvent.click(button(label)!)
+
+    expect(tour[method]).toHaveBeenCalledOnce()
   })
 
-  it('先頭では「戻る」を出さない', () => {
+  it('最初のステップでは「戻る」を出さない', () => {
     render(<TourOverlay tour={makeTour({ index: 0 })} />)
-    expect(screen.queryByRole('button', { name: '戻る' })).not.toBeInTheDocument()
+
+    expect(button('戻る')).not.toBeInTheDocument()
   })
 
-  it('最終ステップでは「はじめる」を出し finish を呼ぶ', async () => {
-    const tour = makeTour({ index: 6, isLast: true })
-    const user = userEvent.setup()
+  it('2つ目以降のステップでは「戻る」で prev を呼ぶ', async () => {
+    const tour = makeTour({ index: 1 })
     render(<TourOverlay tour={tour} />)
-    await user.click(screen.getByRole('button', { name: 'はじめる' }))
-    expect(tour.finish).toHaveBeenCalled()
-    expect(screen.queryByRole('button', { name: '次へ' })).not.toBeInTheDocument()
+
+    await userEvent.click(button('戻る')!)
+
+    expect(tour.prev).toHaveBeenCalledOnce()
+  })
+
+  it('最後のステップでは「次へ」の代わりに「はじめる」を出す', () => {
+    render(<TourOverlay tour={makeTour({ index: 6, isLast: true })} />)
+
+    expect(button('次へ')).not.toBeInTheDocument()
+  })
+
+  it('最後のステップの「はじめる」で finish を呼ぶ', async () => {
+    const tour = makeTour({ index: 6, isLast: true })
+    render(<TourOverlay tour={tour} />)
+
+    await userEvent.click(button('はじめる')!)
+
+    expect(tour.finish).toHaveBeenCalledOnce()
   })
 })
