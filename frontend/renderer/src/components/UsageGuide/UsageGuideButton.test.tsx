@@ -4,11 +4,18 @@ import userEvent from '@testing-library/user-event'
 import { UsageGuideButton } from './UsageGuideButton'
 
 describe('UsageGuideButton', () => {
-  it('「使い方」ボタン押下で onOpen を呼ぶ', async () => {
+  it('「使い方」を押すと onOpen を呼ぶ', async () => {
     const onOpen = vi.fn()
-    const user = userEvent.setup()
     render(<UsageGuideButton onOpen={onOpen} />)
-    await user.click(screen.getByRole('button', { name: '使い方' }))
-    expect(onOpen).toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: '使い方' }))
+
+    expect(onOpen).toHaveBeenCalledOnce()
+  })
+
+  it('ツアー用のアンカーを付ける', () => {
+    const { container } = render(<UsageGuideButton onOpen={vi.fn()} />)
+
+    expect(container.querySelector('[data-tour="help"]')).not.toBeNull()
   })
 })
