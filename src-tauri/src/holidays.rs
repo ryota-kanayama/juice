@@ -75,49 +75,94 @@ mod tests {
     #[test]
     fn parse_valid_object() {
         let body = r#"{"2026-01-01":"元日","2026-01-12":"成人の日"}"#;
+
         let map = parse_holidays(body).unwrap();
+
         assert_eq!(map.get("2026-01-01").map(String::as_str), Some("元日"));
+    }
+
+    #[test]
+    fn parse_valid_object_keeps_all_entries() {
+        let body = r#"{"2026-01-01":"元日","2026-01-12":"成人の日"}"#;
+
+        let map = parse_holidays(body).unwrap();
+
         assert_eq!(map.len(), 2);
     }
 
     #[test]
     fn parse_empty_object_is_some_empty() {
         let map = parse_holidays("{}").unwrap();
+
         assert!(map.is_empty());
     }
 
     #[test]
     fn parse_array_is_none() {
-        assert!(parse_holidays(r#"["a","b"]"#).is_none());
+        let parsed = parse_holidays(r#"["a","b"]"#);
+
+        assert!(parsed.is_none());
     }
 
     #[test]
     fn parse_null_is_none() {
-        assert!(parse_holidays("null").is_none());
+        let parsed = parse_holidays("null");
+
+        assert!(parsed.is_none());
     }
 
     #[test]
     fn parse_invalid_json_is_none() {
-        assert!(parse_holidays("{ broken").is_none());
+        let parsed = parse_holidays("{ broken");
+
+        assert!(parsed.is_none());
+    }
+
+    #[test]
+    fn apply_some_returns_given_map() {
+        let client = HolidaysClient::new();
+        let m = one_holiday();
+
+        let returned = client.apply(Some(m.clone()));
+
+        assert_eq!(returned, m);
     }
 
     #[test]
     fn apply_some_caches_result() {
         let client = HolidaysClient::new();
+        let m = one_holiday();
+        client.apply(Some(m.clone()));
+
+        // 成功はキャッシュされる
+        let cached = client.cached();
+
+        assert_eq!(cached, Some(m));
+    }
+
+    fn one_holiday() -> HashMap<String, String> {
         let mut m = HashMap::new();
         m.insert("2026-01-01".to_string(), "元日".to_string());
-        let returned = client.apply(Some(m.clone()));
-        assert_eq!(returned, m);
-        // 成功はキャッシュされる
-        assert_eq!(client.cached(), Some(m));
+        m
     }
 
     #[test]
-    fn apply_none_returns_empty_without_caching() {
+    fn apply_none_returns_empty() {
         let client = HolidaysClient::new();
+
         let returned = client.apply(None);
+
         assert!(returned.is_empty());
+    }
+
+    #[test]
+    fn apply_none_does_not_cache() {
+        let client = HolidaysClient::new();
+        client.apply(None);
+
         // 失敗はキャッシュしない（次回リトライ）
-        assert_eq!(client.cached(), None);
+        let cached = client.cached();
+
+        assert_eq!(cached, None);
     }
 }

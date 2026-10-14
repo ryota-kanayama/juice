@@ -192,78 +192,107 @@ mod tests {
     }
 
     #[test]
-    fn attendance_with_token_builds_request() {
+    fn attendance_with_token_targets_send_endpoint() {
+        let (url, _, _) = attendance_send_plan();
+
+        assert_eq!(url, "https://proxy.test/api/attendance.send");
+    }
+
+    #[test]
+    fn attendance_with_token_sends_text_as_json_body() {
+        let (_, body, _) = attendance_send_plan();
+
+        let v: Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(v["text"], "勤怠\n8:30 17:30 60");
+    }
+
+    #[test]
+    fn attendance_with_token_passes_token() {
+        let (_, _, token) = attendance_send_plan();
+
+        assert_eq!(token, "jwt.x.y");
+    }
+
+    fn attendance_send_plan() -> (String, String, String) {
         match plan_attendance(PROXY, "勤怠\n8:30 17:30 60", Some("jwt.x.y")) {
-            AttendancePlan::Send { url, body, token } => {
-                assert_eq!(url, "https://proxy.test/api/attendance.send");
-                let v: Value = serde_json::from_str(&body).unwrap();
-                assert_eq!(v["text"], "勤怠\n8:30 17:30 60");
-                assert_eq!(token, "jwt.x.y");
-            }
+            AttendancePlan::Send { url, body, token } => (url, body, token),
             _ => panic!("expected Send"),
         }
     }
 
     #[test]
     fn whiteboard_disabled_skips() {
-        assert_eq!(
-            plan_whiteboard(PROXY, "leave", false, Some("t")),
-            WhiteboardPlan::Skip
-        );
+        let plan = plan_whiteboard(PROXY, "leave", false, Some("t"));
+
+        assert_eq!(plan, WhiteboardPlan::Skip);
     }
 
     #[test]
     fn whiteboard_enabled_without_token_prompts() {
-        assert_eq!(
-            plan_whiteboard(PROXY, "telework", true, None),
-            WhiteboardPlan::Prompt
-        );
+        let plan = plan_whiteboard(PROXY, "telework", true, None);
+
+        assert_eq!(plan, WhiteboardPlan::Prompt);
     }
 
     #[test]
-    fn whiteboard_enabled_with_token_sends() {
-        match plan_whiteboard(PROXY, "telework", true, Some("t")) {
-            WhiteboardPlan::Send { url, token } => {
-                assert_eq!(url, "https://proxy.test/api/whiteboard.telework");
-                assert_eq!(token, "t");
-            }
+    fn whiteboard_enabled_with_token_targets_telework_endpoint() {
+        let (url, _) = whiteboard_send_plan("telework");
+
+        assert_eq!(url, "https://proxy.test/api/whiteboard.telework");
+    }
+
+    #[test]
+    fn whiteboard_enabled_with_token_passes_token() {
+        let (_, token) = whiteboard_send_plan("telework");
+
+        assert_eq!(token, "t");
+    }
+
+    fn whiteboard_send_plan(kind: &str) -> (String, String) {
+        match plan_whiteboard(PROXY, kind, true, Some("t")) {
+            WhiteboardPlan::Send { url, token } => (url, token),
             _ => panic!("expected Send"),
         }
     }
 
     #[test]
     fn whiteboard_leave_url() {
-        match plan_whiteboard(PROXY, "leave", true, Some("t")) {
-            WhiteboardPlan::Send { url, .. } => {
-                assert_eq!(url, "https://proxy.test/api/whiteboard.leave")
-            }
-            _ => panic!("expected Send"),
-        }
+        let (url, _) = whiteboard_send_plan("leave");
+
+        assert_eq!(url, "https://proxy.test/api/whiteboard.leave");
     }
 
     #[test]
     fn classify_401_prompts() {
-        assert_eq!(
-            classify_whiteboard_response(401, false, "x"),
-            WhiteboardOutcome::Prompt
-        );
+        let outcome = classify_whiteboard_response(401, false, "x");
+
+        assert_eq!(outcome, WhiteboardOutcome::Prompt);
     }
 
     #[test]
     fn classify_success_done() {
-        assert_eq!(
-            classify_whiteboard_response(200, true, "{}"),
-            WhiteboardOutcome::Done
-        );
+        let outcome = classify_whiteboard_response(200, true, "{}");
+
+        assert_eq!(outcome, WhiteboardOutcome::Done);
     }
 
     #[test]
-    fn classify_other_error() {
+    fn classify_other_error_message_has_status() {
+        let msg = other_error_message();
+
+        assert!(msg.contains("500"));
+    }
+
+    #[test]
+    fn classify_other_error_message_has_body() {
+        let msg = other_error_message();
+
+        assert!(msg.contains("boom"));
+    }
+
+    fn other_error_message() -> String {
         match classify_whiteboard_response(500, false, "boom") {
-            WhiteboardOutcome::Err(msg) => {
-                assert!(msg.contains("500"));
-                assert!(msg.contains("boom"));
-            }
+            WhiteboardOutcome::Err(msg) => msg,
             _ => panic!("expected Err"),
         }
     }

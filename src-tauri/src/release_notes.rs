@@ -177,43 +177,89 @@ mod tests {
 - 最初のリリース
 "#;
 
+    fn sample_entry(version: &str) -> ReleaseNoteEntry {
+        parse_changelog(SAMPLE)
+            .into_iter()
+            .find(|e| e.version == version)
+            .unwrap()
+    }
+
     #[test]
-    fn parses_version_date_and_body() {
-        let entries = parse_changelog(SAMPLE);
-        let v210 = entries.iter().find(|e| e.version == "2.1.0").unwrap();
+    fn parses_date() {
+        let v210 = sample_entry("2.1.0");
+
         assert_eq!(v210.date, "2026-08-07");
+    }
+
+    #[test]
+    fn parses_body_from_first_heading() {
+        let v210 = sample_entry("2.1.0");
+
         assert!(v210.body.starts_with("### ✨ 新機能"));
+    }
+
+    #[test]
+    fn parses_body_content() {
+        let v210 = sample_entry("2.1.0");
+
         assert!(v210.body.contains("カレンダーを独立したウィンドウ"));
+    }
+
+    #[test]
+    fn body_excludes_next_section() {
+        let v210 = sample_entry("2.1.0");
+
         // 次の節の内容は混ざらない
         assert!(!v210.body.contains("キーボード入力"));
     }
 
     #[test]
-    fn excludes_unreleased() {
+    fn excludes_unreleased_entry() {
         let entries = parse_changelog(SAMPLE);
+
         assert!(entries.iter().all(|e| e.version != "Unreleased"));
-        // Unreleased の中身がどの節にも混ざらない
+    }
+
+    #[test]
+    fn unreleased_body_is_not_mixed_into_other_entries() {
+        let entries = parse_changelog(SAMPLE);
+
         assert!(entries.iter().all(|e| !e.body.contains("まだ出ていない変更")));
     }
 
     #[test]
-    fn accepts_heading_without_date() {
-        let entries = parse_changelog(SAMPLE);
-        let v100 = entries.iter().find(|e| e.version == "1.0.0").unwrap();
+    fn heading_without_date_has_empty_date() {
+        let v100 = sample_entry("1.0.0");
+
         assert_eq!(v100.date, "");
+    }
+
+    #[test]
+    fn heading_without_date_keeps_body() {
+        let v100 = sample_entry("1.0.0");
+
         assert_eq!(v100.body, "- 最初のリリース");
     }
 
     #[test]
     fn returns_empty_when_no_headings() {
-        assert!(parse_changelog("# タイトルだけ\n\n本文\n").is_empty());
+        let entries = parse_changelog("# タイトルだけ\n\n本文\n");
+
+        assert!(entries.is_empty());
+    }
+
+    // 埋め込みパスが正しいことの担保（include_str! のパスミスを検知する）
+    #[test]
+    fn embedded_changelog_has_entries() {
+        let entries = parse_changelog(CHANGELOG);
+
+        assert!(!entries.is_empty());
     }
 
     #[test]
-    fn embedded_changelog_has_entries() {
-        // 埋め込みパスが正しいことの担保（include_str! のパスミスを検知する）
+    fn embedded_changelog_has_known_release() {
         let entries = parse_changelog(CHANGELOG);
-        assert!(!entries.is_empty());
+
         assert!(entries.iter().any(|e| e.version == "2.1.0"));
     }
 
@@ -250,12 +296,14 @@ mod tests {
     #[test]
     fn selects_only_newer_than_last_seen() {
         let got = select_entries(&entries(), "2.2.0", "2.3.0", true);
+
         assert_eq!(versions(&got), vec!["2.3.0"]);
     }
 
     #[test]
     fn includes_skipped_versions_newest_first() {
         let got = select_entries(&entries(), "2.0.1", "2.3.0", true);
+
         assert_eq!(versions(&got), vec!["2.3.0", "2.2.0", "2.1.0"]);
     }
 
@@ -263,6 +311,7 @@ mod tests {
     fn never_includes_versions_above_current() {
         // 2.3.0 の節はあるが、動いているのは 2.2.0
         let got = select_entries(&entries(), "2.0.1", "2.2.0", true);
+
         assert_eq!(versions(&got), vec!["2.2.0", "2.1.0"]);
     }
 
@@ -270,6 +319,7 @@ mod tests {
     fn empty_last_seen_with_setup_falls_back_to_migration_floor() {
         // この機能より前のバージョンから上がってきた既存ユーザー: 2.1.0 以降をまとめて出す
         let got = select_entries(&entries(), "", "2.3.0", true);
+
         assert_eq!(versions(&got), vec!["2.3.0", "2.2.0", "2.1.0"]);
     }
 
@@ -277,12 +327,14 @@ mod tests {
     fn empty_last_seen_without_setup_shows_nothing() {
         // 新規インストール。リリースノートは出さない
         let got = select_entries(&entries(), "", "2.3.0", false);
+
         assert!(got.is_empty());
     }
 
     #[test]
     fn downgrade_shows_nothing() {
         let got = select_entries(&entries(), "2.3.0", "2.2.0", true);
+
         assert!(got.is_empty());
     }
 
@@ -290,7 +342,9 @@ mod tests {
     fn skips_entries_with_empty_body() {
         let mut list = entries();
         list[0].body = "   \n".into();
+
         let got = select_entries(&list, "2.1.0", "2.3.0", true);
+
         assert_eq!(versions(&got), vec!["2.2.0"]);
     }
 
@@ -298,12 +352,14 @@ mod tests {
     fn display_falls_back_to_current_version_when_already_seen() {
         // 一度見たあと（last_seen == current）でも、設定から開き直せるように今の版を返す
         let got = entries_for_display_from(&entries(), "2.3.0", "2.3.0", true);
+
         assert_eq!(versions(&got), vec!["2.3.0"]);
     }
 
     #[test]
     fn display_returns_nothing_when_current_version_has_no_section() {
         let got = entries_for_display_from(&entries(), "9.9.9", "9.9.9", true);
+
         assert!(got.is_empty());
     }
 }
