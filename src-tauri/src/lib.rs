@@ -348,7 +348,7 @@ fn maybe_show_release_notes(app: &AppHandle) {
 /// サインインはセットアップ・設定・パネルのいずれかから始まるので、開いているものを
 /// この順で探し、どれも無ければパネルを出す。
 ///
-/// コールバックは2つ目の起動（single-instance）経由で別スレッドから届くことがあるため、
+/// Windows ではコールバックが2つ目の起動（single-instance）経由で別スレッドから届くため、
 /// メインスレッドで行う。
 pub fn show_after_sign_in(app: &AppHandle) {
     on_main_thread(app, |app| {
