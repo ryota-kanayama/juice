@@ -1,21 +1,22 @@
 # Juice
 
-作業セッションを時間区間として記録する macOS メニューバーアプリ。
+作業セッションを時間区間として記録するアプリ。macOS はメニューバー、Windows はタスクトレイに常駐する。
 
 ## ダウンロード
 
-[**最新版をダウンロード**](https://github.com/ryota-kanayama/juice/releases/latest) して、お使いの Mac に合った DMG を選んでください。
+[**最新版をダウンロード**](https://github.com/ryota-kanayama/juice/releases/latest) して、お使いの PC に合ったファイルを選んでください。
 
-| Mac の種類 | ファイル |
+| PC の種類 | ファイル |
 | --- | --- |
-| Apple Silicon（M1 以降） | `Juice-<バージョン>-arm64.dmg` |
-| Intel Mac | `Juice-<バージョン>.dmg` |
+| Mac（Apple Silicon・M1 以降） | `Juice-<バージョン>-arm64.dmg` |
+| Mac（Intel） | `Juice-<バージョン>.dmg` |
+| Windows（10 / 11） | `Juice_<バージョン>_x64-setup.exe` |
 
 > お使いの Mac の種類は、画面左上の  メニュー →「この Mac について」で確認できます。「チップ」が Apple M〜 なら Apple Silicon、「プロセッサ」が Intel なら Intel Mac です。
 
 すべてのバージョンは [リリース一覧](https://github.com/ryota-kanayama/juice/releases) から確認できます。
 
-## インストール
+## インストール（macOS）
 
 1. ダウンロードした `.dmg` を開く
 2. **Juice** を `Applications` フォルダにドラッグ
@@ -34,6 +35,18 @@
 
 一度起動すれば、2回目以降は通常どおりダブルクリックで開けます。
 
+## インストール（Windows）
+
+1. ダウンロードした `Juice_<バージョン>_x64-setup.exe` を実行する
+2. 画面に従ってインストールする（管理者権限は不要。ユーザーごとにインストールされる）
+3. スタートメニューから Juice を起動する。Juice はタスクバー右下のタスクトレイに常駐する
+   （`^` の中に隠れている場合は、タスクバーへドラッグしておくと使いやすい）
+
+### ⚠️ 「Windows によって PC が保護されました」と出た場合
+
+このアプリは現在 **未署名** のため、ダウンロードしたインストーラの初回実行時に SmartScreen の
+警告が表示されることがあります。「**詳細情報**」→「**実行**」で進めてください。
+
 ## 開発
 
 本アプリは **Tauri（Rust）+ React** 製。開発には Rust ツールチェインが必要。
@@ -51,7 +64,7 @@ npm test
 # Rust の単体テスト
 cd src-tauri && cargo test --lib
 
-# .app / DMG をビルド
+# インストーラをビルド（macOS: .app / DMG、Windows: NSIS インストーラ）
 npm run tauri build
 ```
 
@@ -61,9 +74,9 @@ npm run tauri build
 アプリ内で通知する（実装は `src-tauri/src/update.rs`）。配信時は次の手順を踏む
 （**version を上げ忘れると検知されない**）。
 
-ビルドは **GitHub Actions（`.github/workflows/release.yml`）が両アーキテクチャ分を
-自動生成**する。タグを push するとドラフトリリースに DMG が添付されるので、内容を確認
-して公開する。手順:
+ビルドは **GitHub Actions（`.github/workflows/release.yml`）が macOS 両アーキテクチャ分と
+Windows 分を自動生成**する。タグを push するとドラフトリリースに DMG と Windows インストーラが
+添付されるので、内容を確認して公開する。手順:
 
 1. `package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` の `version` を
    揃えて上げる
@@ -71,20 +84,26 @@ npm run tauri build
    （形式はファイル冒頭のテンプレートに従う。リリース本文にも同じ内容を使う）
 3. コミットして **`vX.Y.Z` タグを push** する
    （例: `git tag v2.0.1 && git push origin v2.0.1`）
-4. CI が arm64 / x64 の DMG（`Juice_X.Y.Z_aarch64.dmg` / `Juice_X.Y.Z_x64.dmg`、**未署名**）を
-   ビルドし、同タグの**ドラフトリリース**に添付する
+4. CI が arm64 / x64 の DMG（`Juice_X.Y.Z_aarch64.dmg` / `Juice_X.Y.Z_x64.dmg`）と
+   Windows インストーラ（`Juice_X.Y.Z_x64-setup.exe`）を**未署名**でビルドし、同タグの
+   **ドラフトリリース**に添付する
 5. ドラフトを開き、本文に CHANGELOG の該当節を貼って **公開（draft 解除）** する
    - アップデータは Tauri 命名（`_aarch64.dmg` / `_x64.dmg`）と Electron 命名
      （`-arm64.dmg` / 無印 `.dmg`）の**両方**で arch 一致アセットを選ぶ
      （`src-tauri/src/update.rs` の `select_dmg_asset`）。通常は Tauri 既定名のまま公開
+   - Windows は `_x64-setup.exe` を選ぶ（`select_windows_installer_asset`）。
+     **ファイル名を変えない**こと
    - **必ず正式リリースで公開する（pre-release / draft にしない）**。アプリは
      `releases/latest` を参照するが、このエンドポイントは pre-release / draft を
      除外するため、draft のままだと更新が検知されない
 6. クライアントは6時間以内（または再起動・手動チェック）に更新を検知し、
-   ワンクリックで DMG を取得・オープンできる
+   ワンクリックで更新できる（macOS は .app を差し替えて再起動、Windows はインストーラを
+   パッシブモードで実行して再起動）
 
-> ローカルで手元ビルドする場合は `npm run tauri build`（`src-tauri/target/release/bundle/dmg/`
-> に出力）。マウント中の「Juice」ボリュームがあると `bundle_dmg.sh` が失敗するので
+> ローカルで手元ビルドする場合は `npm run tauri build`
+> （macOS は `src-tauri/target/release/bundle/dmg/`、
+> Windows は `src-tauri/target/release/bundle/nsis/` に出力）。
+> macOS では、マウント中の「Juice」ボリュームがあると `bundle_dmg.sh` が失敗するので
 > `mount | grep -i juice` で確認し、あれば `hdiutil detach '/Volumes/Juice'` で外す。
 
 ### Electron → Tauri 引き継ぎリリース（初回のみ）

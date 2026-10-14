@@ -1,7 +1,7 @@
 name: Release
 
-# タグ push（v*）で macOS の両アーキテクチャ DMG を自動ビルドし、
-# ドラフトリリースに添付する。未署名（ad-hoc 署名のみ、Tauri が自動付与）。
+# タグ push（v*）で macOS の両アーキテクチャ DMG と Windows（x64）の NSIS インストーラを
+# 自動ビルドし、ドラフトリリースに添付する。未署名（macOS は ad-hoc 署名のみ、Tauri が自動付与）。
 # 公開前に CHANGELOG 記載・（引き継ぎ回のみ）DMG の Electron 命名リネームを行い、
 # ドラフトを手動で publish する運用（updater は releases/latest = 非ドラフトを見るため）。
 
@@ -23,9 +23,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: aarch64-apple-darwin # Apple Silicon
-          - target: x86_64-apple-darwin # Intel（macos-latest=arm64 からのクロスビルド）
-    runs-on: macos-latest
+          - platform: macos-latest
+            target: aarch64-apple-darwin # Apple Silicon
+            bundles: dmg
+          - platform: macos-latest
+            target: x86_64-apple-darwin # Intel（macos-latest=arm64 からのクロスビルド）
+            bundles: dmg
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout
@@ -58,7 +65,7 @@ jobs:
         run: cargo test --lib --manifest-path src-tauri/Cargo.toml
 
       # tauri-action が tauri build（beforeBuildCommand=vite build 含む）を実行し、
-      # 生成された DMG を同一タグのリリースへアップロードする。
+      # 生成された DMG / NSIS インストーラを同一タグのリリースへアップロードする。
       - name: Build & upload (Tauri, unsigned)
         uses: tauri-apps/tauri-action@v0
         env:
@@ -67,7 +74,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: ${{ github.ref_name }}
           releaseBody: |
-            自動ビルド（未署名）。arm64 / x64 の DMG を添付しています。
+            自動ビルド（未署名）。macOS（arm64 / x64）の DMG と Windows（x64）のインストーラを添付しています。
 
             公開前チェック:
             - CHANGELOG.md の `## [Unreleased]` をこの版の節（`## [X.Y.Z] - YYYY-MM-DD`）へ
@@ -82,5 +89,5 @@ jobs:
           # 独自アップデータ（src-tauri/src/update.rs）を使うため tauri-plugin-updater 用の
           # latest.json は生成しない。
           includeUpdaterJson: false
-          # DMG のみ生成（.app.tar.gz など updater 用バンドルを作らない＝リリースを DMG だけに）
-          args: --target ${{ matrix.target }} --bundles dmg
+          # macOS は DMG、Windows は NSIS のみ生成（updater 用バンドルや MSI は作らない）
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
