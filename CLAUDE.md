@@ -35,7 +35,24 @@ cd src-tauri && cargo test --lib
 
 # パッケージ（macOS .app / DMG）
 npm run tauri build
+
+# 静的解析（フロント）
+npm run lint
+
+# ミューテーションテスト（Stryker。結果は reports/ に出る）
+npm run mutation
 ```
+
+## 作業の進め方
+
+作業規律のスキルとフックは `.claude/` にある（一覧と使い分けは [.claude/README.md](.claude/README.md)）。
+
+- `main` へ直接コミットしない。作業ブランチ + PR で進め、マージは `gh pr merge --squash`（フックが強制する）。
+- 実装は `worktree` スキルで作業ツリー（`.claude/worktrees/<branch>`）を切って行う。ブランチ名はコミット種別の接頭辞を付ける（`feat/`・`fix/`・`chore/`・`ci/`・`test/` など）。
+- 作業ツリーでは最初に `npm ci` を実行する（`node_modules` は作業ツリーごとに別）。Rust も `src-tauri/target` が別なので、初回の `cargo` は全体をビルドし直す。
+- `tauri dev` は同時に1つしか動かない（`single-instance`）。製品版や別の作業ツリーの dev が動いていると、後から起動した側はエラーも出さずに終了する。
+- コードを変更してコミットしたら `impl-review`、文書を更新したら `doc-review` を回す。`impl-review` は未実施を Stop フックが検知する。
+- テストの書き方は `test-writing`。AAA は空行で区切り（マーカーコメントは付けない）、共通のテストデータは `frontend/renderer/src/test/factories.ts` を使う。
 
 ## アーキテクチャ
 
