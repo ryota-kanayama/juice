@@ -185,6 +185,7 @@ pub fn run() {
             app.manage(quit::PrepareQuitAck::default());
             app.manage(quit::QuitGate::default());
             app.manage(update::LastChecked::default());
+            app.manage(update::InstallGate::default());
             app.manage(AnchorPos::default());
 
             // juice://auth コールバック（Slack サインイン）を deep-link で受ける。

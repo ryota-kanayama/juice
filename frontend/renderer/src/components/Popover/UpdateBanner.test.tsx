@@ -30,6 +30,9 @@ function state(overrides: Partial<UpdateState>): UpdateState {
     checkedUpToDate: false,
     check: vi.fn(),
     install: vi.fn(),
+    confirmingInstall: false,
+    confirmInstall: vi.fn(),
+    cancelInstall: vi.fn(),
     dismiss: vi.fn(),
     ...overrides,
   }
@@ -109,6 +112,38 @@ describe('UpdateBanner', () => {
       render(<UpdateBanner update={state({ phase: 'installing' })} />)
 
       expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
+    })
+  })
+
+  describe('計測中の更新の確認（confirmingInstall）', () => {
+    it('アプリ内の確認ダイアログを出す', () => {
+      render(<UpdateBanner update={state({ phase: 'available', confirmingInstall: true })} />)
+
+      expect(screen.getByRole('alertdialog')).toHaveTextContent('作業を保存して更新します。アプリが再起動します。よろしいですか？')
+    })
+
+    it('確認中でなければダイアログを出さない', () => {
+      render(<UpdateBanner update={state({ phase: 'available', confirmingInstall: false })} />)
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
+
+    it('「更新する」で confirmInstall を呼ぶ', () => {
+      const confirmInstall = vi.fn()
+      render(<UpdateBanner update={state({ phase: 'available', confirmingInstall: true, confirmInstall })} />)
+
+      fireEvent.click(screen.getByRole('button', { name: '更新する' }))
+
+      expect(confirmInstall).toHaveBeenCalledOnce()
+    })
+
+    it('「キャンセル」で cancelInstall を呼ぶ', () => {
+      const cancelInstall = vi.fn()
+      render(<UpdateBanner update={state({ phase: 'available', confirmingInstall: true, cancelInstall })} />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'キャンセル' }))
+
+      expect(cancelInstall).toHaveBeenCalledOnce()
     })
   })
 })

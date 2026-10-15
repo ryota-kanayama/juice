@@ -16,7 +16,7 @@ const mockIsRunning = vi.fn()
 vi.mock('../repositories/updateRepository', () => ({
   updateRepository: {
     check: () => mockCheck(),
-    install: () => mockInstall(),
+    install: (v?: string) => mockInstall(v),
     dismiss: (v: string) => mockDismiss(v),
     getCurrentVersion: () => mockGetCurrentVersion(),
     pending: () => mockPending(),
@@ -40,6 +40,7 @@ const info: UpdateInfo = {
   notes: '',
 }
 const upToDate: UpdateInfo = { ...info, hasUpdate: false }
+const newerInfo: UpdateInfo = { ...info, latestVersion: '1.2.0' }
 
 type Hook = RenderHookResult<UpdateState, unknown>['result']
 
@@ -160,6 +161,17 @@ describe('useUpdate', () => {
       act(() => handlers.progress!({ percent: 100, done: true }))
 
       expect(hook.current.phase).toBe('installing')
+    })
+
+    // 承認した版と Rust の控えが食い違うと、Rust が update-available を出し直す。
+    // ダウンロード中や error の画面から「更新あり」に戻れること
+    it('ダウンロード中に update-available が届いたら、available に戻る', () => {
+      const hook = renderUpdate()
+      act(() => handlers.progress!({ percent: 30, done: false }))
+
+      act(() => handlers.available!(newerInfo))
+
+      expect(hook.current).toMatchObject({ phase: 'available', info: newerInfo })
     })
 
     it('エラーの進捗で error になり、メッセージを持つ', () => {
@@ -302,6 +314,7 @@ describe('useUpdate', () => {
     it('タイマーが止まっていれば、確認なしでインストールを始める', async () => {
       const confirm = vi.spyOn(window, 'confirm')
       const hook = renderUpdate()
+      act(() => handlers.available!(info))
 
       await runInstall(hook)
 
@@ -311,6 +324,7 @@ describe('useUpdate', () => {
 
     it('downloading になり、percent を 0 に戻す', async () => {
       const hook = renderUpdate()
+      act(() => handlers.available!(info))
       act(() => handlers.progress!({ percent: 70, done: false }))
 
       await runInstall(hook)
@@ -327,19 +341,7 @@ describe('useUpdate', () => {
       expect(hook.current.checkedUpToDate).toBe(false)
     })
 
-    it('タイマー稼働中に確認で OK したらインストールする', async () => {
-      mockIsRunning.mockResolvedValue(true)
-      vi.spyOn(window, 'confirm').mockReturnValue(true)
-      const hook = renderUpdate()
-
-      await runInstall(hook)
-
-      expect(mockInstall).toHaveBeenCalledOnce()
-    })
-
-    it('タイマー稼働中に確認でキャンセルしたらインストールしない', async () => {
-      mockIsRunning.mockResolvedValue(true)
-      vi.spyOn(window, 'confirm').mockReturnValue(false)
+    it('更新情報が無ければ、インストールを始めない', async () => {
       const hook = renderUpdate()
 
       await runInstall(hook)
@@ -347,9 +349,146 @@ describe('useUpdate', () => {
       expect(mockInstall).not.toHaveBeenCalled()
     })
 
+    it('更新情報が無ければ、phase を変えない', async () => {
+      const hook = renderUpdate()
+
+      await runInstall(hook)
+
+      expect(hook.current.phase).toBe('idle')
+    })
+
+    it('承認したバージョンでインストールを始める', async () => {
+      const hook = renderUpdate()
+      act(() => handlers.available!(info))
+
+      await runInstall(hook)
+
+      expect(mockInstall).toHaveBeenCalledWith('1.1.0')
+    })
+
+    describe('タイマー稼働中', () => {
+      async function pressInstallWhileRunning(hook: Hook): Promise<void> {
+        mockIsRunning.mockResolvedValue(true)
+        act(() => handlers.available!(info))
+        await runInstall(hook)
+      }
+
+      it('更新を押すと、アプリ内の確認ダイアログを出す', async () => {
+        const hook = renderUpdate()
+
+        await pressInstallWhileRunning(hook)
+
+        expect(hook.current.confirmingInstall).toBe(true)
+      })
+
+      it('window.confirm は呼ばない', async () => {
+        const confirm = vi.spyOn(window, 'confirm')
+        const hook = renderUpdate()
+
+        await pressInstallWhileRunning(hook)
+
+        expect(confirm).not.toHaveBeenCalled()
+      })
+
+      it('確認が済むまでインストールしない', async () => {
+        const hook = renderUpdate()
+
+        await pressInstallWhileRunning(hook)
+
+        expect(mockInstall).not.toHaveBeenCalled()
+      })
+
+      it('承認すると、承認したバージョンでインストールする', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+
+        await act(async () => { hook.current.confirmInstall() })
+
+        expect(mockInstall).toHaveBeenCalledWith('1.1.0')
+      })
+
+      it('承認すると、確認ダイアログを閉じる', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+
+        await act(async () => { hook.current.confirmInstall() })
+
+        expect(hook.current.confirmingInstall).toBe(false)
+      })
+
+      // 確認を出した版（1.1.0）と別の版が見つかったら、古い確認のままでは承認させない
+      it('確認中に別の版の update-available が届いたら、確認を取り消す', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+
+        act(() => handlers.available!(newerInfo))
+
+        expect(hook.current.confirmingInstall).toBe(false)
+      })
+
+      it('確認を取り消したあとのバナーには、新しい版を出す', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+
+        act(() => handlers.available!(newerInfo))
+
+        expect(hook.current).toMatchObject({ phase: 'available', info: newerInfo })
+      })
+
+      it('確認中に同じ版の update-available が届いても、確認を保つ', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+
+        act(() => handlers.available!({ ...info, notes: '更新された本文' }))
+
+        expect(hook.current.confirmingInstall).toBe(true)
+      })
+
+      it('確認中に同じ版の update-available が届いても、承認すると押した時点の版でインストールする', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+        act(() => handlers.available!({ ...info, notes: '更新された本文' }))
+
+        await act(async () => { hook.current.confirmInstall() })
+
+        expect(mockInstall).toHaveBeenCalledWith('1.1.0')
+      })
+
+      // 確認を取り消さない経路（手動のチェック）で info が先へ進んでも、承認の対象は押した版のまま
+      it('確認中に check で info が別の版になっても、承認すると押した時点の版でインストールする', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+        mockCheck.mockResolvedValue(newerInfo)
+        await runCheck(hook)
+
+        await act(async () => { hook.current.confirmInstall() })
+
+        expect(mockInstall).toHaveBeenCalledWith('1.1.0')
+      })
+
+      it('取り消すと、インストールしない', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+
+        await act(async () => { hook.current.cancelInstall() })
+
+        expect(mockInstall).not.toHaveBeenCalled()
+      })
+
+      it('取り消すと、確認ダイアログを閉じる', async () => {
+        const hook = renderUpdate()
+        await pressInstallWhileRunning(hook)
+
+        await act(async () => { hook.current.cancelInstall() })
+
+        expect(hook.current.confirmingInstall).toBe(false)
+      })
+    })
+
     it('稼働中かを確かめられなければ、止まっているものとして進める', async () => {
       mockIsRunning.mockRejectedValue(new Error('ipc error'))
       const hook = renderUpdate()
+      act(() => handlers.available!(info))
 
       await runInstall(hook)
 
@@ -359,6 +498,7 @@ describe('useUpdate', () => {
     it('インストールに失敗したら error になり、メッセージを持つ', async () => {
       mockInstall.mockRejectedValue(new Error('boom'))
       const hook = renderUpdate()
+      act(() => handlers.available!(info))
 
       await runInstall(hook)
 

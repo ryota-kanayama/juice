@@ -3,6 +3,7 @@ import { THEMES } from '../../themes'
 import { useSettings } from '../../hooks/useSettings'
 import { useUpdate } from '../../hooks/useUpdate'
 import { releaseNotesRepository } from '../../repositories/releaseNotesRepository'
+import { UpdateInstallConfirm } from '../ConfirmDialog/UpdateInstallConfirm'
 import { ThemeGrid } from '../ThemeGrid/ThemeGrid'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -359,6 +360,7 @@ export function SettingsView() {
                 >
                   リリースノートを見る
                 </button>
+                <UpdateInstallConfirm update={update} />
               </CardContent>
             </Card>
           </>

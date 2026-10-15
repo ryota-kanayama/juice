@@ -11,6 +11,7 @@ interface ConfirmDialogProps {
   message: string
   confirmLabel?: string
   cancelLabel?: string
+  confirmVariant?: 'default' | 'destructive'
   onConfirm: () => void
   onCancel: () => void
 }
@@ -19,6 +20,7 @@ export function ConfirmDialog({
   message,
   confirmLabel = '確認',
   cancelLabel = 'キャンセル',
+  confirmVariant = 'destructive',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -27,8 +29,8 @@ export function ConfirmDialog({
       <AlertDialogContent aria-describedby={undefined}>
         <AlertDialogTitle>{message}</AlertDialogTitle>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogAction variant={confirmVariant} onClick={onConfirm}>
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
