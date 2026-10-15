@@ -11,6 +11,7 @@ mod auth;
 mod commands;
 mod config;
 mod daily_store;
+mod fs_util;
 mod holidays;
 mod integrations;
 mod notif_scheduler;
