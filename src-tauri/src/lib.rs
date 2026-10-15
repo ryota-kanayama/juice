@@ -182,7 +182,8 @@ pub fn run() {
             app.manage(holidays::HolidaysClient::new());
             app.manage(auth::AuthStore::new(data_dir));
             app.manage(oauth::PendingState::default());
-            app.manage(update::UpdateAck::default());
+            app.manage(quit::UpdateAck::default());
+            app.manage(quit::QuitGate::default());
             app.manage(update::LastChecked::default());
             app.manage(AnchorPos::default());
 
@@ -225,6 +226,18 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
+/// トレイ「終了」。稼働中の区間を renderer に保存させてから終了する。終了処理中の連打は無視する。
+fn quit_after_save(app: &AppHandle) {
+    if !app.state::<quit::QuitGate>().try_begin() {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        quit::wait_for_renderer(&app).await;
+        app.exit(0);
+    });
+}
+
 /// メニューバーのトレイアイコンを構築。左クリックでトグル、右クリックで終了メニュー。
 fn build_tray(app_handle: &AppHandle) -> tauri::Result<()> {
     let settings = MenuItemBuilder::with_id("settings", "設定").build(app_handle)?;
@@ -252,7 +265,7 @@ fn build_tray(app_handle: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false) // 左クリックはメニューでなくトグルに使う
         .on_menu_event(|app, event| match event.id().as_ref() {
             "settings" => open_settings(app),
-            "quit" => app.exit(0),
+            "quit" => quit_after_save(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {

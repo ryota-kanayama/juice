@@ -27,7 +27,6 @@ const LATEST_RELEASE_URL: &str =
 const CHECK_INTERVAL_SECS: u64 = 6 * 60 * 60;
 /// 壁時計を見に起きる間隔。タイマー自体は短くし、経過の判定は壁時計で行う。
 const WAKE_INTERVAL_SECS: u64 = 60;
-const PREPARE_QUIT_TIMEOUT_SECS: u64 = 3;
 
 // ---- 型 ----
 
@@ -64,10 +63,6 @@ struct Progress {
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
-
-/// update-prepare-quit の ack を待つための oneshot 送信端を保持する managed state。
-#[derive(Default)]
-pub struct UpdateAck(std::sync::Mutex<Option<tokio::sync::oneshot::Sender<()>>>);
 
 /// 直近の更新チェック結果。更新前のリリースノート表示がここから本文を読む。
 /// 取得は Rust 側で走っているので、フロントへ渡し直さずに済む。
@@ -480,28 +475,6 @@ fn is_packaged() -> bool {
     !cfg!(debug_assertions)
 }
 
-/// 全ウィンドウへ update-prepare-quit を送り、ack かタイムアウト(3s)を待つ。
-async fn wait_for_renderer(app: &AppHandle) {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    *app.state::<UpdateAck>().0.lock().unwrap_or_else(|e| e.into_inner()) = Some(tx);
-    let _ = app.emit("update-prepare-quit", ());
-    let _ = tokio::time::timeout(Duration::from_secs(PREPARE_QUIT_TIMEOUT_SECS), rx).await;
-    *app.state::<UpdateAck>().0.lock().unwrap_or_else(|e| e.into_inner()) = None;
-}
-
-/// renderer からの ack（保存完了）。wait_for_renderer の待機を解除する。
-pub fn notify_renderer_ready(app: &AppHandle) {
-    if let Some(tx) = app
-        .state::<UpdateAck>()
-        .0
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .take()
-    {
-        let _ = tx.send(());
-    }
-}
-
 fn open_with_default(app: &AppHandle, target: String) {
     use tauri_plugin_opener::OpenerExt;
     let _ = app.opener().open_url(target, None::<&str>);
@@ -570,7 +543,7 @@ pub async fn install(app: &AppHandle) {
             open_path_with_default(app, &dest);
             return;
         }
-        wait_for_renderer(app).await;
+        crate::quit::wait_for_renderer(app).await;
         if let Err(e) = run_windows_installer(&dest) {
             eprintln!("[update] run_windows_installer failed: {e}");
             emit_progress(app, 0, true, Some("インストーラの起動に失敗しました".into()));
@@ -593,7 +566,7 @@ async fn install_macos(app: &AppHandle, work_dir: &PathBuf, dest: &PathBuf) {
             return;
         }
     };
-    wait_for_renderer(app).await;
+    crate::quit::wait_for_renderer(app).await;
     if let Err(e) = run_installer(work_dir, &dest.to_string_lossy(), &app_path.to_string_lossy()) {
         eprintln!("[update] run_installer failed: {e}");
         return;
