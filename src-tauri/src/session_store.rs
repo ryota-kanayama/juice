@@ -145,7 +145,7 @@ impl SessionStore {
         // 不正な yearMonth はここで即 throw（try の外で検証）
         let path = self.file_path(year_month)?;
         // 読み取り元のパスも覚えておく（移行前の退避はこのファイルを複製する）
-        let read = read_json_with_backup(&path, Self::parse);
+        let read = read_json_with_backup(&path, Self::parse)?;
         let Some((source, (version, sessions))) = read else {
             return Ok(Vec::new());
         };
@@ -287,6 +287,7 @@ fn migrate_sessions(sessions: Vec<Session>) -> (Vec<Session>, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fs_util::corrupt_copies;
     use crate::types::TimeInterval;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -463,16 +464,182 @@ mod tests {
         assert_eq!(got[0].name, "テスト作業");
     }
 
-    #[test]
-    fn both_corrupt_returns_empty() {
-        let (store, dir) = new_store();
+    /// 2026-02 の本体も .bak も壊す。本体のパスを返す。
+    fn corrupt_both_files(dir: &TempDir) -> PathBuf {
         let primary = dir.path().join("sessions-2026-02.json");
-        std::fs::write(&primary, "BAD").unwrap();
-        std::fs::write(format!("{}.bak", primary.display()), "BAD").unwrap();
+        std::fs::write(&primary, "BAD primary").unwrap();
+        std::fs::write(append_ext(&primary, ".bak"), "BAD bak").unwrap();
+        primary
+    }
+
+    #[test]
+    fn both_corrupt_returns_corrupt_error_on_read() {
+        let (store, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let result = store.get_sessions("2026-02");
+
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn save_session_returns_corrupt_error_when_both_are_corrupt() {
+        let (store, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let result = store.save_session(sample("new", "2026-02-25"));
+
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn save_session_keeps_corrupt_primary_content_when_both_are_corrupt() {
+        let (store, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        let _ = store.save_session(sample("new", "2026-02-25"));
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "sessions-2026-02.json"),
+            vec!["BAD primary".to_string()]
+        );
+    }
+
+    #[test]
+    fn save_session_keeps_corrupt_backup_content_when_both_are_corrupt() {
+        let (store, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        let _ = store.save_session(sample("new", "2026-02-25"));
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "sessions-2026-02.json.bak"),
+            vec!["BAD bak".to_string()]
+        );
+    }
+
+    #[test]
+    fn save_session_writes_nothing_when_both_are_corrupt() {
+        let (store, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let _ = store.save_session(sample("new", "2026-02-25"));
+
+        assert!(!primary.exists(), "月ファイルが新しく書かれないこと");
+    }
+
+    #[test]
+    fn save_session_succeeds_after_corrupt_files_were_set_aside() {
+        let (store, dir) = new_store();
+        corrupt_both_files(&dir);
+        let _ = store.save_session(sample("first", "2026-02-25"));
+        let second = sample("second", "2026-02-26");
+
+        store.save_session(second.clone()).unwrap();
+
+        assert_eq!(store.get_sessions("2026-02").unwrap(), vec![second]);
+    }
+
+    #[test]
+    fn update_session_returns_corrupt_error_when_both_are_corrupt() {
+        let (store, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let result = store.update_session(sample("new", "2026-02-25"));
+
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn delete_session_returns_corrupt_error_when_both_are_corrupt() {
+        let (store, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let result = store.delete_session("any-id", "2026-02");
+
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること: {result:?}"
+        );
+    }
+
+    // --- 形の不正なレコード ---
+
+    /// 正しいセッション1件と、形の不正なレコード1件を持つ version 2 の月ファイルを置く。
+    /// 戻り値は (正しいセッション, 置いたファイルの中身)。
+    fn write_month_with_one_malformed_record(dir: &TempDir) -> (Session, String) {
+        let valid = sample("valid", "2026-02-25");
+        let raw = serde_json::json!({
+            "version": 2,
+            "sessions": [serde_json::to_value(&valid).unwrap(), { "name": 5 }],
+        })
+        .to_string();
+        std::fs::write(dir.path().join("sessions-2026-02.json"), &raw).unwrap();
+        (valid, raw)
+    }
+
+    #[test]
+    fn malformed_record_is_skipped_and_the_rest_are_read() {
+        let (store, dir) = new_store();
+        let (valid, _) = write_month_with_one_malformed_record(&dir);
 
         let got = store.get_sessions("2026-02").unwrap();
 
-        assert_eq!(got, vec![]);
+        assert_eq!(got, vec![valid]);
+    }
+
+    #[test]
+    fn original_file_is_copied_aside_when_a_malformed_record_is_skipped() {
+        let (store, dir) = new_store();
+        let (_, raw) = write_month_with_one_malformed_record(&dir);
+
+        store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "sessions-2026-02.json"),
+            vec![raw]
+        );
+    }
+
+    #[test]
+    fn file_is_rewritten_without_the_malformed_record() {
+        let (store, dir) = new_store();
+        let (valid, _) = write_month_with_one_malformed_record(&dir);
+
+        store.get_sessions("2026-02").unwrap();
+
+        let rewritten: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(dir.path().join("sessions-2026-02.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            rewritten["sessions"],
+            serde_json::json!([serde_json::to_value(&valid).unwrap()])
+        );
+    }
+
+    #[test]
+    fn second_read_does_not_set_aside_the_file_again() {
+        let (store, dir) = new_store();
+        let (_, raw) = write_month_with_one_malformed_record(&dir);
+        store.get_sessions("2026-02").unwrap();
+
+        store.get_sessions("2026-02").unwrap();
+
+        // 再退避があれば、書き直し後の中身が退避ファイルに入る（または退避が増える）
+        assert_eq!(
+            corrupt_copies(dir.path(), "sessions-2026-02.json"),
+            vec![raw]
+        );
     }
 
     // --- 入力検証 ---

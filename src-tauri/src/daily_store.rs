@@ -72,7 +72,7 @@ impl DailyStore {
 
     pub fn get_month(&self, year_month: &str) -> Result<DailyMonth, StoreError> {
         let path = self.file_path(year_month)?; // 不正な yearMonth はここで即 throw
-        if let Some((_, month)) = read_json_with_backup(&path, Self::parse_month) {
+        if let Some((_, month)) = read_json_with_backup(&path, Self::parse_month)? {
             return Ok(month);
         }
         Ok(DailyMonth {
@@ -191,6 +191,7 @@ fn parse_daily_filename(name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fs_util::{append_ext, corrupt_copies};
     use serde_json::json;
     use tempfile::TempDir;
 
@@ -299,6 +300,91 @@ mod tests {
         let day = s.get_day("2026-06-17").unwrap().unwrap();
 
         assert_eq!(day["workStart"], "09:00"); // .bak の内容（workEnd 前）
+    }
+
+    #[test]
+    fn corrupt_file_is_moved_aside_when_restored_from_bak() {
+        let (s, dir) = new_store();
+        s.set_day("2026-06-17", json!({ "workStart": "09:00" })).unwrap();
+        s.set_day("2026-06-17", json!({ "workEnd": "18:00" })).unwrap();
+        std::fs::write(dir.path().join("daily-2026-06.json"), "{ broken").unwrap();
+
+        s.get_month("2026-06").unwrap();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "daily-2026-06.json"),
+            vec!["{ broken".to_string()]
+        );
+    }
+
+    /// 2026-06 の本体も .bak も壊す。本体のパスを返す。
+    fn corrupt_both_files(dir: &TempDir) -> PathBuf {
+        let primary = dir.path().join("daily-2026-06.json");
+        std::fs::write(&primary, "BAD primary").unwrap();
+        std::fs::write(append_ext(&primary, ".bak"), "BAD bak").unwrap();
+        primary
+    }
+
+    #[test]
+    fn get_month_returns_corrupt_error_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let result = s.get_month("2026-06");
+
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること"
+        );
+    }
+
+    #[test]
+    fn get_month_keeps_corrupt_primary_content_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        let _ = s.get_month("2026-06");
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "daily-2026-06.json"),
+            vec!["BAD primary".to_string()]
+        );
+    }
+
+    #[test]
+    fn get_month_keeps_corrupt_backup_content_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        let _ = s.get_month("2026-06");
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "daily-2026-06.json.bak"),
+            vec!["BAD bak".to_string()]
+        );
+    }
+
+    #[test]
+    fn set_day_returns_corrupt_error_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let result = s.set_day("2026-06-17", json!({ "workStart": "09:00" }));
+
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること"
+        );
+    }
+
+    #[test]
+    fn set_day_writes_nothing_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let _ = s.set_day("2026-06-17", json!({ "workStart": "09:00" }));
+
+        assert!(!primary.exists(), "月ファイルが新しく書かれないこと");
     }
 
     fn import_three_legacy_entries(s: &DailyStore) {

@@ -77,6 +77,8 @@ impl SettingsStore {
     /// プライマリ→.bak→デフォルトの順に読む。失敗はすべてフォールバック。
     fn read_all(&self) -> Settings {
         read_json_with_backup(&self.file_path(), Self::parse)
+            .ok()
+            .flatten()
             .map(|(_, settings)| settings)
             .unwrap_or_default()
     }
@@ -249,6 +251,7 @@ fn migrate_theme_id(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fs_util::{append_ext, corrupt_copies};
     use std::sync::Arc;
     use tempfile::TempDir;
 
@@ -456,6 +459,49 @@ mod tests {
         let theme = s.get_theme();
 
         assert_eq!(theme, "soda");
+    }
+
+    /// 本体も .bak も壊す。
+    fn corrupt_both_files(dir: &TempDir) {
+        let primary = dir.path().join("settings.json");
+        std::fs::write(&primary, "INVALID primary").unwrap();
+        std::fs::write(append_ext(&primary, ".bak"), "INVALID bak").unwrap();
+    }
+
+    #[test]
+    fn both_corrupt_settings_fall_back_to_defaults() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "milk");
+    }
+
+    #[test]
+    fn both_corrupt_settings_keep_corrupt_primary_content() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        s.get_theme();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "settings.json"),
+            vec!["INVALID primary".to_string()]
+        );
+    }
+
+    #[test]
+    fn both_corrupt_settings_keep_corrupt_backup_content() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        s.get_theme();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "settings.json.bak"),
+            vec!["INVALID bak".to_string()]
+        );
     }
 
     #[test]

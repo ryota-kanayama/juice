@@ -17,6 +17,9 @@ pub enum StoreError {
     Io(#[from] std::io::Error),
     #[error("serialize error: {0}")]
     Serde(#[from] serde_json::Error),
+    /// 本体も .bak も読めない（引数は本体のパス）。壊れたファイルは .corrupt-<日時> へ退避済み。
+    #[error("corrupt data file: {}", .0.display())]
+    Corrupt(PathBuf),
 }
 
 /// `${path}.ext` のようにパス末尾へ拡張子を付け足す（with_extension と違い置換しない）。
@@ -51,16 +54,37 @@ pub(crate) fn write_json_atomic<T: Serialize + ?Sized>(
 }
 
 /// 本体→.bak の順に読み、parse が Some を返した最初のものを (読み取り元のパス, 値) で返す。
-/// どちらも読めない・パースできないときは None。
+/// 本体も .bak も存在しないときは Ok(None)。
+/// 壊れているもの（読めない・パースできない）は .corrupt-<日時> へ退避し、
+/// 本体も .bak も読めないときは Err(StoreError::Corrupt(本体のパス)) を返す。
 pub(crate) fn read_json_with_backup<T>(
     path: &Path,
     parse: impl Fn(&str) -> Option<T>,
-) -> Option<(PathBuf, T)> {
+) -> Result<Option<(PathBuf, T)>, StoreError> {
     let read_one = |p: PathBuf| {
         let content = std::fs::read_to_string(&p).ok()?;
         parse(&content).map(|value| (p, value))
     };
-    read_one(path.to_path_buf()).or_else(|| read_one(append_ext(path, ".bak")))
+    Ok(read_one(path.to_path_buf()).or_else(|| read_one(append_ext(path, ".bak"))))
+}
+
+/// テスト共通: `<file_name>.corrupt-` で始まる退避ファイルの中身を、ファイル名順に返す。
+#[cfg(test)]
+pub(crate) fn corrupt_copies(dir: &Path, file_name: &str) -> Vec<String> {
+    let prefix = format!("{file_name}.corrupt-");
+    let mut found: Vec<(String, String)> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|e| e.unwrap())
+        .filter(|e| e.file_name().to_string_lossy().starts_with(&prefix))
+        .map(|e| {
+            (
+                e.file_name().to_string_lossy().into_owned(),
+                std::fs::read_to_string(e.path()).unwrap(),
+            )
+        })
+        .collect();
+    found.sort();
+    found.into_iter().map(|(_, content)| content).collect()
 }
 
 #[cfg(test)]
@@ -233,7 +257,7 @@ mod tests {
         let path = dir.path().join("data.json");
         std::fs::write(&path, r#"{"a":1}"#).unwrap();
 
-        let read = read_json_with_backup(&path, parse_json);
+        let read = read_json_with_backup(&path, parse_json).unwrap();
 
         assert_eq!(read, Some((path, json!({ "a": 1 }))));
     }
@@ -246,7 +270,7 @@ mod tests {
         std::fs::write(&path, "{ broken").unwrap();
         std::fs::write(&bak, r#"{"a":1}"#).unwrap();
 
-        let read = read_json_with_backup(&path, parse_json);
+        let read = read_json_with_backup(&path, parse_json).unwrap();
 
         assert_eq!(read, Some((bak, json!({ "a": 1 }))));
     }
@@ -258,7 +282,7 @@ mod tests {
         let bak = append_ext(&path, ".bak");
         std::fs::write(&bak, r#"{"a":1}"#).unwrap();
 
-        let read = read_json_with_backup(&path, parse_json);
+        let read = read_json_with_backup(&path, parse_json).unwrap();
 
         assert_eq!(read, Some((bak, json!({ "a": 1 }))));
     }
@@ -270,21 +294,9 @@ mod tests {
         std::fs::write(&path, r#"{"a":2}"#).unwrap();
         std::fs::write(append_ext(&path, ".bak"), r#"{"a":1}"#).unwrap();
 
-        let read = read_json_with_backup(&path, parse_json);
+        let read = read_json_with_backup(&path, parse_json).unwrap();
 
         assert_eq!(read, Some((path, json!({ "a": 2 }))));
-    }
-
-    #[test]
-    fn read_json_with_backup_returns_none_when_both_are_corrupt() {
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("data.json");
-        std::fs::write(&path, "{ broken").unwrap();
-        std::fs::write(append_ext(&path, ".bak"), "also broken").unwrap();
-
-        let read = read_json_with_backup(&path, parse_json);
-
-        assert_eq!(read, None);
     }
 
     #[test]
@@ -292,7 +304,186 @@ mod tests {
         let dir = tempdir().unwrap();
         let path = dir.path().join("data.json");
 
+        let read = read_json_with_backup(&path, parse_json).unwrap();
+
+        assert_eq!(read, None);
+    }
+
+    #[test]
+    fn read_json_with_backup_moves_corrupt_primary_aside_when_backup_is_readable() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "{ broken").unwrap();
+        std::fs::write(append_ext(&path, ".bak"), r#"{"a":1}"#).unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "data.json"),
+            vec!["{ broken".to_string()]
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_removes_corrupt_primary_from_its_place_when_backup_is_readable() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "{ broken").unwrap();
+        std::fs::write(append_ext(&path, ".bak"), r#"{"a":1}"#).unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert!(!path.exists(), "壊れた本体は元の場所から移動されること");
+    }
+
+    #[test]
+    fn read_json_with_backup_leaves_backup_in_place_when_primary_is_corrupt() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        let bak = append_ext(&path, ".bak");
+        std::fs::write(&path, "{ broken").unwrap();
+        std::fs::write(&bak, r#"{"a":1}"#).unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(std::fs::read_to_string(&bak).unwrap(), r#"{"a":1}"#);
+    }
+
+    #[test]
+    fn read_json_with_backup_creates_no_corrupt_copy_when_primary_is_missing() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(append_ext(&path, ".bak"), r#"{"a":1}"#).unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(file_names(dir.path()), vec!["data.json.bak".to_string()]);
+    }
+
+    /// 本体も .bak も壊れているファイル組を作り、本体のパスを返す。
+    fn both_corrupt(dir: &Path) -> PathBuf {
+        let path = dir.join("data.json");
+        std::fs::write(&path, "{ broken").unwrap();
+        std::fs::write(append_ext(&path, ".bak"), "also broken").unwrap();
+        path
+    }
+
+    #[test]
+    fn read_json_with_backup_returns_corrupt_error_when_both_are_corrupt() {
+        let dir = tempdir().unwrap();
+        let path = both_corrupt(dir.path());
+
         let read = read_json_with_backup(&path, parse_json);
+
+        assert!(
+            matches!(read, Err(StoreError::Corrupt(ref p)) if *p == path),
+            "本体のパスを持つ Corrupt エラーになること: {read:?}"
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_keeps_corrupt_primary_content_when_both_are_corrupt() {
+        let dir = tempdir().unwrap();
+        let path = both_corrupt(dir.path());
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "data.json"),
+            vec!["{ broken".to_string()]
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_keeps_corrupt_backup_content_when_both_are_corrupt() {
+        let dir = tempdir().unwrap();
+        let path = both_corrupt(dir.path());
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "data.json.bak"),
+            vec!["also broken".to_string()]
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_leaves_no_original_file_when_both_are_corrupt() {
+        let dir = tempdir().unwrap();
+        let path = both_corrupt(dir.path());
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        let originals: Vec<String> = file_names(dir.path())
+            .into_iter()
+            .filter(|n| !n.contains(".corrupt-"))
+            .collect();
+        assert_eq!(originals, Vec::<String>::new());
+    }
+
+    #[test]
+    fn read_json_with_backup_returns_corrupt_error_when_only_primary_exists_and_is_corrupt() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "{ broken").unwrap();
+
+        let read = read_json_with_backup(&path, parse_json);
+
+        assert!(
+            matches!(read, Err(StoreError::Corrupt(ref p)) if *p == path),
+            "本体のパスを持つ Corrupt エラーになること: {read:?}"
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_moves_lone_corrupt_primary_aside() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "{ broken").unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "data.json"),
+            vec!["{ broken".to_string()]
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_returns_corrupt_error_when_only_backup_exists_and_is_corrupt() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(append_ext(&path, ".bak"), "also broken").unwrap();
+
+        let read = read_json_with_backup(&path, parse_json);
+
+        assert!(
+            matches!(read, Err(StoreError::Corrupt(ref p)) if *p == path),
+            "本体のパスを持つ Corrupt エラーになること: {read:?}"
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_moves_lone_corrupt_backup_aside() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(append_ext(&path, ".bak"), "also broken").unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "data.json.bak"),
+            vec!["also broken".to_string()]
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_treats_moved_away_files_as_missing_on_next_read() {
+        let dir = tempdir().unwrap();
+        let path = both_corrupt(dir.path());
+        let _ = read_json_with_backup(&path, parse_json);
+
+        let read = read_json_with_backup(&path, parse_json).unwrap();
 
         assert_eq!(read, None);
     }
