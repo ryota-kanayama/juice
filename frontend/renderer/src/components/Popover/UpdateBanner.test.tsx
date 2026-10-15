@@ -1,79 +1,114 @@
-// src/renderer/src/components/Popover/UpdateBanner.test.tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { UpdateBanner } from './UpdateBanner'
 import type { UpdateState } from '../../hooks/useUpdate'
-import { releaseNotesRepository } from '../../repositories/releaseNotesRepository'
+import type { UpdateInfo } from '../../../../shared/types'
 
+const openPending = vi.hoisted(() => vi.fn())
 vi.mock('../../repositories/releaseNotesRepository', () => ({
-  releaseNotesRepository: { openPending: vi.fn().mockResolvedValue(undefined) },
+  releaseNotesRepository: { openPending: () => openPending() },
 }))
 
-const info = {
-  currentVersion: '1.0.0', latestVersion: '1.1.0', hasUpdate: true,
-  releaseUrl: 'u', downloadUrl: 'd', assetName: 'a.dmg', notes: '',
+const info: UpdateInfo = {
+  currentVersion: '1.0.0',
+  latestVersion: '1.1.0',
+  hasUpdate: true,
+  releaseUrl: 'u',
+  downloadUrl: 'd',
+  assetName: 'a.dmg',
+  notes: '',
 }
 
-function state(over: Partial<UpdateState>): UpdateState {
+function state(overrides: Partial<UpdateState>): UpdateState {
   return {
-    phase: 'idle', info: null, percent: 0, error: null, currentVersion: '',
-    checking: false, checkedUpToDate: false,
-    check: vi.fn(), install: vi.fn(), dismiss: vi.fn(),
-    ...over,
+    phase: 'idle',
+    info,
+    percent: 0,
+    error: null,
+    currentVersion: '',
+    checking: false,
+    checkedUpToDate: false,
+    check: vi.fn(),
+    install: vi.fn(),
+    dismiss: vi.fn(),
+    ...overrides,
   }
 }
 
-beforeEach(() => vi.restoreAllMocks())
+beforeEach(() => {
+  openPending.mockReset().mockResolvedValue(undefined)
+})
 
 describe('UpdateBanner', () => {
-  it('idle では何も描画しない', () => {
-    const { container } = render(<UpdateBanner update={state({ phase: 'idle' })} />)
-    expect(container.firstChild).toBeNull()
+  it.each([
+    ['idle', state({ phase: 'idle' })],
+    ['error', state({ phase: 'error' })],
+    ['更新情報が無い', state({ phase: 'available', info: null })],
+  ])('%s なら何も出さない', (_label, update) => {
+    const { container } = render(<UpdateBanner update={update} />)
+
+    expect(container).toBeEmptyDOMElement()
   })
 
-  it('available でバージョンと更新ボタンを表示', () => {
-    render(<UpdateBanner update={state({ phase: 'available', info })} />)
-    expect(screen.getByText(/1\.1\.0/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '更新' })).toBeInTheDocument()
+  describe('更新がある（available）', () => {
+    it('新しいバージョンを知らせる', () => {
+      render(<UpdateBanner update={state({ phase: 'available' })} />)
+
+      expect(screen.getByText('新しいバージョン v1.1.0 があります')).toBeInTheDocument()
+    })
+
+    it('バージョンの文言を押すと、次の更新の変更点を開く', () => {
+      render(<UpdateBanner update={state({ phase: 'available' })} />)
+
+      fireEvent.click(screen.getByRole('button', { name: /新しいバージョン v1\.1\.0 があります — 変更点を見る/ }))
+
+      expect(openPending).toHaveBeenCalledOnce()
+    })
+
+    it('「更新」で install を呼ぶ', () => {
+      const install = vi.fn()
+      render(<UpdateBanner update={state({ phase: 'available', install })} />)
+
+      fireEvent.click(screen.getByRole('button', { name: '更新' }))
+
+      expect(install).toHaveBeenCalledOnce()
+    })
+
+    it('✕ で dismiss を呼ぶ', () => {
+      const dismiss = vi.fn()
+      render(<UpdateBanner update={state({ phase: 'available', dismiss })} />)
+
+      fireEvent.click(screen.getByRole('button', { name: '閉じる' }))
+
+      expect(dismiss).toHaveBeenCalledOnce()
+    })
   })
 
-  it('更新ボタンで install を呼ぶ', () => {
-    const install = vi.fn()
-    render(<UpdateBanner update={state({ phase: 'available', info, install })} />)
-    fireEvent.click(screen.getByRole('button', { name: '更新' }))
-    expect(install).toHaveBeenCalled()
+  describe('ダウンロード中（downloading）', () => {
+    it('進み具合を % で出す', () => {
+      render(<UpdateBanner update={state({ phase: 'downloading', percent: 42 })} />)
+
+      expect(screen.getByText('ダウンロード中… 42%')).toBeInTheDocument()
+    })
+
+    it('「更新」は押せない', () => {
+      render(<UpdateBanner update={state({ phase: 'downloading', percent: 42 })} />)
+
+      expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
+    })
   })
 
-  it('✕ で dismiss を呼ぶ', () => {
-    const dismiss = vi.fn()
-    render(<UpdateBanner update={state({ phase: 'available', info, dismiss })} />)
-    fireEvent.click(screen.getByRole('button', { name: '閉じる' }))
-    expect(dismiss).toHaveBeenCalled()
-  })
+  describe('適用中（installing）', () => {
+    it('適用中であることを出す', () => {
+      render(<UpdateBanner update={state({ phase: 'installing' })} />)
 
-  it('downloading では進捗を表示し更新ボタンは無効', () => {
-    render(<UpdateBanner update={state({ phase: 'downloading', info, percent: 42 })} />)
-    expect(screen.getByText(/42%/)).toBeInTheDocument()
-  })
+      expect(screen.getByText('更新を適用しています…')).toBeInTheDocument()
+    })
 
-  it('installing 中は適用中の文言を表示する', () => {
-    render(<UpdateBanner update={state({ phase: 'installing', info })} />)
-    expect(screen.getByText('更新を適用しています…')).toBeInTheDocument()
-  })
+    it('「更新」は押せない', () => {
+      render(<UpdateBanner update={state({ phase: 'installing' })} />)
 
-  it('available で更新ボタンが install を呼ぶ', () => {
-    const install = vi.fn()
-    const update = state({ phase: 'available', info, install })
-    render(<UpdateBanner update={update} />)
-    fireEvent.click(screen.getByText('更新'))
-    expect(install).toHaveBeenCalled()
-  })
-
-  it('available でバージョンの文言を押すと更新前のノートを開く', () => {
-    render(<UpdateBanner update={state({ phase: 'available', info })} />)
-    fireEvent.click(
-      screen.getByRole('button', { name: /新しいバージョン v1\.1\.0 があります — 変更点を見る/ }),
-    )
-    expect(releaseNotesRepository.openPending).toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: '更新' })).toBeDisabled()
+    })
   })
 })

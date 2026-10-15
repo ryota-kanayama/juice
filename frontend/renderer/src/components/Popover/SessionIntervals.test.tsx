@@ -2,38 +2,42 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { SessionIntervals } from './SessionIntervals'
-import type { Session } from '../../types/session'
-
-const base: Session = {
-  id: '1', taskId: '1', name: '企画書作業', projectCode: 'P001', workCategory: '設計',
-  times: [{ startTime: '2026-02-25T10:00:00', endTime: '2026-02-25T10:45:00' }],
-  date: '2026-02-25', color: '#FF9500', totalTime: 45,
-}
+import { interval, makeSession } from '../../test/factories'
 
 describe('SessionIntervals', () => {
-  it('区間を HH:mm – HH:mm で並べる', () => {
-    render(<SessionIntervals session={base} />)
+  it('区間を「HH:mm – HH:mm」で出す', () => {
+    const session = makeSession({ times: [interval('2026-02-25T10:00:00', '2026-02-25T10:45:00')] })
+
+    render(<SessionIntervals session={session} />)
+
     expect(screen.getByText('10:00 – 10:45')).toBeInTheDocument()
   })
 
-  it('複数区間をすべて出す', () => {
-    render(<SessionIntervals session={{ ...base, times: [
-      { startTime: '2026-02-25T09:00:00', endTime: '2026-02-25T10:00:00' },
-      { startTime: '2026-02-25T13:00:00', endTime: '2026-02-25T14:00:00' },
-    ] }} />)
+  it('複数の区間をすべて出す', () => {
+    const session = makeSession({
+      times: [
+        interval('2026-02-25T09:00:00', '2026-02-25T10:00:00'),
+        interval('2026-02-25T13:00:00', '2026-02-25T14:00:00'),
+      ],
+    })
+
+    render(<SessionIntervals session={session} />)
+
     expect(screen.getByText('09:00 – 10:00')).toBeInTheDocument()
     expect(screen.getByText('13:00 – 14:00')).toBeInTheDocument()
   })
 
-  it('稼働中の区間は「稼働中」と出す', () => {
-    render(<SessionIntervals session={{ ...base, times: [
-      { startTime: '2026-02-25T11:00:00', endTime: null },
-    ] }} />)
+  it('計測中の区間は終了の代わりに「稼働中」と出す', () => {
+    const session = makeSession({ times: [interval('2026-02-25T11:00:00', null)] })
+
+    render(<SessionIntervals session={session} />)
+
     expect(screen.getByText('11:00 – 稼働中')).toBeInTheDocument()
   })
 
   it('区間が無ければその旨を出す', () => {
-    render(<SessionIntervals session={{ ...base, times: [] }} />)
+    render(<SessionIntervals session={makeSession({ times: [] })} />)
+
     expect(screen.getByText('時刻の記録がありません')).toBeInTheDocument()
   })
 })

@@ -1,49 +1,72 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { applyTheme } from './applyTheme'
 
+const root = document.documentElement
+const cssVar = (name: string): string => root.style.getPropertyValue(name)
+const HEX = /^#[0-9a-f]{6}$/
+
+beforeEach(() => {
+  // applyTheme は前回適用したキーをモジュール内に覚えているため、既定テーマで揃えてから消す
+  applyTheme('milk')
+  root.removeAttribute('style')
+  delete root.dataset.theme
+})
+
 describe('applyTheme', () => {
-  beforeEach(() => {
-    document.documentElement.removeAttribute('style')
-    delete document.documentElement.dataset.theme
-    // appliedKeys をリセットするため、テスト間でモジュール状態を初期化する
-    applyTheme('milk')
-    document.documentElement.removeAttribute('style')
-    delete document.documentElement.dataset.theme
+  it('data-theme 属性にテーマ ID を設定する', () => {
+    applyTheme('matcha')
+
+    expect(root.dataset.theme).toBe('matcha')
   })
 
-  it('data-theme 属性を設定する', () => {
+  it('色の CSS 変数を documentElement に設定する', () => {
     applyTheme('matcha')
-    expect(document.documentElement.dataset.theme).toBe('matcha')
+
+    expect([cssVar('--bg'), cssVar('--accent')]).toEqual([expect.stringMatching(HEX), expect.stringMatching(HEX)])
   })
 
-  it('CSS 変数を documentElement に適用する', () => {
+  it('ジュース色を --juice-* 変数として設定する', () => {
     applyTheme('matcha')
-    const style = document.documentElement.style
-    expect(style.getPropertyValue('--bg')).toMatch(/^#[0-9a-f]{6}$/)
-    expect(style.getPropertyValue('--accent')).toMatch(/^#[0-9a-f]{6}$/)
-  })
 
-  it('ジュース色を --juice-* 変数として適用する', () => {
-    applyTheme('matcha')
-    expect(document.documentElement.style.getPropertyValue('--juice-strawberry')).toMatch(/^#[0-9a-f]{6}$/)
+    expect(cssVar('--juice-strawberry')).toMatch(HEX)
   })
 
   it('不明な ID は milk にフォールバックする', () => {
     applyTheme('does-not-exist')
-    expect(document.documentElement.dataset.theme).toBe('milk')
+
+    expect(root.dataset.theme).toBe('milk')
   })
 
-  it('テーマ切替時に前のテーマの変数が残らない（同キーが上書きされる）', () => {
+  it('テーマを切り替えると同じ変数を新しい値で上書きする', () => {
     applyTheme('milk')
-    const milkBg = document.documentElement.style.getPropertyValue('--bg')
+    const milkBg = cssVar('--bg')
+
     applyTheme('graphite')
-    expect(document.documentElement.style.getPropertyValue('--bg')).not.toBe(milkBg)
+
+    expect(cssVar('--bg')).not.toBe(milkBg)
   })
 
-  it('ダーク→ライト切替で shadow 変数の残留が掃除される', () => {
+  it('ダークにしかない変数（shadow）は、ライトへ切り替えると消す', () => {
     applyTheme('graphite')
-    expect(document.documentElement.style.getPropertyValue('--shadow-glass')).not.toBe('')
+
     applyTheme('milk')
-    expect(document.documentElement.style.getPropertyValue('--shadow-glass')).toBe('')
+
+    expect(cssVar('--shadow-glass')).toBe('')
+  })
+
+  it('ダークでは shadow 変数を設定する', () => {
+    applyTheme('graphite')
+
+    expect(cssVar('--shadow-glass')).not.toBe('')
+  })
+
+  it('同じテーマを再適用しても同じ値になる（キャッシュから適用）', () => {
+    applyTheme('soda')
+    const first = cssVar('--bg')
+    root.removeAttribute('style')
+
+    applyTheme('soda')
+
+    expect(cssVar('--bg')).toBe(first)
   })
 })

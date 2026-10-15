@@ -1,29 +1,22 @@
 import { describe, it, expect, vi } from 'vitest'
-import { useState } from 'react'
-import React from 'react'
+import { useState, type ComponentProps } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SuggestInput, type SuggestOption } from './suggest-input'
 
-// 制御コンポーネントとして使うためのテストハーネス
-function Harness({
-  options,
-  onSelectOption = () => {},
-  onKeyDown,
-}: {
-  options: SuggestOption[]
-  onSelectOption?: (o: SuggestOption) => void
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
-}) {
+type Props = ComponentProps<typeof SuggestInput>
+
+/** 入力値を自分で持つ制御コンポーネントとして描く */
+function Harness(props: Partial<Props>) {
   const [value, setValue] = useState('')
   return (
     <SuggestInput
       value={value}
       onChange={e => setValue(e.target.value)}
-      options={options}
-      onSelectOption={o => { setValue(o.value); onSelectOption(o) }}
-      onKeyDown={onKeyDown}
+      options={OPTIONS}
       aria-label="テスト入力"
+      {...props}
+      onSelectOption={o => { setValue(o.value); props.onSelectOption?.(o) }}
     />
   )
 }
@@ -34,158 +27,197 @@ const OPTIONS: SuggestOption[] = [
   { value: '定例会議' },
 ]
 
+const input = () => screen.getByLabelText('テスト入力')
+const listbox = () => screen.queryByRole('listbox')
+
+async function openList(): Promise<void> {
+  await userEvent.click(input())
+}
+
 describe('SuggestInput', () => {
-  it('クリックすると候補が表示される', async () => {
-    render(<Harness options={OPTIONS} />)
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    expect(screen.getByRole('listbox')).toBeInTheDocument()
-    expect(screen.getAllByRole('option')).toHaveLength(3)
-    expect(screen.getByText('P001 / 設計')).toBeInTheDocument()
+  describe('開く・閉じる', () => {
+    it('クリックすると候補をすべて出す', async () => {
+      render(<Harness />)
+
+      await openList()
+
+      expect(screen.getAllByRole('option')).toHaveLength(3)
+    })
+
+    it('候補の補足（PJコード / 作業区分）も出す', async () => {
+      render(<Harness />)
+
+      await openList()
+
+      expect(screen.getByText('P001 / 設計')).toBeInTheDocument()
+    })
+
+    it('autoFocus でフォーカスされただけでは開かない', () => {
+      render(<Harness autoFocus />)
+
+      expect(input()).toHaveFocus()
+      expect(listbox()).not.toBeInTheDocument()
+    })
+
+    it('閉じているときに ↓ を押すと開き、先頭を選んだ状態にする', async () => {
+      render(<Harness />)
+      input().focus()
+
+      await userEvent.keyboard('{ArrowDown}')
+
+      expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('Escape で閉じる', async () => {
+      render(<Harness />)
+      await openList()
+
+      await userEvent.keyboard('{Escape}')
+
+      expect(listbox()).not.toBeInTheDocument()
+    })
+
+    it('候補が0件なら開かない', async () => {
+      render(<Harness options={[]} />)
+
+      await openList()
+
+      expect(listbox()).not.toBeInTheDocument()
+    })
+
+    it('dropUp を指定すると上向きに開く', async () => {
+      render(<Harness dropUp />)
+
+      await openList()
+
+      expect(listbox()).toHaveClass('bottom-full')
+    })
   })
 
-  it('autoFocus でフォーカスされただけでは候補が開かない', () => {
-    render(
-      <SuggestInput
-        value=""
-        onChange={() => {}}
-        options={OPTIONS}
-        onSelectOption={() => {}}
-        autoFocus
-        aria-label="テスト入力"
-      />
-    )
-    expect(screen.getByLabelText('テスト入力')).toHaveFocus()
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  describe('絞り込み', () => {
+    it('入力した文字を含む候補だけを出す', async () => {
+      render(<Harness />)
+
+      await userEvent.type(input(), '資料')
+
+      expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual([
+        expect.stringContaining('資料作成'),
+        expect.stringContaining('資料レビュー'),
+      ])
+    })
+
+    it('候補は最大8件まで出す', async () => {
+      render(<Harness options={Array.from({ length: 12 }, (_, i) => ({ value: `候補${i}` }))} />)
+
+      await openList()
+
+      expect(screen.getAllByRole('option')).toHaveLength(8)
+    })
   })
 
-  it('閉じた状態の↓キーで候補が開き先頭がハイライトされる', async () => {
-    render(<Harness options={OPTIONS} />)
-    const input = screen.getByLabelText('テスト入力')
-    input.focus()
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-    await userEvent.keyboard('{ArrowDown}')
-    expect(screen.getByRole('listbox')).toBeInTheDocument()
-    expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true')
+  describe('選ぶ', () => {
+    it('クリックした候補で onSelectOption を呼ぶ', async () => {
+      const onSelectOption = vi.fn()
+      render(<Harness onSelectOption={onSelectOption} />)
+      await openList()
+
+      await userEvent.click(screen.getByText('資料レビュー'))
+
+      expect(onSelectOption).toHaveBeenCalledWith({ value: '資料レビュー', sub: 'P002 / 会議' })
+    })
+
+    it('選んだら閉じる', async () => {
+      render(<Harness />)
+      await openList()
+
+      await userEvent.click(screen.getByText('資料レビュー'))
+
+      expect(listbox()).not.toBeInTheDocument()
+    })
+
+    it('↓ で選んで Enter で確定できる', async () => {
+      const onSelectOption = vi.fn()
+      render(<Harness onSelectOption={onSelectOption} />)
+      await openList()
+
+      await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}')
+
+      expect(onSelectOption).toHaveBeenCalledWith({ value: '資料レビュー', sub: 'P002 / 会議' })
+    })
   })
 
-  it('入力すると部分一致で絞り込まれる', async () => {
-    render(<Harness options={OPTIONS} />)
-    await userEvent.type(screen.getByLabelText('テスト入力'), '資料')
-    expect(screen.getAllByRole('option')).toHaveLength(2)
+  describe('キー入力の伝播', () => {
+    it('候補を確定した Enter は onKeyDown へ渡さない（フォームを送信しない）', async () => {
+      const onKeyDown = vi.fn()
+      render(<Harness onKeyDown={onKeyDown} />)
+      await openList()
+
+      await userEvent.keyboard('{ArrowDown}{Enter}')
+
+      expect(onKeyDown).not.toHaveBeenCalled()
+    })
+
+    it('候補を選んでいないときの Enter は onKeyDown へ渡す（フォーム送信を妨げない）', async () => {
+      const onKeyDown = vi.fn()
+      render(<Harness onKeyDown={onKeyDown} />)
+      await openList()
+
+      await userEvent.keyboard('{Enter}')
+
+      expect(onKeyDown).toHaveBeenCalled()
+    })
+
+    it('候補を閉じた Escape は onKeyDown へ渡さない（ダイアログを閉じない）', async () => {
+      const onKeyDown = vi.fn()
+      render(<Harness onKeyDown={onKeyDown} />)
+      await openList()
+
+      await userEvent.keyboard('{Escape}')
+
+      expect(onKeyDown).not.toHaveBeenCalled()
+    })
+
+    it('IME の変換中の Enter は、確定にも伝播にも使わない', async () => {
+      const onSelectOption = vi.fn()
+      const onKeyDown = vi.fn()
+      render(<Harness onSelectOption={onSelectOption} onKeyDown={onKeyDown} />)
+      await openList()
+
+      fireEvent.keyDown(input(), { key: 'Enter', keyCode: 229, isComposing: true })
+
+      expect(onSelectOption).not.toHaveBeenCalled()
+      expect(onKeyDown).not.toHaveBeenCalled()
+    })
   })
 
-  it('候補は最大8件まで表示される', async () => {
-    const many = Array.from({ length: 12 }, (_, i) => ({ value: `候補${i}` }))
-    render(<Harness options={many} />)
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    expect(screen.getAllByRole('option')).toHaveLength(8)
-  })
+  describe('onOpenChange', () => {
+    it('開いたら true を知らせる', async () => {
+      const onOpenChange = vi.fn()
+      render(<Harness onOpenChange={onOpenChange} />)
 
-  it('クリックで候補を選択すると onSelectOption が呼ばれる', async () => {
-    const onSelect = vi.fn()
-    render(<Harness options={OPTIONS} onSelectOption={onSelect} />)
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    await userEvent.click(screen.getByText('資料レビュー'))
-    expect(onSelect).toHaveBeenCalledWith({ value: '資料レビュー', sub: 'P002 / 会議' })
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-  })
+      await openList()
 
-  it('↓キーと Enter で候補を選択でき、Enter は伝播しない', async () => {
-    const onSelect = vi.fn()
-    const onKeyDown = vi.fn()
-    render(<Harness options={OPTIONS} onSelectOption={onSelect} onKeyDown={onKeyDown} />)
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}')
-    expect(onSelect).toHaveBeenCalledWith({ value: '資料レビュー', sub: 'P002 / 会議' })
-    expect(onKeyDown).not.toHaveBeenCalled()
-  })
+      expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    })
 
-  it('ハイライトなしの Enter は onKeyDown へ伝播する（フォーム送信を妨げない）', async () => {
-    const onKeyDown = vi.fn()
-    render(<Harness options={OPTIONS} onKeyDown={onKeyDown} />)
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    await userEvent.keyboard('{Enter}')
-    expect(onKeyDown).toHaveBeenCalled()
-  })
+    it('Escape で閉じたら false を知らせる', async () => {
+      const onOpenChange = vi.fn()
+      render(<Harness onOpenChange={onOpenChange} />)
+      await openList()
 
-  it('Escape で候補が閉じ、onKeyDown へは伝播しない', async () => {
-    const onKeyDown = vi.fn()
-    render(<Harness options={OPTIONS} onKeyDown={onKeyDown} />)
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    await userEvent.keyboard('{Escape}')
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-    expect(onKeyDown).not.toHaveBeenCalled()
-  })
+      await userEvent.keyboard('{Escape}')
 
-  it('候補が0件のときはリストを表示しない', async () => {
-    render(<Harness options={[]} />)
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
-  })
+      expect(onOpenChange).toHaveBeenLastCalledWith(false)
+    })
 
-  it('IME 変換中の Enter は候補確定も伝播もしない', async () => {
-    const onSelect = vi.fn()
-    const onKeyDown = vi.fn()
-    render(<Harness options={OPTIONS} onSelectOption={onSelect} onKeyDown={onKeyDown} />)
-    const input = screen.getByLabelText('テスト入力')
-    await userEvent.click(input)
-    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229, isComposing: true })
-    expect(onSelect).not.toHaveBeenCalled()
-    expect(onKeyDown).not.toHaveBeenCalled()
-  })
+    it('絞り込みで候補が0件になったら false を知らせる', async () => {
+      const onOpenChange = vi.fn()
+      render(<Harness onOpenChange={onOpenChange} />)
+      await openList()
 
-  it('dropUp 指定で候補リストが上方向に開く', async () => {
-    render(
-      <SuggestInput
-        value=""
-        onChange={() => {}}
-        options={OPTIONS}
-        onSelectOption={() => {}}
-        dropUp
-        aria-label="テスト入力"
-      />
-    )
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    expect(screen.getByRole('listbox').className).toContain('bottom-full')
-  })
+      await userEvent.type(input(), 'zzz')
 
-  it('ドロップダウンの開閉が onOpenChange で通知される', async () => {
-    const onOpenChange = vi.fn()
-    render(
-      <SuggestInput
-        value=""
-        onChange={() => {}}
-        options={OPTIONS}
-        onSelectOption={() => {}}
-        onOpenChange={onOpenChange}
-        aria-label="テスト入力"
-      />
-    )
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    expect(onOpenChange).toHaveBeenLastCalledWith(true)
-    await userEvent.keyboard('{Escape}')
-    expect(onOpenChange).toHaveBeenLastCalledWith(false)
-  })
-
-  it('候補が絞り込みで0件になると onOpenChange(false) が通知される', async () => {
-    const onOpenChange = vi.fn()
-    function ZeroHarness() {
-      const [value, setValue] = useState('')
-      return (
-        <SuggestInput
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          options={OPTIONS}
-          onSelectOption={() => {}}
-          onOpenChange={onOpenChange}
-          aria-label="テスト入力"
-        />
-      )
-    }
-    render(<ZeroHarness />)
-    await userEvent.click(screen.getByLabelText('テスト入力'))
-    expect(onOpenChange).toHaveBeenLastCalledWith(true)
-    await userEvent.type(screen.getByLabelText('テスト入力'), 'zzz')
-    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+      expect(onOpenChange).toHaveBeenLastCalledWith(false)
+    })
   })
 })

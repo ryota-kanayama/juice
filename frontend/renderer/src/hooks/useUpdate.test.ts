@@ -1,19 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { renderHook, act, type RenderHookResult } from '@testing-library/react'
 import type { UpdateInfo } from '../../../shared/types'
-import { updateRepository } from '../repositories/updateRepository'
-import { timerRepository } from '../repositories/timerRepository'
+import type { UpdateState } from './useUpdate'
 
-const handlers: {
-  available?: (i: UpdateInfo) => void
-  progress?: (p: { percent: number; done: boolean; error?: string }) => void
-} = {}
+type Progress = { percent: number; done: boolean; error?: string }
 
+const handlers: { available?: (i: UpdateInfo) => void; progress?: (p: Progress) => void } = {}
 const mockCheck = vi.fn()
 const mockInstall = vi.fn()
 const mockDismiss = vi.fn()
 const mockGetCurrentVersion = vi.fn()
 const mockPending = vi.fn()
+const mockIsRunning = vi.fn()
 
 vi.mock('../repositories/updateRepository', () => ({
   updateRepository: {
@@ -23,194 +21,348 @@ vi.mock('../repositories/updateRepository', () => ({
     getCurrentVersion: () => mockGetCurrentVersion(),
     pending: () => mockPending(),
     onAvailable: (cb: (i: UpdateInfo) => void) => { handlers.available = cb; return () => {} },
-    onProgress: (cb: (p: { percent: number; done: boolean; error?: string }) => void) => { handlers.progress = cb; return () => {} },
+    onProgress: (cb: (p: Progress) => void) => { handlers.progress = cb; return () => {} },
   },
 }))
-
-const mockIsRunning = vi.fn()
-
 vi.mock('../repositories/timerRepository', () => ({
-  timerRepository: {
-    isRunning: () => mockIsRunning(),
-  },
+  timerRepository: { isRunning: () => mockIsRunning() },
 }))
 
 import { useUpdate } from './useUpdate'
 
 const info: UpdateInfo = {
-  currentVersion: '1.0.0', latestVersion: '1.1.0', hasUpdate: true,
-  releaseUrl: 'u', downloadUrl: 'd', assetName: 'Juice-1.1.0-arm64.dmg', notes: '',
+  currentVersion: '1.0.0',
+  latestVersion: '1.1.0',
+  hasUpdate: true,
+  releaseUrl: 'u',
+  downloadUrl: 'd',
+  assetName: 'Juice-1.1.0-arm64.dmg',
+  notes: '',
+}
+const upToDate: UpdateInfo = { ...info, hasUpdate: false }
+
+type Hook = RenderHookResult<UpdateState, unknown>['result']
+
+function renderUpdate(): Hook {
+  return renderHook(() => useUpdate()).result
+}
+
+/** check を呼び、最低表示時間（600ms）の待ちも含めて完了させる */
+async function runCheck(hook: Hook): Promise<void> {
+  await act(async () => {
+    const done = hook.current.check()
+    await vi.advanceTimersByTimeAsync(600)
+    await done
+  })
+}
+
+async function runInstall(hook: Hook): Promise<void> {
+  await act(async () => { hook.current.install() })
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
-  mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
-  mockDismiss.mockResolvedValue(undefined)
-  mockInstall.mockResolvedValue(undefined)
-  mockGetCurrentVersion.mockResolvedValue('1.0.0')
-  mockPending.mockResolvedValue(null)
-  mockIsRunning.mockResolvedValue(false)
+  vi.useFakeTimers()
+  mockCheck.mockReset().mockResolvedValue(upToDate)
+  mockInstall.mockReset().mockResolvedValue(undefined)
+  mockDismiss.mockReset().mockResolvedValue(undefined)
+  mockGetCurrentVersion.mockReset().mockResolvedValue('1.0.0')
+  mockPending.mockReset().mockResolvedValue(null)
+  mockIsRunning.mockReset().mockResolvedValue(false)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('useUpdate', () => {
-  it('update-available で phase=available・info を反映', async () => {
-    const { result } = renderHook(() => useUpdate())
-    act(() => handlers.available!(info))
-    expect(result.current.phase).toBe('available')
-    expect(result.current.info?.latestVersion).toBe('1.1.0')
-  })
+  describe('マウント時', () => {
+    it('現在のバージョンを取得する', async () => {
+      mockGetCurrentVersion.mockResolvedValue('2.0.0')
 
-  it('進捗イベントで downloading→opened に進む', async () => {
-    const { result } = renderHook(() => useUpdate())
-    act(() => handlers.available!(info))
-    act(() => handlers.progress!({ percent: 40, done: false }))
-    expect(result.current.phase).toBe('downloading')
-    expect(result.current.percent).toBe(40)
-    act(() => handlers.progress!({ percent: 100, done: true }))
-    expect(result.current.phase).toBe('installing')
-  })
+      const hook = renderUpdate()
+      await act(async () => {})
 
-  it('進捗 error で phase=error', () => {
-    const { result } = renderHook(() => useUpdate())
-    act(() => handlers.progress!({ percent: 0, done: true, error: '失敗' }))
-    expect(result.current.phase).toBe('error')
-    expect(result.current.error).toBe('失敗')
-  })
+      expect(hook.current.currentVersion).toBe('2.0.0')
+    })
 
-  it('dismiss は repo.dismiss を呼び phase=idle', () => {
-    const { result } = renderHook(() => useUpdate())
-    act(() => handlers.available!(info))
-    act(() => result.current.dismiss())
-    expect(mockDismiss).toHaveBeenCalledWith('1.1.0')
-    expect(result.current.phase).toBe('idle')
-  })
+    // 起動時チェックの update-available はレンダラーが購読する前に飛ぶため取りこぼす。
+    // マウント時に直近の結果を引き直して拾う
+    it('直近のチェック結果に更新があれば available にする', async () => {
+      mockPending.mockResolvedValue(info)
 
-  it('check は repo.check の結果が更新ありなら available', async () => {
-    mockCheck.mockResolvedValue(info)
-    const { result } = renderHook(() => useUpdate())
-    await act(async () => { await result.current.check() })
-    await waitFor(() => expect(result.current.phase).toBe('available'))
-  })
+      const hook = renderUpdate()
+      await act(async () => {})
 
-  it('check 成功で hasUpdate=false なら phase=idle', async () => {
-    mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
-    const { result } = renderHook(() => useUpdate())
-    await act(async () => { await result.current.check() })
-    await waitFor(() => expect(result.current.phase).toBe('idle'))
-  })
+      expect(hook.current.phase).toBe('available')
+    })
 
-  it('check 失敗時に phase=error・error メッセージを設定', async () => {
-    mockCheck.mockRejectedValue(new Error('network error'))
-    const { result } = renderHook(() => useUpdate())
-    await act(async () => { await result.current.check() })
-    await waitFor(() => {
-      expect(result.current.phase).toBe('error')
-      expect(result.current.error).toBe('確認に失敗しました')
+    it('直近のチェック結果を info に持つ', async () => {
+      mockPending.mockResolvedValue(info)
+
+      const hook = renderUpdate()
+      await act(async () => {})
+
+      expect(hook.current.info).toEqual(info)
+    })
+
+    it('直近のチェック結果が無ければ idle のまま', async () => {
+      mockPending.mockResolvedValue(null)
+
+      const hook = renderUpdate()
+      await act(async () => {})
+
+      expect(hook.current.phase).toBe('idle')
+    })
+
+    it('直近のチェック結果の取得に失敗しても idle のまま', async () => {
+      mockPending.mockRejectedValue(new Error('boom'))
+
+      const hook = renderUpdate()
+      await act(async () => {})
+
+      expect(hook.current.phase).toBe('idle')
+    })
+
+    it('取得が遅れて届いても、イベントで先へ進んだ phase を巻き戻さない', async () => {
+      let resolvePending: (v: UpdateInfo | null) => void = () => {}
+      mockPending.mockReturnValue(new Promise<UpdateInfo | null>(r => { resolvePending = r }))
+      const hook = renderUpdate()
+      act(() => handlers.available!(info))
+      act(() => handlers.progress!({ percent: 30, done: false }))
+
+      await act(async () => { resolvePending(info) })
+
+      expect(hook.current.phase).toBe('downloading')
     })
   })
 
-  it('マウント時に currentVersion を取得する', async () => {
-    mockGetCurrentVersion.mockResolvedValue('2.0.0')
-    const { result } = renderHook(() => useUpdate())
-    await waitFor(() => expect(result.current.currentVersion).toBe('2.0.0'))
+  describe('イベント', () => {
+    it('update-available で available になり info を持つ', () => {
+      const hook = renderUpdate()
+
+      act(() => handlers.available!(info))
+
+      expect(hook.current).toMatchObject({ phase: 'available', info })
+    })
+
+    it('ダウンロード中の進捗で downloading になり percent を持つ', () => {
+      const hook = renderUpdate()
+
+      act(() => handlers.progress!({ percent: 40, done: false }))
+
+      expect(hook.current).toMatchObject({ phase: 'downloading', percent: 40 })
+    })
+
+    it('完了の進捗で installing になる', () => {
+      const hook = renderUpdate()
+
+      act(() => handlers.progress!({ percent: 100, done: true }))
+
+      expect(hook.current.phase).toBe('installing')
+    })
+
+    it('エラーの進捗で error になり、メッセージを持つ', () => {
+      const hook = renderUpdate()
+
+      act(() => handlers.progress!({ percent: 0, done: true, error: '失敗' }))
+
+      expect(hook.current).toMatchObject({ phase: 'error', error: '失敗' })
+    })
   })
 
-  it('check 中は checking=true になり、完了後 false に戻る', async () => {
-    mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
-    const { result } = renderHook(() => useUpdate())
-    act(() => { void result.current.check() })
-    await waitFor(() => expect(result.current.checking).toBe(true))
-    await waitFor(() => expect(result.current.checking).toBe(false))
+  describe('check', () => {
+    it('更新があれば available', async () => {
+      mockCheck.mockResolvedValue(info)
+      const hook = renderUpdate()
+
+      await runCheck(hook)
+
+      expect(hook.current.phase).toBe('available')
+    })
+
+    it('更新があれば checkedUpToDate は false', async () => {
+      mockCheck.mockResolvedValue(info)
+      const hook = renderUpdate()
+
+      await runCheck(hook)
+
+      expect(hook.current.checkedUpToDate).toBe(false)
+    })
+
+    it('更新が無ければ idle', async () => {
+      const hook = renderUpdate()
+
+      await runCheck(hook)
+
+      expect(hook.current.phase).toBe('idle')
+    })
+
+    it('更新が無ければ checkedUpToDate は true（最新である旨を出す）', async () => {
+      const hook = renderUpdate()
+
+      await runCheck(hook)
+
+      expect(hook.current.checkedUpToDate).toBe(true)
+    })
+
+    it('失敗したら error になり、メッセージを持つ', async () => {
+      mockCheck.mockRejectedValue(new Error('network error'))
+      const hook = renderUpdate()
+
+      await runCheck(hook)
+
+      expect(hook.current).toMatchObject({ phase: 'error', error: '確認に失敗しました' })
+    })
+
+    it('失敗したら checkedUpToDate は false', async () => {
+      mockCheck.mockRejectedValue(new Error('network error'))
+      const hook = renderUpdate()
+
+      await runCheck(hook)
+
+      expect(hook.current.checkedUpToDate).toBe(false)
+    })
+
+    it('前回のエラーを消してから確認する', async () => {
+      mockCheck.mockRejectedValueOnce(new Error('network error'))
+      const hook = renderUpdate()
+      await runCheck(hook)
+
+      await runCheck(hook)
+
+      expect(hook.current.error).toBeNull()
+    })
+
+    it('確認中は checking が true', async () => {
+      const hook = renderUpdate()
+
+      act(() => { void hook.current.check() })
+
+      expect(hook.current.checking).toBe(true)
+    })
+
+    it('すぐ終わっても 600ms までは checking を保つ', async () => {
+      const hook = renderUpdate()
+      act(() => { void hook.current.check() })
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(599) })
+
+      expect(hook.current.checking).toBe(true)
+    })
+
+    it('600ms 経てば checking を下ろす', async () => {
+      const hook = renderUpdate()
+      act(() => { void hook.current.check() })
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+      expect(hook.current.checking).toBe(false)
+    })
+
+    it('失敗しても checking を下ろす', async () => {
+      mockCheck.mockRejectedValue(new Error('network error'))
+      const hook = renderUpdate()
+
+      await runCheck(hook)
+
+      expect(hook.current.checking).toBe(false)
+    })
   })
 
-  it('更新なしの確認後は checkedUpToDate=true', async () => {
-    mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
-    const { result } = renderHook(() => useUpdate())
-    await act(async () => { await result.current.check() })
-    await waitFor(() => expect(result.current.checkedUpToDate).toBe(true))
-    expect(result.current.phase).toBe('idle')
+  describe('dismiss', () => {
+    it('表示中のバージョンを見送りとして記録する', () => {
+      const hook = renderUpdate()
+      act(() => handlers.available!(info))
+
+      act(() => hook.current.dismiss())
+
+      expect(mockDismiss).toHaveBeenCalledWith('1.1.0')
+    })
+
+    it('idle に戻す', () => {
+      const hook = renderUpdate()
+      act(() => handlers.available!(info))
+
+      act(() => hook.current.dismiss())
+
+      expect(hook.current.phase).toBe('idle')
+    })
+
+    it('更新情報が無ければ何も記録しない', () => {
+      const hook = renderUpdate()
+
+      act(() => hook.current.dismiss())
+
+      expect(mockDismiss).not.toHaveBeenCalled()
+    })
   })
 
-  it('更新ありの確認後は checkedUpToDate=false', async () => {
-    mockCheck.mockResolvedValue(info)
-    const { result } = renderHook(() => useUpdate())
-    await act(async () => { await result.current.check() })
-    await waitFor(() => expect(result.current.phase).toBe('available'))
-    expect(result.current.checkedUpToDate).toBe(false)
-  })
+  describe('install', () => {
+    it('タイマーが止まっていれば、確認なしでインストールを始める', async () => {
+      const confirm = vi.spyOn(window, 'confirm')
+      const hook = renderUpdate()
 
-  it('確認失敗で checkedUpToDate=false・checking=false', async () => {
-    mockCheck.mockRejectedValue(new Error('network error'))
-    const { result } = renderHook(() => useUpdate())
-    await act(async () => { await result.current.check() })
-    await waitFor(() => expect(result.current.phase).toBe('error'))
-    expect(result.current.checkedUpToDate).toBe(false)
-    expect(result.current.checking).toBe(false)
-  })
+      await runInstall(hook)
 
-  it('install 開始で checkedUpToDate=false に戻す', async () => {
-    mockCheck.mockResolvedValue({ ...info, hasUpdate: false })
-    const { result } = renderHook(() => useUpdate())
-    await act(async () => { await result.current.check() })
-    await waitFor(() => expect(result.current.checkedUpToDate).toBe(true))
-    act(() => { result.current.install() })
-    await waitFor(() => expect(result.current.checkedUpToDate).toBe(false))
-  })
+      expect(mockInstall).toHaveBeenCalledOnce()
+      expect(confirm).not.toHaveBeenCalled()
+    })
 
-  // 起動時チェックの update-available はレンダラーが購読する前に飛ぶため取りこぼす。
-  // マウント時に直近の結果を引き直すことで、取りこぼしても拾えるようにする。
-  it('マウント時に直近のチェック結果を引き、更新があれば available にする', async () => {
-    mockPending.mockResolvedValue(info)
-    const { result } = renderHook(() => useUpdate())
-    await waitFor(() => expect(result.current.phase).toBe('available'))
-    expect(result.current.info?.latestVersion).toBe('1.1.0')
-  })
+    it('downloading になり、percent を 0 に戻す', async () => {
+      const hook = renderUpdate()
+      act(() => handlers.progress!({ percent: 70, done: false }))
 
-  it('直近のチェック結果が無ければ idle のまま', async () => {
-    mockPending.mockResolvedValue(null)
-    const { result } = renderHook(() => useUpdate())
-    await waitFor(() => expect(mockPending).toHaveBeenCalled())
-    expect(result.current.phase).toBe('idle')
-  })
+      await runInstall(hook)
 
-  it('直近のチェック結果の取得に失敗しても phase を壊さない', async () => {
-    mockPending.mockRejectedValue(new Error('boom'))
-    const { result } = renderHook(() => useUpdate())
-    await waitFor(() => expect(mockPending).toHaveBeenCalled())
-    expect(result.current.phase).toBe('idle')
-  })
+      expect(hook.current).toMatchObject({ phase: 'downloading', percent: 0 })
+    })
 
-  it('先に進んだ phase を、あとから解決したマウント時の取得が巻き戻さない', async () => {
-    let resolvePending: (v: UpdateInfo | null) => void = () => {}
-    mockPending.mockReturnValue(new Promise<UpdateInfo | null>(r => { resolvePending = r }))
-    const { result } = renderHook(() => useUpdate())
-    act(() => handlers.available!(info))
-    act(() => handlers.progress!({ percent: 30, done: false }))
-    expect(result.current.phase).toBe('downloading')
-    await act(async () => { resolvePending(info) })
-    expect(result.current.phase).toBe('downloading')
-  })
-})
+    it('「最新です」の表示を消す', async () => {
+      const hook = renderUpdate()
+      await runCheck(hook)
 
-describe('useUpdate.install', () => {
-  beforeEach(() => vi.restoreAllMocks())
+      await runInstall(hook)
 
-  it('タイマー非稼働ならそのまま install を呼ぶ', async () => {
-    vi.spyOn(timerRepository, 'isRunning').mockResolvedValue(false)
-    const spy = vi.spyOn(updateRepository, 'install').mockResolvedValue()
-    const { result } = renderHook(() => useUpdate())
-    act(() => { result.current.install() })
-    await waitFor(() => expect(spy).toHaveBeenCalled())
-    expect(result.current.phase).toBe('downloading')
-  })
+      expect(hook.current.checkedUpToDate).toBe(false)
+    })
 
-  it('稼働中に確認をキャンセルしたら install を呼ばない', async () => {
-    vi.spyOn(timerRepository, 'isRunning').mockResolvedValue(true)
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
-    const spy = vi.spyOn(updateRepository, 'install').mockResolvedValue()
-    const { result } = renderHook(() => useUpdate())
-    act(() => { result.current.install() })
-    await waitFor(() => expect(timerRepository.isRunning).toHaveBeenCalled())
-    expect(spy).not.toHaveBeenCalled()
+    it('タイマー稼働中に確認で OK したらインストールする', async () => {
+      mockIsRunning.mockResolvedValue(true)
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      const hook = renderUpdate()
+
+      await runInstall(hook)
+
+      expect(mockInstall).toHaveBeenCalledOnce()
+    })
+
+    it('タイマー稼働中に確認でキャンセルしたらインストールしない', async () => {
+      mockIsRunning.mockResolvedValue(true)
+      vi.spyOn(window, 'confirm').mockReturnValue(false)
+      const hook = renderUpdate()
+
+      await runInstall(hook)
+
+      expect(mockInstall).not.toHaveBeenCalled()
+    })
+
+    it('稼働中かを確かめられなければ、止まっているものとして進める', async () => {
+      mockIsRunning.mockRejectedValue(new Error('ipc error'))
+      const hook = renderUpdate()
+
+      await runInstall(hook)
+
+      expect(mockInstall).toHaveBeenCalledOnce()
+    })
+
+    it('インストールに失敗したら error になり、メッセージを持つ', async () => {
+      mockInstall.mockRejectedValue(new Error('boom'))
+      const hook = renderUpdate()
+
+      await runInstall(hook)
+
+      expect(hook.current).toMatchObject({ phase: 'error', error: '更新に失敗しました' })
+    })
   })
 })

@@ -9,6 +9,8 @@ vi.mock('@aws-sdk/client-dynamodb', () => ({
 
 import { getRevokedBefore, isRevoked, _resetForTest } from './revocations'
 
+const revokedBefore = (n: number) => ({ Item: { revokedBefore: { N: String(n) } } })
+
 beforeEach(() => {
   _resetForTest()
   mockSend.mockReset()
@@ -20,39 +22,65 @@ afterEach(() => {
 })
 
 describe('getRevokedBefore', () => {
-  it('レコードがあれば revokedBefore を数値で返す', async () => {
-    mockSend.mockResolvedValue({ Item: { revokedBefore: { N: '1000' } } })
-    expect(await getRevokedBefore('U1')).toBe(1000)
-    const cmd = mockSend.mock.calls[0][0]
-    expect(cmd.input.Key).toEqual({ sub: { S: 'U1' } })
+  it('ユーザーの失効時刻を数値で返す', async () => {
+    mockSend.mockResolvedValue(revokedBefore(1000))
+
+    const result = await getRevokedBefore('U1')
+
+    expect(result).toBe(1000)
   })
 
-  it('レコードが無ければ null', async () => {
+  it('そのユーザーをキーにして、設定されたテーブルを引く', async () => {
     mockSend.mockResolvedValue({})
-    expect(await getRevokedBefore('U1')).toBeNull()
+
+    await getRevokedBefore('U1')
+
+    expect(mockSend.mock.calls[0][0].input).toMatchObject({ TableName: 'juice-revocations', Key: { sub: { S: 'U1' } } })
   })
 
-  it('テーブル未設定なら DynamoDB を呼ばず null（機能オフ）', async () => {
+  it('記録が無ければ null', async () => {
+    mockSend.mockResolvedValue({})
+
+    const result = await getRevokedBefore('U1')
+
+    expect(result).toBeNull()
+  })
+
+  it('テーブルが設定されていなければ null（失効機能オフ）', async () => {
     delete process.env.REVOCATION_TABLE
-    expect(await getRevokedBefore('U1')).toBeNull()
+
+    const result = await getRevokedBefore('U1')
+
+    expect(result).toBeNull()
+  })
+
+  it('テーブルが設定されていなければ DynamoDB を呼ばない', async () => {
+    delete process.env.REVOCATION_TABLE
+
+    await getRevokedBefore('U1')
+
     expect(mockSend).not.toHaveBeenCalled()
   })
 })
 
 describe('isRevoked', () => {
-  it('iat が revokedBefore より前なら失効', async () => {
-    mockSend.mockResolvedValue({ Item: { revokedBefore: { N: '1000' } } })
-    expect(await isRevoked('U1', 999)).toBe(true)
+  it.each([
+    ['失効時刻より前に発行されたトークンは失効', 999, true],
+    ['失効時刻ちょうどに発行されたトークンは有効', 1000, false],
+    ['失効時刻より後に発行されたトークンは有効', 1001, false],
+  ])('%s', async (_label, iat, expected) => {
+    mockSend.mockResolvedValue(revokedBefore(1000))
+
+    const revoked = await isRevoked('U1', iat)
+
+    expect(revoked).toBe(expected)
   })
 
-  it('iat が revokedBefore 以降なら有効', async () => {
-    mockSend.mockResolvedValue({ Item: { revokedBefore: { N: '1000' } } })
-    expect(await isRevoked('U1', 1000)).toBe(false)
-    expect(await isRevoked('U1', 1001)).toBe(false)
-  })
-
-  it('失効レコードが無ければ有効', async () => {
+  it('失効の記録が無ければ有効', async () => {
     mockSend.mockResolvedValue({})
-    expect(await isRevoked('U1', 1)).toBe(false)
+
+    const revoked = await isRevoked('U1', 1)
+
+    expect(revoked).toBe(false)
   })
 })

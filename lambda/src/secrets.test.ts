@@ -10,6 +10,7 @@ vi.mock('@aws-sdk/client-ssm', () => ({
 import { loadSecrets, _resetForTest } from './secrets'
 
 const PREFIX = '/juice-proxy/'
+const NAMES = ['SLACK_CLIENT_SECRET', 'SESSION_SECRET', 'ATTENDANCE_API_KEY', 'WHITEBOARD_API_KEY']
 const PARAMS = [
   { Name: `${PREFIX}SLACK_CLIENT_SECRET`, Value: 'cs' },
   { Name: `${PREFIX}SESSION_SECRET`, Value: 'ss' },
@@ -19,7 +20,7 @@ const PARAMS = [
 
 beforeEach(() => {
   _resetForTest()
-  mockSend.mockReset()
+  mockSend.mockReset().mockResolvedValue({ Parameters: PARAMS })
   process.env.SSM_SECRET_PREFIX = PREFIX
 })
 
@@ -28,33 +29,41 @@ afterEach(() => {
 })
 
 describe('loadSecrets', () => {
-  it('SSM から4つの秘密を取得し、WithDecryption 付きで全名を要求する', async () => {
-    mockSend.mockResolvedValue({ Parameters: PARAMS })
+  it('SSM から4つの秘密を取り出す', async () => {
     const secrets = await loadSecrets()
-    expect(secrets).toEqual({
-      SLACK_CLIENT_SECRET: 'cs', SESSION_SECRET: 'ss',
-      ATTENDANCE_API_KEY: 'ak', WHITEBOARD_API_KEY: 'wk',
-    })
-    const cmd = mockSend.mock.calls[0][0]
-    expect(cmd.input.WithDecryption).toBe(true)
-    expect(cmd.input.Names).toContain(`${PREFIX}SESSION_SECRET`)
-    expect(cmd.input.Names).toHaveLength(4)
+
+    expect(secrets).toEqual({ SLACK_CLIENT_SECRET: 'cs', SESSION_SECRET: 'ss', ATTENDANCE_API_KEY: 'ak', WHITEBOARD_API_KEY: 'wk' })
   })
 
-  it('同一コンテナ内ではキャッシュし、2回目は SSM を呼ばない', async () => {
-    mockSend.mockResolvedValue({ Parameters: PARAMS })
+  it('接頭辞を付けた4つの名前を、復号付きで要求する', async () => {
     await loadSecrets()
+
+    const { input } = mockSend.mock.calls[0][0]
+    expect(input.WithDecryption).toBe(true)
+    expect([...input.Names].sort()).toEqual(NAMES.map(n => `${PREFIX}${n}`).sort())
+  })
+
+  it('同じコンテナでは2回目以降 SSM を呼ばない（キャッシュする）', async () => {
     await loadSecrets()
-    expect(mockSend).toHaveBeenCalledTimes(1)
+
+    await loadSecrets()
+
+    expect(mockSend).toHaveBeenCalledOnce()
   })
 
-  it('取得できないパラメータがあれば throw する', async () => {
-    mockSend.mockResolvedValue({ Parameters: PARAMS.slice(0, 3) }) // WHITEBOARD_API_KEY 欠落
-    await expect(loadSecrets()).rejects.toThrow('WHITEBOARD_API_KEY')
+  it('取れなかった秘密があれば、その名前を添えて例外にする', async () => {
+    mockSend.mockResolvedValue({ Parameters: PARAMS.slice(0, 3) })
+
+    const loading = loadSecrets()
+
+    await expect(loading).rejects.toThrow('WHITEBOARD_API_KEY')
   })
 
-  it('SSM_SECRET_PREFIX 未設定なら throw する', async () => {
+  it('SSM_SECRET_PREFIX が無ければ例外にする', async () => {
     delete process.env.SSM_SECRET_PREFIX
-    await expect(loadSecrets()).rejects.toThrow('SSM_SECRET_PREFIX')
+
+    const loading = loadSecrets()
+
+    await expect(loading).rejects.toThrow('SSM_SECRET_PREFIX')
   })
 })

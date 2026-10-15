@@ -3,53 +3,68 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { UsageGuide } from './UsageGuide'
 
+const TITLES = ['作業を始める', '記録を見る', '記録を編集', '追加・削除', '並び替え', '休憩・終了', 'カレンダー', '勤怠を調整', '共有']
+
+const nextButton = () => screen.getByRole('button', { name: '次の項目へ' })
+const prevButton = () => screen.getByRole('button', { name: '前の項目へ' })
+
+async function next(times: number): Promise<void> {
+  for (let i = 0; i < times; i++) await userEvent.click(nextButton())
+}
+
 describe('UsageGuide', () => {
-  it('最初は先頭の項目だけを表示する', () => {
+  it('最初は先頭の項目だけを出す', () => {
     render(<UsageGuide />)
+
     expect(screen.getByText('作業を始める')).toBeInTheDocument()
-    expect(screen.queryByText('記録を編集')).not.toBeInTheDocument()
+    expect(screen.queryByText('記録を見る')).not.toBeInTheDocument()
   })
 
   it('「次の項目へ」で次の項目に進む', async () => {
-    const user = userEvent.setup()
     render(<UsageGuide />)
-    await user.click(screen.getByRole('button', { name: '次の項目へ' }))
+
+    await next(1)
+
     expect(screen.getByText('記録を見る')).toBeInTheDocument()
     expect(screen.queryByText('作業を始める')).not.toBeInTheDocument()
   })
 
   it('「前の項目へ」で前の項目に戻る', async () => {
-    const user = userEvent.setup()
     render(<UsageGuide />)
-    await user.click(screen.getByRole('button', { name: '次の項目へ' }))
-    await user.click(screen.getByRole('button', { name: '前の項目へ' }))
+    await next(1)
+
+    await userEvent.click(prevButton())
+
     expect(screen.getByText('作業を始める')).toBeInTheDocument()
   })
 
-  it('先頭では「前の項目へ」が無効', () => {
+  it('先頭では「前の項目へ」を押せない', () => {
     render(<UsageGuide />)
-    expect(screen.getByRole('button', { name: '前の項目へ' })).toBeDisabled()
+
+    expect(prevButton()).toBeDisabled()
   })
 
-  it('9 項目ある（8 回進むと最後に着く）', async () => {
-    const user = userEvent.setup()
+  it.each(TITLES.map((title, i) => [i, title] as const))('%i 回進むと「%s」を出す', async (steps, title) => {
     render(<UsageGuide />)
-    // 8 回進んだ時点ではまだ押せる状態にならず、9 項目目で無効になる
-    for (let i = 0; i < 7; i += 1) {
-      await user.click(screen.getByRole('button', { name: '次の項目へ' }))
-    }
-    expect(screen.getByRole('button', { name: '次の項目へ' })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: '次の項目へ' }))
-    expect(screen.getByRole('button', { name: '次の項目へ' })).toBeDisabled()
-    expect(screen.getByText('共有')).toBeInTheDocument()
+
+    await next(steps)
+
+    expect(screen.getByText(title)).toBeInTheDocument()
   })
 
-  it('カレンダーの項目を含む', async () => {
-    const user = userEvent.setup()
+  it('最後の項目では「次の項目へ」を押せない', async () => {
     render(<UsageGuide />)
-    for (let i = 0; i < 6; i += 1) {
-      await user.click(screen.getByRole('button', { name: '次の項目へ' }))
-    }
-    expect(screen.getByText('カレンダー')).toBeInTheDocument()
+
+    await next(TITLES.length - 1)
+
+    expect(nextButton()).toBeDisabled()
+  })
+
+  it('最後の1つ手前ではまだ「次の項目へ」を押せる', async () => {
+    render(<UsageGuide />)
+
+    await next(TITLES.length - 2)
+
+    expect(nextButton()).toBeEnabled()
   })
 })

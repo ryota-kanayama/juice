@@ -23,10 +23,17 @@ mod tests {
 
     /// proxy_url は常に絶対 https URL を返す（空文字列だと送信 URL がホスト無しになり失敗する）。
     #[test]
-    fn proxy_url_is_absolute_https() {
+    fn proxy_url_is_not_empty() {
+        let url = proxy_url();
+
+        assert!(!url.is_empty(), "proxy_url must not be empty");
+    }
+
+    #[test]
+    fn proxy_url_is_absolute() {
         // JUICE_PROXY_URL が設定されていても、少なくとも絶対 URL であること。
         let url = proxy_url();
-        assert!(!url.is_empty(), "proxy_url must not be empty");
+
         assert!(
             url.starts_with("https://") || url.starts_with("http://"),
             "proxy_url must be absolute, got: {url}"

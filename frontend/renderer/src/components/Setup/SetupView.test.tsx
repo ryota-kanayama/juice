@@ -4,89 +4,129 @@ import userEvent from '@testing-library/user-event'
 import { SetupView } from './SetupView'
 
 const api = {
-  getTheme: vi.fn().mockResolvedValue('milk'),
-  setTheme: vi.fn().mockResolvedValue(undefined),
+  getTheme: vi.fn(),
+  setTheme: vi.fn(),
   onThemeChanged: vi.fn(() => () => {}),
-  completeSetup: vi.fn().mockResolvedValue(undefined),
+  completeSetup: vi.fn(),
   getAuthStatus: vi.fn(),
-  signInWithSlack: vi.fn().mockResolvedValue(undefined),
-  signOutSlack: vi.fn().mockResolvedValue(undefined),
+  signInWithSlack: vi.fn(),
+  signOutSlack: vi.fn(),
   onAuthChanged: vi.fn(() => () => {}),
-  getWhiteboardSettings: vi.fn().mockResolvedValue({ enabled: false }),
-  setWhiteboardSettings: vi.fn().mockResolvedValue(undefined),
-  getMainProjectCode: vi.fn().mockResolvedValue(''),
-  setMainProjectCode: vi.fn().mockResolvedValue(undefined),
+  getWhiteboardSettings: vi.fn(),
+  setWhiteboardSettings: vi.fn(),
+  getMainProjectCode: vi.fn(),
+  setMainProjectCode: vi.fn(),
+}
+
+const button = (name: string) => screen.findByRole('button', { name })
+
+/** 「はじめる」で step2（サインイン）へ進める */
+async function goToSignIn(): Promise<void> {
+  render(<SetupView />)
+  await userEvent.click(await button('はじめる'))
+}
+
+/** step3（連携設定）まで進める */
+async function goToIntegrations(): Promise<void> {
+  await goToSignIn()
+  await userEvent.click(await button('あとで設定する'))
+  await screen.findByLabelText('主プロジェクトコード')
+}
+
+/** step4（テーマ）まで進める */
+async function goToTheme(): Promise<void> {
+  await goToIntegrations()
+  await userEvent.click(await button('次へ'))
+  await button('完了')
 }
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  for (const fn of Object.values(api)) fn.mockReset()
+  api.getTheme.mockResolvedValue('milk')
+  api.onThemeChanged.mockReturnValue(() => {})
+  api.onAuthChanged.mockReturnValue(() => {})
   api.getAuthStatus.mockResolvedValue({ signedIn: false })
   api.getWhiteboardSettings.mockResolvedValue({ enabled: false })
   api.getMainProjectCode.mockResolvedValue('')
+  for (const fn of [api.setTheme, api.completeSetup, api.signInWithSlack, api.setWhiteboardSettings, api.setMainProjectCode]) {
+    fn.mockResolvedValue(undefined)
+  }
   Object.assign(window, { bridge: api })
 })
 
-describe('SetupView step2（サインイン）', () => {
-  async function goToStep2() {
-    render(<SetupView />)
-    await userEvent.click(await screen.findByRole('button', { name: 'はじめる' }))
-  }
+describe('SetupView', () => {
+  describe('step2（サインイン）', () => {
+    it('未サインインならサインインを勧める', async () => {
+      await goToSignIn()
 
-  it('未サインインならサインインボタンと「あとで設定する」が出る', async () => {
-    await goToStep2()
-    expect(await screen.findByRole('button', { name: 'Slack でサインイン' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'あとで設定する' })).toBeInTheDocument()
+      expect(await button('Slack でサインイン')).toBeInTheDocument()
+    })
+
+    it('未サインインなら「あとで設定する」で飛ばせる', async () => {
+      await goToSignIn()
+
+      expect(await button('あとで設定する')).toBeInTheDocument()
+    })
+
+    it('「Slack でサインイン」でサインインを始める', async () => {
+      await goToSignIn()
+
+      await userEvent.click(await button('Slack でサインイン'))
+
+      expect(api.signInWithSlack).toHaveBeenCalledOnce()
+    })
+
+    it('サインイン済みなら名前と「次へ」を出す', async () => {
+      api.getAuthStatus.mockResolvedValue({ signedIn: true, name: '金山' })
+
+      await goToSignIn()
+
+      expect(await screen.findByText(/金山/)).toBeInTheDocument()
+      expect(await button('次へ')).toBeInTheDocument()
+    })
+
+    it('「← 戻る」で最初のステップへ戻る', async () => {
+      await goToSignIn()
+
+      await userEvent.click(await button('← 戻る'))
+
+      expect(await button('はじめる')).toBeInTheDocument()
+    })
   })
 
-  it('サインインボタンで signInWithSlack を呼ぶ', async () => {
-    await goToStep2()
-    await userEvent.click(await screen.findByRole('button', { name: 'Slack でサインイン' }))
-    expect(api.signInWithSlack).toHaveBeenCalled()
+  describe('step3（連携設定）', () => {
+    it('主プロジェクトコードを入力すると保存する', async () => {
+      await goToIntegrations()
+
+      await userEvent.type(screen.getByLabelText('主プロジェクトコード'), 'PROJ-001')
+
+      expect(api.setMainProjectCode).toHaveBeenLastCalledWith('PROJ-001')
+    })
+
+    it('ホワイトボード連携をオンにすると保存する', async () => {
+      await goToIntegrations()
+
+      await userEvent.click(screen.getByRole('switch'))
+
+      expect(api.setWhiteboardSettings).toHaveBeenCalledWith(true)
+    })
   })
 
-  it('「あとで設定する」で連携設定ステップに進める', async () => {
-    await goToStep2()
-    await userEvent.click(screen.getByRole('button', { name: 'あとで設定する' }))
-    expect(await screen.findByLabelText('主プロジェクトコード')).toBeInTheDocument()
-  })
+  describe('step4（テーマ）', () => {
+    it('テーマを選ぶと保存する', async () => {
+      await goToTheme()
 
-  it('サインイン済みなら名前と「次へ」が出る', async () => {
-    api.getAuthStatus.mockResolvedValue({ signedIn: true, name: '金山' })
-    await goToStep2()
-    expect(await screen.findByText(/金山/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '次へ' })).toBeInTheDocument()
-  })
-})
+      await userEvent.click(screen.getByRole('button', { name: /Soda/ }))
 
-describe('SetupView step3（連携設定）', () => {
-  async function goToStep3() {
-    render(<SetupView />)
-    await userEvent.click(await screen.findByRole('button', { name: 'はじめる' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'あとで設定する' }))
-    await screen.findByLabelText('主プロジェクトコード')
-  }
+      expect(api.setTheme).toHaveBeenCalledWith('soda')
+    })
 
-  it('ホワイトボード連携トグルと主プロジェクトコード入力欄が出る', async () => {
-    await goToStep3()
-    expect(screen.getByRole('switch')).toBeInTheDocument()
-    expect(screen.getByLabelText('主プロジェクトコード')).toBeInTheDocument()
-  })
+    it('「完了」でセットアップの完了を保存する', async () => {
+      await goToTheme()
 
-  it('主プロジェクトコードを入力すると setMainProjectCode を呼ぶ', async () => {
-    await goToStep3()
-    await userEvent.type(screen.getByLabelText('主プロジェクトコード'), 'PROJ-001')
-    expect(api.setMainProjectCode).toHaveBeenLastCalledWith('PROJ-001')
-  })
+      await userEvent.click(await button('完了'))
 
-  it('ホワイトボード連携トグルで setWhiteboardSettings を呼ぶ', async () => {
-    await goToStep3()
-    await userEvent.click(screen.getByRole('switch'))
-    expect(api.setWhiteboardSettings).toHaveBeenCalledWith(true)
-  })
-
-  it('「次へ」でテーマ（完了）ステップに進める', async () => {
-    await goToStep3()
-    await userEvent.click(screen.getByRole('button', { name: '次へ' }))
-    expect(await screen.findByRole('button', { name: '完了' })).toBeInTheDocument()
+      expect(api.completeSetup).toHaveBeenCalledOnce()
+    })
   })
 })

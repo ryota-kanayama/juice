@@ -2,32 +2,40 @@ import { describe, it, expect } from 'vitest'
 import { normalizeVersion, compareVersions, isNewerVersion } from './version'
 
 describe('normalizeVersion', () => {
-  it('先頭の v と空白を除去する', () => {
-    expect(normalizeVersion('v1.2.3')).toBe('1.2.3')
-    expect(normalizeVersion('  V1.0.0 ')).toBe('1.0.0')
-    expect(normalizeVersion('1.0.0')).toBe('1.0.0')
+  it.each([
+    ['v1.2.3', '1.2.3'],
+    ['  V1.0.0 ', '1.0.0'],
+    ['1.0.0', '1.0.0'],
+  ])('%s → %s（先頭の v と前後の空白を除く）', (input, expected) => {
+    const version = normalizeVersion(input)
+
+    expect(version).toBe(expected)
   })
 })
 
 describe('compareVersions', () => {
-  it('大小を数値として比較する', () => {
-    expect(compareVersions('1.0.0', '1.1.0')).toBe(-1)
-    expect(compareVersions('1.1.0', '1.0.0')).toBe(1)
-    expect(compareVersions('1.0.0', '1.0.0')).toBe(0)
-  })
-  it('文字列順ではなく数値順（1.10.0 > 1.9.0）', () => {
-    expect(compareVersions('1.10.0', '1.9.0')).toBe(1)
-  })
-  it('v 接頭辞や桁数差を吸収する', () => {
-    expect(compareVersions('v1.2', '1.2.0')).toBe(0)
-    expect(compareVersions('2.0.0', 'v1.9.9')).toBe(1)
+  it.each([
+    ['小さい', '1.0.0', '1.1.0', -1],
+    ['大きい', '1.1.0', '1.0.0', 1],
+    ['同じ', '1.0.0', '1.0.0', 0],
+    ['文字列順ではなく数値順で大きい（1.10.0 > 1.9.0）', '1.10.0', '1.9.0', 1],
+    ['v 接頭辞と欠けた桁を吸収して同じ', 'v1.2', '1.2.0', 0],
+    ['v 接頭辞があっても比べられる', '2.0.0', 'v1.9.9', 1],
+  ])('%s', (_label, a, b, expected) => {
+    const result = compareVersions(a, b)
+
+    expect(result).toBe(expected)
   })
 })
 
 describe('isNewerVersion', () => {
-  it('candidate が新しいときだけ true', () => {
-    expect(isNewerVersion('1.1.0', '1.0.0')).toBe(true)
-    expect(isNewerVersion('1.0.0', '1.0.0')).toBe(false)
-    expect(isNewerVersion('0.9.0', '1.0.0')).toBe(false)
+  it.each([
+    ['新しい', '1.1.0', '1.0.0', true],
+    ['同じ', '1.0.0', '1.0.0', false],
+    ['古い', '0.9.0', '1.0.0', false],
+  ])('candidate が%sなら %s', (_label, candidate, current, expected) => {
+    const result = isNewerVersion(candidate, current)
+
+    expect(result).toBe(expected)
   })
 })

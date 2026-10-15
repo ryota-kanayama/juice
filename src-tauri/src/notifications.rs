@@ -98,20 +98,37 @@ mod tests {
     // ---- ActivityState ----
 
     #[test]
-    fn record_activity_updates_time_and_clears_sent() {
+    fn record_activity_updates_time() {
+        let mut a = ActivityState::new(0);
+
+        a.record_activity(5000);
+
+        assert_eq!(a.last_activity_ms(), 5000);
+    }
+
+    #[test]
+    fn record_activity_clears_idle_sent() {
         let mut a = ActivityState::new(0);
         a.mark_idle_sent();
-        assert!(a.was_idle_sent());
+
         a.record_activity(5000);
-        assert_eq!(a.last_activity_ms(), 5000);
+
+        assert!(!a.was_idle_sent());
+    }
+
+    #[test]
+    fn idle_is_not_sent_initially() {
+        let a = ActivityState::new(0);
+
         assert!(!a.was_idle_sent());
     }
 
     #[test]
     fn mark_idle_sets_sent() {
         let mut a = ActivityState::new(0);
-        assert!(!a.was_idle_sent());
+
         a.mark_idle_sent();
+
         assert!(a.was_idle_sent());
     }
 
@@ -120,22 +137,30 @@ mod tests {
     #[test]
     fn idle_notifies_when_over_threshold() {
         // 30分閾値、60分アイドル、未通知、非稼働 → 通知
-        assert!(should_notify_idle(60 * MIN, 30 * MIN, false, false));
+        let notify = should_notify_idle(60 * MIN, 30 * MIN, false, false);
+
+        assert!(notify);
     }
 
     #[test]
     fn idle_not_below_threshold() {
-        assert!(!should_notify_idle(20 * MIN, 30 * MIN, false, false));
+        let notify = should_notify_idle(20 * MIN, 30 * MIN, false, false);
+
+        assert!(!notify);
     }
 
     #[test]
     fn idle_not_when_already_sent() {
-        assert!(!should_notify_idle(60 * MIN, 30 * MIN, true, false));
+        let notify = should_notify_idle(60 * MIN, 30 * MIN, true, false);
+
+        assert!(!notify);
     }
 
     #[test]
     fn idle_not_when_timer_running() {
-        assert!(!should_notify_idle(60 * MIN, 30 * MIN, false, true));
+        let notify = should_notify_idle(60 * MIN, 30 * MIN, false, true);
+
+        assert!(!notify);
     }
 
     // ---- elapsed 判定 ----
@@ -143,25 +168,45 @@ mod tests {
     #[test]
     fn elapsed_due_at_first_boundary() {
         // 30分間隔、開始0、30分経過、count 0 → 30分通知
-        assert_eq!(elapsed_due(30 * MIN, 0, 30 * MIN, 0), Some(30));
+        let due = elapsed_due(30 * MIN, 0, 30 * MIN, 0);
+
+        assert_eq!(due, Some(30));
     }
 
     #[test]
     fn elapsed_not_due_before_boundary() {
-        assert_eq!(elapsed_due(20 * MIN, 0, 30 * MIN, 0), None);
+        let due = elapsed_due(20 * MIN, 0, 30 * MIN, 0);
+
+        assert_eq!(due, None);
     }
 
     #[test]
     fn elapsed_due_at_second_boundary() {
         // count 1 のとき次は 60分、累計 60分
-        assert_eq!(elapsed_due(60 * MIN, 0, 30 * MIN, 1), Some(60));
-        assert_eq!(elapsed_due(59 * MIN, 0, 30 * MIN, 1), None);
+        let due = elapsed_due(60 * MIN, 0, 30 * MIN, 1);
+
+        assert_eq!(due, Some(60));
     }
 
     #[test]
-    fn elapsed_body_text() {
-        assert_eq!(elapsed_body(30), "作業中 — 30分経過しました");
-        assert_eq!(elapsed_body(60), "作業中 — 60分経過しました");
+    fn elapsed_not_due_just_before_second_boundary() {
+        let due = elapsed_due(59 * MIN, 0, 30 * MIN, 1);
+
+        assert_eq!(due, None);
+    }
+
+    #[test]
+    fn elapsed_body_for_30_minutes() {
+        let body = elapsed_body(30);
+
+        assert_eq!(body, "作業中 — 30分経過しました");
+    }
+
+    #[test]
+    fn elapsed_body_for_60_minutes() {
+        let body = elapsed_body(60);
+
+        assert_eq!(body, "作業中 — 60分経過しました");
     }
 
     // ---- pomodoro 計算 ----
@@ -169,32 +214,92 @@ mod tests {
     #[test]
     fn pomodoro_delay_from_start_is_work() {
         // 開始直後は作業境界(25分)まで
-        assert_eq!(pomodoro_next_delay(0, 0), 25 * MIN);
+        let delay = pomodoro_next_delay(0, 0);
+
+        assert_eq!(delay, 25 * MIN);
     }
 
     #[test]
     fn pomodoro_delay_at_work_boundary_is_break() {
         // 25分時点では周期末(30分)まで＝5分
-        assert_eq!(pomodoro_next_delay(25 * MIN, 0), 5 * MIN);
+        let delay = pomodoro_next_delay(25 * MIN, 0);
+
+        assert_eq!(delay, 5 * MIN);
     }
 
     #[test]
     fn pomodoro_delay_wraps_cycle() {
         // 30分時点では次サイクルの作業境界＝25分後
-        assert_eq!(pomodoro_next_delay(30 * MIN, 0), 25 * MIN);
+        let delay = pomodoro_next_delay(30 * MIN, 0);
+
+        assert_eq!(delay, 25 * MIN);
     }
 
     #[test]
-    fn pomodoro_message_by_phase() {
-        // 25分位置以降は休憩メッセージ、未満は再開メッセージ
-        assert_eq!(pomodoro_message(25 * MIN), POMODORO_BREAK);
-        assert_eq!(pomodoro_message(0), POMODORO_RESUME);
+    fn pomodoro_message_at_break_boundary_is_break() {
+        // 25分位置以降は休憩メッセージ
+        let msg = pomodoro_message(25 * MIN);
+
+        assert_eq!(msg, POMODORO_BREAK);
     }
 
     #[test]
-    fn pomodoro_cycle_pos_wraps() {
-        assert_eq!(pomodoro_cycle_pos(0, 0), 0);
-        assert_eq!(pomodoro_cycle_pos(25 * MIN, 0), 25 * MIN);
-        assert_eq!(pomodoro_cycle_pos(31 * MIN, 0), MIN); // 30分周期を1分超過
+    fn pomodoro_message_before_break_boundary_is_resume() {
+        // 25分位置未満は再開メッセージ
+        let msg = pomodoro_message(0);
+
+        assert_eq!(msg, POMODORO_RESUME);
+    }
+
+    #[test]
+    fn pomodoro_cycle_pos_at_start_is_zero() {
+        let pos = pomodoro_cycle_pos(0, 0);
+
+        assert_eq!(pos, 0);
+    }
+
+    #[test]
+    fn pomodoro_cycle_pos_within_cycle_is_elapsed() {
+        let pos = pomodoro_cycle_pos(25 * MIN, 0);
+
+        assert_eq!(pos, 25 * MIN);
+    }
+
+    #[test]
+    fn pomodoro_cycle_pos_wraps_after_cycle() {
+        let pos = pomodoro_cycle_pos(31 * MIN, 0);
+
+        assert_eq!(pos, MIN); // 30分周期を1分超過
+    }
+
+    #[test]
+    fn pomodoro_delay_mid_work_phase_counts_down_to_work_boundary() {
+        // 作業フェーズの10分地点では、作業境界(25分)まで残り15分
+        let delay = pomodoro_next_delay(10 * MIN, 0);
+
+        assert_eq!(delay, 15 * MIN);
+    }
+
+    #[test]
+    fn pomodoro_delay_mid_break_phase_counts_down_to_cycle_end() {
+        // 休憩フェーズの27分地点では、周期末(30分)まで残り3分
+        let delay = pomodoro_next_delay(27 * MIN, 0);
+
+        assert_eq!(delay, 3 * MIN);
+    }
+
+    #[test]
+    fn pomodoro_delay_is_relative_to_start() {
+        // 開始が100分、現在が110分なら周期内位置は10分
+        let delay = pomodoro_next_delay(110 * MIN, 100 * MIN);
+
+        assert_eq!(delay, 15 * MIN);
+    }
+
+    #[test]
+    fn pomodoro_cycle_pos_is_relative_to_start() {
+        let pos = pomodoro_cycle_pos(110 * MIN, 100 * MIN);
+
+        assert_eq!(pos, 10 * MIN);
     }
 }

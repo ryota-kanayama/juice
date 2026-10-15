@@ -1,285 +1,307 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { DayDetail } from './DayDetail'
 import type { Session } from '../../types/session'
+import { interval, makeSession } from '../../test/factories'
 
-const session: Session = {
+const DATE = '2026-02-25'
+
+const session = (overrides: Partial<Session> = {}): Session => makeSession({
   id: '1',
   taskId: '1',
   name: '企画書作業',
   projectCode: 'P001',
   workCategory: '設計',
-  times: [{ startTime: '2026-02-25T10:00:00', endTime: '2026-02-25T10:45:00' }],
-  date: '2026-02-25',
-  color: '#FF9500',
+  times: [interval(`${DATE}T10:00:00`, `${DATE}T10:45:00`)],
+  date: DATE,
   totalTime: 45,
+  ...overrides,
+})
+
+type Props = ComponentProps<typeof DayDetail>
+
+function renderDetail(props: Partial<Props> = {}) {
+  return render(<DayDetail date={DATE} sessions={[session()]} {...props} />)
+}
+
+const nameInput = () => screen.getByPlaceholderText('作業名（必須）')
+const segment = (group: string, part: string) => within(screen.getByLabelText(group)).getByLabelText(part)
+
+async function openEdit(): Promise<void> {
+  await userEvent.click(screen.getAllByRole('button', { name: '編集' })[0])
 }
 
 describe('DayDetail', () => {
-  it('日付未選択のときプレースホルダーを表示する', () => {
-    render(<DayDetail date={null} sessions={[]} />)
-    expect(screen.getByText('日付を選択してください')).toBeInTheDocument()
+  describe('表示', () => {
+    it('日付が選ばれていなければ選択を促す', () => {
+      renderDetail({ date: null, sessions: [] })
+
+      expect(screen.getByText('日付を選択してください')).toBeInTheDocument()
+    })
+
+    it('セッションの名前と、行・合計の分を出す', () => {
+      renderDetail()
+
+      expect(screen.getByText('企画書作業')).toBeInTheDocument()
+      expect(screen.getAllByText(/45分/)).toHaveLength(2)
+    })
+
+    it('同じ名前でも別のセッションは別の行に出す', () => {
+      const sessions = [
+        session({ id: '1', name: '会議', times: [interval(`${DATE}T09:00:00`, `${DATE}T09:30:00`)] }),
+        session({ id: '2', name: '会議', times: [interval(`${DATE}T14:00:00`, `${DATE}T14:30:00`)] }),
+      ]
+
+      renderDetail({ sessions })
+
+      expect(screen.getAllByText('会議')).toHaveLength(2)
+    })
+
+    it('並び順が保存されていればその順に出す', () => {
+      const sessions = [session({ id: 'a', name: 'A' }), session({ id: 'b', name: 'B' })]
+
+      renderDetail({ sessions, sessionOrder: ['b', 'a'] })
+
+      expect(screen.getAllByRole('listitem').map(li => li.textContent?.slice(0, 1))).toEqual(['B', 'A'])
+    })
   })
 
-  it('セッション一覧と合計を表示する', () => {
-    render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    expect(screen.getByText('企画書作業')).toBeInTheDocument()
-    expect(screen.getAllByText(/45分/)).toHaveLength(2) // アイテムの duration + 合計
+  describe('その日の集計（フッター）', () => {
+    it('最初の開始と最後の終了を出す', () => {
+      renderDetail()
+
+      expect(screen.getByText('10:00 – 10:45')).toBeInTheDocument()
+    })
+
+    it('計測中の区間があれば、終了の代わりに「稼働中」と出す', () => {
+      renderDetail({ sessions: [session({ times: [interval(`${DATE}T10:00:00`, null)] })] })
+
+      expect(screen.getByText('10:00 – 稼働中')).toBeInTheDocument()
+    })
+
+    it('記録がある日は注いだ時間を出す', () => {
+      renderDetail()
+
+      expect(screen.getByText(/注いだ時間/)).toBeInTheDocument()
+    })
+
+    it('記録が無い日はフッターごと出さない', () => {
+      const { container } = renderDetail({ sessions: [] })
+
+      expect(container.querySelector('[data-day-summary]')).toBeNull()
+    })
+
+    it('週次分析ボタンは置かない（ツールバーへ移した）', () => {
+      renderDetail()
+
+      expect(screen.queryByRole('button', { name: '週次分析' })).not.toBeInTheDocument()
+    })
   })
 
-  it('編集ボタンを押すと編集ダイアログがセッションの値で開く', async () => {
-    const user = userEvent.setup()
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
-    expect(screen.getByText('タイマーを編集')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('企画書作業')
-    expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P001')
-    expect(screen.getByPlaceholderText('作業区分')).toHaveValue('設計')
-    expect(within(screen.getByLabelText('開始時刻')).getByLabelText('時')).toHaveValue('10')
-    expect(within(screen.getByLabelText('終了時刻')).getByLabelText('分')).toHaveValue('45')
+  describe('展開', () => {
+    it('最初は区間を出さない', () => {
+      const { container } = renderDetail()
+
+      expect(container.querySelector('[data-session-intervals]')).toBeNull()
+    })
+
+    it('行をクリックすると、その行に区間を出す', async () => {
+      renderDetail()
+
+      await userEvent.click(screen.getByText('企画書作業'))
+
+      // フッターにも同じ時刻が出るため、行の中に絞って確かめる
+      const row = screen.getByText('企画書作業').closest('li')!
+      expect(within(row).getByText('10:00 – 10:45')).toBeInTheDocument()
+    })
+
+    it('もう一度クリックすると閉じる', async () => {
+      const { container } = renderDetail()
+      await userEvent.click(screen.getByText('企画書作業'))
+
+      await userEvent.click(screen.getByText('企画書作業'))
+
+      expect(container.querySelector('[data-session-intervals]')).toBeNull()
+    })
   })
 
-  it('右クリックメニューの「編集」で編集ダイアログが開く', async () => {
-    const user = userEvent.setup()
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    fireEvent.contextMenu(screen.getByRole('listitem'))
-    await user.click(screen.getByText('編集'))
-    expect(screen.getByText('タイマーを編集')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('作業名（必須）')).toHaveValue('企画書作業')
+  describe('長い文字列の収まり', () => {
+    const LONG_NAME = 'とても長い作業名がここに入っていて一行では収まらない'
+
+    // jsdom はレイアウトを計算しないため、省略表示はクラスで確かめる（見た目の回帰の検知用）
+    it('作業名は1行に収めて省略記号で切る', () => {
+      renderDetail({ sessions: [session({ name: LONG_NAME })] })
+
+      const name = screen.getByText(LONG_NAME)
+
+      expect(name).toHaveClass('truncate')
+      expect(name).not.toHaveClass('break-words')
+    })
+
+    it('作業名の全文を title で読める', () => {
+      renderDetail({ sessions: [session({ name: LONG_NAME })] })
+
+      expect(screen.getByText(LONG_NAME)).toHaveAttribute('title', LONG_NAME)
+    })
+
+    it('PJコードと作業区分を1行に並べる', () => {
+      const { container } = renderDetail()
+
+      expect(container.querySelector('[data-session-meta]')).toHaveClass('flex-nowrap')
+    })
+
+    it('PJコードも作業区分も無ければその行を出さない', () => {
+      const { container } = renderDetail({ sessions: [session({ projectCode: '', workCategory: '' })] })
+
+      expect(container.querySelector('[data-session-meta]')).toBeNull()
+    })
+
+    it('長い PJコードと作業区分は、どちらも縮んで省略され title で全文を読める', () => {
+      // shrink-0 と truncate は両立しない（shrink-0 だと「…」なしで途中から切れる）
+      const long = session({ projectCode: 'PROJECT-CODE-とても長いプロジェクトコード', workCategory: '作業区分もとても長い名前になっている' })
+      const { container } = renderDetail({ sessions: [long] })
+
+      const [codeChip, categoryChip] = Array.from(container.querySelector('[data-session-meta]')!.children)
+
+      expect(codeChip).toHaveClass('truncate')
+      expect(codeChip).not.toHaveClass('shrink-0')
+      expect(codeChip).toHaveAttribute('title', long.projectCode)
+      expect(categoryChip).toHaveClass('truncate')
+      expect(categoryChip).toHaveAttribute('title', long.workCategory)
+    })
   })
 
-  it('名前を変更して保存するとonUpdateが呼ばれる', async () => {
-    const user = userEvent.setup()
-    const onUpdate = vi.fn().mockResolvedValue(undefined)
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
-    await user.clear(screen.getByPlaceholderText('作業名（必須）'))
-    await user.type(screen.getByPlaceholderText('作業名（必須）'), '新しい作業名{Enter}')
-    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: '新しい作業名' }))
-  })
+  describe('編集', () => {
+    it('onUpdate が無ければ編集ボタンを出さない', () => {
+      renderDetail()
 
-  it('時刻を持たない記録は分を変更して保存するとtotalTimeが反映される', async () => {
-    const user = userEvent.setup()
-    const onUpdate = vi.fn().mockResolvedValue(undefined)
-    const legacy = { ...session, times: [] }
-    render(<DayDetail date="2026-02-25" sessions={[legacy]} onUpdate={onUpdate} />)
-    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
-    await user.clear(screen.getByPlaceholderText('分'))
-    await user.type(screen.getByPlaceholderText('分'), '90')
-    await user.click(screen.getByRole('button', { name: '保存' }))
-    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ totalTime: 90 }))
-  })
+      expect(screen.queryByRole('button', { name: '編集' })).not.toBeInTheDocument()
+    })
 
-  it('Escapeキーでダイアログが閉じonUpdateを呼ばない', async () => {
-    const user = userEvent.setup()
-    const onUpdate = vi.fn()
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
-    await user.type(screen.getByPlaceholderText('作業名（必須）'), '変更途中')
-    await user.keyboard('{Escape}')
-    expect(screen.queryByText('タイマーを編集')).not.toBeInTheDocument()
-    expect(onUpdate).not.toHaveBeenCalled()
-    expect(screen.getByText('企画書作業')).toBeInTheDocument()
-  })
+    it('編集ボタンで、セッションの値を入れた編集ダイアログを開く', async () => {
+      renderDetail({ onUpdate: vi.fn() })
 
-  it('空文字のままEnterを押してもonUpdateを呼ばない', async () => {
-    const user = userEvent.setup()
-    const onUpdate = vi.fn()
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
-    await user.clear(screen.getByPlaceholderText('作業名（必須）'))
-    await user.keyboard('{Enter}')
-    expect(onUpdate).not.toHaveBeenCalled()
-  })
+      await openEdit()
 
-  it('異なるセッションは別エントリとして表示する', () => {
-    const s1: Session = { id: '1', taskId: '1', name: '会議', projectCode: '', workCategory: '',
-      times: [{ startTime: '2026-02-25T09:00:00', endTime: '2026-02-25T09:30:00' }],
-      date: '2026-02-25', color: '#FF9500', totalTime: 30 }
-    const s2: Session = { id: '2', taskId: '2', name: '会議', projectCode: '', workCategory: '',
-      times: [{ startTime: '2026-02-25T14:00:00', endTime: '2026-02-25T14:30:00' }],
-      date: '2026-02-25', color: '#F7B731', totalTime: 30 }
-    render(<DayDetail date="2026-02-25" sessions={[s1, s2]} />)
-    expect(screen.getAllByText('会議')).toHaveLength(2)
-  })
-})
+      expect(nameInput()).toHaveValue('企画書作業')
+      expect(screen.getByPlaceholderText('PJコード')).toHaveValue('P001')
+      expect(screen.getByPlaceholderText('作業区分')).toHaveValue('設計')
+      expect(screen.getByText('合計: 45分')).toBeInTheDocument()
+      expect([segment('開始時刻', '時'), segment('終了時刻', '分')].map(el => (el as HTMLInputElement).value)).toEqual(['10', '45'])
+    })
 
-describe('DayDetail の集計フッター', () => {
-  it('その日の開始時刻と終了時刻を表示する', () => {
-    render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    expect(screen.getByText('10:00 – 10:45')).toBeInTheDocument()
-  })
+    it('時刻を持たない記録は「分」の入力で開く', async () => {
+      renderDetail({ sessions: [session({ times: [] })], onUpdate: vi.fn() })
 
-  it('稼働中の区間があるときは終了時刻を「稼働中」と表示する', () => {
-    const running: Session = {
-      ...session,
-      times: [{ startTime: '2026-02-25T10:00:00', endTime: null }],
-    }
-    render(<DayDetail date="2026-02-25" sessions={[running]} />)
-    expect(screen.getByText('10:00 – 稼働中')).toBeInTheDocument()
-  })
+      await openEdit()
 
-  it('記録がある日はフッターを表示する', () => {
-    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    expect(container.querySelector('[data-day-summary]')).not.toBeNull()
-    expect(screen.getByText(/注いだ時間/)).toBeInTheDocument()
-  })
+      expect(screen.getByPlaceholderText('分')).toBeInTheDocument()
+    })
 
-  it('記録が無い日は空のフッターを残さず、要素ごと消す', () => {
-    const { container } = render(<DayDetail date="2026-02-25" sessions={[]} />)
-    expect(container.querySelector('[data-day-summary]')).toBeNull()
-  })
+    it('右クリックメニューの「編集」でも開く', async () => {
+      renderDetail({ onUpdate: vi.fn() })
+      fireEvent.contextMenu(screen.getByRole('listitem'))
 
-  it('週次分析ボタンはツールバーへ移したのでフッターには置かない', () => {
-    render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    expect(screen.queryByRole('button', { name: '週次分析' })).not.toBeInTheDocument()
-  })
-})
+      await userEvent.click(screen.getByText('編集'))
 
-describe('DayDetail の区間編集', () => {
-  it('編集ダイアログに既存の区間が入る', async () => {
-    const user = userEvent.setup()
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
-    expect(screen.getByText('合計: 45分')).toBeInTheDocument()
-  })
+      expect(nameInput()).toHaveValue('企画書作業')
+    })
 
-  it('区間を編集して保存すると times と totalTime の両方が更新される', async () => {
-    const user = userEvent.setup()
-    const onUpdate = vi.fn().mockResolvedValue(undefined)
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={onUpdate} />)
-    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
-    // 終了時刻の「時」を 12 に変える（10:45 → 12:45）。
-    // TimeField は role="group" + aria-label を持つ div の中に「時」「分」の input を持つ
-    const endGroup = screen.getByLabelText('終了時刻')
-    fireEvent.change(within(endGroup).getByLabelText('時'), { target: { value: '12' } })
-    await user.click(screen.getByRole('button', { name: '保存' }))
-    const updated = onUpdate.mock.calls[0][0]
-    expect(updated.times[0].endTime).toBe('2026-02-25T12:45:00')
-    expect(updated.totalTime).toBe(165)
-  })
+    it('onUpdate が無ければ右クリックメニューを出さない', () => {
+      renderDetail()
 
-  it('時刻を持たない記録はレガシーモードで開く', async () => {
-    const user = userEvent.setup()
-    const legacy = { ...session, times: [] }
-    render(<DayDetail date="2026-02-25" sessions={[legacy]} onUpdate={vi.fn()} />)
-    await user.click(screen.getAllByRole('button', { name: '編集' })[0])
-    expect(screen.getByPlaceholderText('分')).toBeInTheDocument()
-  })
-})
+      fireEvent.contextMenu(screen.getByRole('listitem'))
 
-describe('DayDetail の展開表示', () => {
-  it('初期状態では区間を出さない', () => {
-    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    expect(container.querySelector('[data-session-intervals]')).toBeNull()
-  })
+      expect(screen.queryByText('編集')).not.toBeInTheDocument()
+    })
 
-  it('行をクリックすると区間が出る', async () => {
-    const user = userEvent.setup()
-    render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    await user.click(screen.getByText('企画書作業'))
-    // 日次フッターにも同じ "10:00 – 10:45" が出るため、行の中に絞って検証する
-    // （フッターは常時表示のため screen.getByText だと複数ヒットする）
-    const row = screen.getByText('企画書作業').closest('li')!
-    expect(within(row).getByText('10:00 – 10:45')).toBeInTheDocument()
-  })
+    it('編集ボタンを押しても展開は切り替えない', async () => {
+      const { container } = renderDetail({ onUpdate: vi.fn() })
 
-  it('もう一度クリックすると閉じる', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    await user.click(screen.getByText('企画書作業'))
-    await user.click(screen.getByText('企画書作業'))
-    expect(container.querySelector('[data-session-intervals]')).toBeNull()
-  })
-})
+      await openEdit()
 
-describe('DayDetail のカードの収まり', () => {
-  it('作業名が長いときは1行に収めて省略記号で切る', () => {
-    const long = {
-      ...session,
-      name: 'とても長い作業名がここに入っていて一行では収まらない',
-    }
-    render(<DayDetail date="2026-02-25" sessions={[long]} />)
-    const name = screen.getByText('とても長い作業名がここに入っていて一行では収まらない')
-    // ポップオーバーのタイマー一覧と同じく1行に収める
-    expect(name.className).toContain('truncate')
-    expect(name.className).not.toContain('break-words')
-  })
+      expect(container.querySelector('[data-session-intervals]')).toBeNull()
+    })
 
-  it('作業名の全文を title で読めるようにする', () => {
-    const long = {
-      ...session,
-      name: 'とても長い作業名がここに入っていて一行では収まらない',
-    }
-    render(<DayDetail date="2026-02-25" sessions={[long]} />)
-    expect(screen.getByText('とても長い作業名がここに入っていて一行では収まらない'))
-      .toHaveAttribute('title', 'とても長い作業名がここに入っていて一行では収まらない')
-  })
+    it('行のダブルクリックでは編集を開かない', async () => {
+      renderDetail({ onUpdate: vi.fn() })
 
-  it('PJコードと作業区分を同じ行に並べる', () => {
-    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    const chips = container.querySelector('[data-session-meta]')
-    expect(chips).not.toBeNull()
-    expect(chips?.className).toContain('flex-nowrap')
-  })
+      await userEvent.dblClick(screen.getByText('企画書作業'))
 
-  it('PJコードも作業区分も無ければメタ行を出さない', () => {
-    const bare = { ...session, projectCode: '', workCategory: '' }
-    const { container } = render(<DayDetail date="2026-02-25" sessions={[bare]} />)
-    expect(container.querySelector('[data-session-meta]')).toBeNull()
-  })
+      expect(screen.queryByText('タイマーを編集')).not.toBeInTheDocument()
+    })
 
-  it('長いPJコードと作業区分は両方が縮んで省略され、titleで全文を読める', () => {
-    const long = {
-      ...session,
-      projectCode: 'PROJECT-CODE-とても長いプロジェクトコード',
-      workCategory: '作業区分もとても長い名前になっている',
-    }
-    const { container } = render(<DayDetail date="2026-02-25" sessions={[long]} />)
-    const chips = container.querySelector('[data-session-meta]') as HTMLElement
-    const [codeChip, categoryChip] = Array.from(chips.children) as HTMLElement[]
-    expect(codeChip).toBeTruthy()
-    expect(categoryChip).toBeTruthy()
-    // shrink-0 と truncate は両立しない（shrink-0 があると text-ellipsis が発動せず、
-    // 途中から「…」なしで切られる）。PJコードのチップも他と同じく縮められる必要がある
-    expect(codeChip.className).not.toContain('shrink-0')
-    expect(codeChip.className).toContain('truncate')
-    expect(categoryChip.className).toContain('truncate')
-    expect(codeChip).toHaveAttribute('title', long.projectCode)
-    expect(categoryChip).toHaveAttribute('title', long.workCategory)
-  })
-})
+    it('名前を変えて Enter で保存する', async () => {
+      const onUpdate = vi.fn().mockResolvedValue(undefined)
+      renderDetail({ onUpdate })
+      await openEdit()
+      await userEvent.clear(nameInput())
 
-describe('DayDetail の編集ボタン', () => {
-  it('onUpdate があれば編集ボタンを描画する', () => {
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    expect(screen.getByRole('button', { name: '編集' })).toBeInTheDocument()
-  })
+      await userEvent.type(nameInput(), '新しい作業名{Enter}')
 
-  it('onUpdate が無ければ編集ボタンを描画しない', () => {
-    render(<DayDetail date="2026-02-25" sessions={[session]} />)
-    expect(screen.queryByRole('button', { name: '編集' })).not.toBeInTheDocument()
-  })
+      expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: '新しい作業名' }))
+    })
 
-  it('編集ボタンを押すと編集ダイアログが開く', async () => {
-    const user = userEvent.setup()
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: '編集' }))
-    expect(screen.getByText('タイマーを編集')).toBeInTheDocument()
-  })
+    it('区間を変えて保存すると、区間と合計の両方を更新する', async () => {
+      // 10:00–10:45 の終了を 12:45 に変える
+      const onUpdate = vi.fn().mockResolvedValue(undefined)
+      renderDetail({ onUpdate })
+      await openEdit()
+      fireEvent.change(segment('終了時刻', '時'), { target: { value: '12' } })
 
-  it('編集ボタンを押しても展開は切り替わらない', async () => {
-    const user = userEvent.setup()
-    const { container } = render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: '編集' }))
-    expect(container.querySelector('[data-session-intervals]')).toBeNull()
-  })
+      await userEvent.click(screen.getByRole('button', { name: '保存' }))
 
-  it('行をダブルクリックしても編集は開かない', async () => {
-    const user = userEvent.setup()
-    render(<DayDetail date="2026-02-25" sessions={[session]} onUpdate={vi.fn()} />)
-    await user.dblClick(screen.getByText('企画書作業'))
-    expect(screen.queryByText('タイマーを編集')).not.toBeInTheDocument()
+      expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        times: [interval(`${DATE}T10:00:00`, `${DATE}T12:45:00`)],
+        totalTime: 165,
+      }))
+    })
+
+    it('時刻を持たない記録は、分の入力で合計を変える', async () => {
+      const onUpdate = vi.fn().mockResolvedValue(undefined)
+      renderDetail({ sessions: [session({ times: [] })], onUpdate })
+      await openEdit()
+      await userEvent.clear(screen.getByPlaceholderText('分'))
+      await userEvent.type(screen.getByPlaceholderText('分'), '90')
+
+      await userEvent.click(screen.getByRole('button', { name: '保存' }))
+
+      expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ totalTime: 90 }))
+    })
+
+    it('作業名が空なら保存しない', async () => {
+      const onUpdate = vi.fn()
+      renderDetail({ onUpdate })
+      await openEdit()
+      await userEvent.clear(nameInput())
+
+      await userEvent.keyboard('{Enter}')
+
+      expect(onUpdate).not.toHaveBeenCalled()
+    })
+
+    it('Escape でダイアログを閉じ、保存しない', async () => {
+      const onUpdate = vi.fn()
+      renderDetail({ onUpdate })
+      await openEdit()
+      await userEvent.type(nameInput(), '変更途中')
+
+      await userEvent.keyboard('{Escape}')
+
+      expect(screen.queryByText('タイマーを編集')).not.toBeInTheDocument()
+      expect(onUpdate).not.toHaveBeenCalled()
+    })
+
+    it('保存に失敗しても例外を外へ漏らさない', async () => {
+      const onUpdate = vi.fn().mockRejectedValue(new Error('disk full'))
+      renderDetail({ onUpdate })
+      await openEdit()
+
+      await userEvent.click(screen.getByRole('button', { name: '保存' }))
+
+      expect(onUpdate).toHaveBeenCalledOnce()
+    })
   })
 })

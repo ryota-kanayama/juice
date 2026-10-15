@@ -4,100 +4,126 @@ import { issueSessionJwt, verifySessionJwt } from './sessionJwt'
 
 const SECRET = 'test-secret'
 const NOW = 1_750_000_000 // 秒
+const WEEK = 7 * 24 * 60 * 60
 
-describe('sessionJwt', () => {
-  it('発行したトークンを検証でき、claims が一致する', () => {
-    const token = issueSessionJwt({ sub: 'U123', name: '金山', team: 'T999' }, SECRET, NOW)
-    const claims = verifySessionJwt(token, SECRET, NOW)
-    expect(claims).toMatchObject({ sub: 'U123', name: '金山', team: 'T999', iat: NOW })
-    expect(claims!.exp).toBe(NOW + 7 * 24 * 60 * 60)
-  })
+const identity = { sub: 'U123', name: '金山', team: 'T999' }
+const issue = (overrides: Partial<Parameters<typeof issueSessionJwt>[0]> = {}, secret = SECRET) =>
+  issueSessionJwt({ ...identity, ...overrides }, secret, NOW)
 
-  it('JWT 形式（header.payload.signature）である', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
+describe('issueSessionJwt', () => {
+  it('header.payload.signature の3つに分かれた形式で発行する', () => {
+    const token = issue()
+
     expect(token.split('.')).toHaveLength(3)
   })
 
-  it('署名が改竄されたトークンは null', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
-    const [h, p] = token.split('.')
-    expect(verifySessionJwt(`${h}.${p}.AAAA`, SECRET, NOW)).toBeNull()
-  })
+  it('有効期限は発行から7日', () => {
+    const token = issue()
 
-  it('payload が改竄されたトークンは null', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
-    const [h, , s] = token.split('.')
-    const forged = Buffer.from(JSON.stringify({ sub: 'U_EVIL' })).toString('base64url')
-    expect(verifySessionJwt(`${h}.${forged}.${s}`, SECRET, NOW)).toBeNull()
+    expect(verifySessionJwt(token, SECRET, NOW)).toMatchObject({ iat: NOW, exp: NOW + WEEK })
   })
+})
 
-  it('別の secret で署名されたトークンは null', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, 'other', NOW)
-    expect(verifySessionJwt(token, SECRET, NOW)).toBeNull()
-  })
+describe('verifySessionJwt', () => {
+  it('発行したトークンを検証すると、発行時のクレームを返す', () => {
+    const token = issue()
 
-  it('期限切れトークンは null', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
-    const after = NOW + 7 * 24 * 60 * 60 + 1
-    expect(verifySessionJwt(token, SECRET, after)).toBeNull()
-  })
-
-  it('JWT 形式でない文字列は null', () => {
-    expect(verifySessionJwt('garbage', SECRET, NOW)).toBeNull()
-    expect(verifySessionJwt('', SECRET, NOW)).toBeNull()
-  })
-
-  it('署名に base64url 外の文字が混入したトークンは null（可鍛性防止）', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
-    expect(verifySessionJwt(`${token}!`, SECRET, NOW)).toBeNull()
-    expect(verifySessionJwt(`${token}=`, SECRET, NOW)).toBeNull()
-  })
-
-  it('署名パートが空のトークンは null', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
-    const [h, p] = token.split('.')
-    expect(verifySessionJwt(`${h}.${p}.`, SECRET, NOW)).toBeNull()
-  })
-
-  it('email 付きで発行したトークンは email を返す', () => {
-    const token = issueSessionJwt(
-      { sub: 'U1', name: 'a', team: 'T1', email: 'a@jsl.co.jp' }, SECRET, NOW
-    )
-    expect(verifySessionJwt(token, SECRET, NOW)!.email).toBe('a@jsl.co.jp')
-  })
-
-  it('email 無しで発行した旧形式トークンも検証できる（email は undefined）', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
     const claims = verifySessionJwt(token, SECRET, NOW)
-    expect(claims).not.toBeNull()
-    expect(claims!.email).toBeUndefined()
+
+    expect(claims).toMatchObject(identity)
   })
 
-  it('handle 付きで発行したトークンは handle を返す', () => {
-    const token = issueSessionJwt(
-      { sub: 'U1', name: 'a', team: 'T1', handle: 'kanayama' }, SECRET, NOW
-    )
-    expect(verifySessionJwt(token, SECRET, NOW)!.handle).toBe('kanayama')
-  })
+  it.each([
+    ['email', 'a@jsl.co.jp'],
+    ['handle', 'kanayama'],
+    ['picture', 'https://slack.test/a.png'],
+  ] as const)('%s 付きで発行したら %s も返す', (key, value) => {
+    const token = issue({ [key]: value })
 
-  it('handle 無しで発行した旧トークンも検証できる（handle は undefined）', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
     const claims = verifySessionJwt(token, SECRET, NOW)
-    expect(claims).not.toBeNull()
-    expect(claims!.handle).toBeUndefined()
+
+    expect(claims?.[key]).toBe(value)
   })
 
-  it('picture 付きで発行したトークンは picture を返す', () => {
-    const token = issueSessionJwt(
-      { sub: 'U1', name: 'a', team: 'T1', picture: 'https://slack.test/a.png' }, SECRET, NOW
-    )
-    expect(verifySessionJwt(token, SECRET, NOW)!.picture).toBe('https://slack.test/a.png')
-  })
+  it('任意のクレームを持たない古い形式のトークンも検証できる', () => {
+    const token = issue()
 
-  it('picture 無しで発行した旧トークンも検証できる（picture は undefined）', () => {
-    const token = issueSessionJwt({ sub: 'U1', name: 'a', team: 'T1' }, SECRET, NOW)
     const claims = verifySessionJwt(token, SECRET, NOW)
-    expect(claims).not.toBeNull()
-    expect(claims!.picture).toBeUndefined()
+
+    expect([claims?.email, claims?.handle, claims?.picture]).toEqual([undefined, undefined, undefined])
+  })
+
+  describe('期限', () => {
+    it('期限の1秒前までは有効', () => {
+      const token = issue()
+
+      const claims = verifySessionJwt(token, SECRET, NOW + WEEK - 1)
+
+      expect(claims).not.toBeNull()
+    })
+
+    it('期限ちょうどで無効', () => {
+      const token = issue()
+
+      const claims = verifySessionJwt(token, SECRET, NOW + WEEK)
+
+      expect(claims).toBeNull()
+    })
+  })
+
+  describe('改ざん・不正な形式', () => {
+    it('別の secret で署名されたトークンは無効', () => {
+      const token = issue({}, 'other')
+
+      const claims = verifySessionJwt(token, SECRET, NOW)
+
+      expect(claims).toBeNull()
+    })
+
+    it('署名を差し替えたトークンは無効', () => {
+      const [h, p] = issue().split('.')
+
+      const claims = verifySessionJwt(`${h}.${p}.AAAA`, SECRET, NOW)
+
+      expect(claims).toBeNull()
+    })
+
+    it('payload を差し替えたトークンは無効', () => {
+      const [h, , s] = issue().split('.')
+      const forged = Buffer.from(JSON.stringify({ sub: 'U_EVIL', exp: NOW + WEEK })).toString('base64url')
+
+      const claims = verifySessionJwt(`${h}.${forged}.${s}`, SECRET, NOW)
+
+      expect(claims).toBeNull()
+    })
+
+    it.each([
+      ['空文字', ''],
+      ['区切りが無い', 'garbage'],
+      ['区切りが2つ足りない', 'a.b'],
+    ])('%s なら無効', (_label, token) => {
+      const claims = verifySessionJwt(token, SECRET, NOW)
+
+      expect(claims).toBeNull()
+    })
+
+    it.each([
+      ['末尾に記号', '!'],
+      ['末尾にパディング', '='],
+    ])('署名に base64url 以外の文字（%s）が混ざったら無効（署名の可鍛性を防ぐ）', (_label, suffix) => {
+      const token = issue() + suffix
+
+      const claims = verifySessionJwt(token, SECRET, NOW)
+
+      expect(claims).toBeNull()
+    })
+
+    it('署名が空なら無効', () => {
+      const [h, p] = issue().split('.')
+
+      const claims = verifySessionJwt(`${h}.${p}.`, SECRET, NOW)
+
+      expect(claims).toBeNull()
+    })
   })
 })

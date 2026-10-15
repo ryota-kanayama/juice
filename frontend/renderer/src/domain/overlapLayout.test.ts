@@ -1,105 +1,128 @@
 import { describe, it, expect } from 'vitest'
-import { layoutOverlaps, type Span } from './overlapLayout'
+import { layoutOverlaps, type Placement, type Span } from './overlapLayout'
 
-/** left/width を小数の誤差を許して比較する */
-function expectPlacement(actual: { left: number; width: number }, left: number, width: number): void {
-  expect(actual.left).toBeCloseTo(left, 3)
-  expect(actual.width).toBeCloseTo(width, 3)
+const span = (start: number, end: number): Span => ({ start, end })
+
+/** 3等分などの割り切れない値を比較できるよう、小数第3位で丸める */
+function rounded(placements: Placement[]): Placement[] {
+  const r = (n: number): number => Math.round(n * 1000) / 1000
+  return placements.map(p => ({ left: r(p.left), width: r(p.width) }))
 }
+
+const THIRD = Math.round((100 / 3) * 1000) / 1000
+const TWO_THIRDS = Math.round((200 / 3) * 1000) / 1000
 
 describe('layoutOverlaps', () => {
   it('空配列なら空配列', () => {
-    expect(layoutOverlaps([])).toEqual([])
+    const placements = layoutOverlaps([])
+
+    expect(placements).toEqual([])
   })
 
   it('単独なら全幅', () => {
-    const r = layoutOverlaps([{ start: 0, end: 60 }])
-    expectPlacement(r[0], 0, 100)
+    const placements = layoutOverlaps([span(0, 60)])
+
+    expect(rounded(placements)).toEqual([{ left: 0, width: 100 }])
   })
 
   it('完全に重なる2件は左右半分ずつ', () => {
-    const r = layoutOverlaps([{ start: 0, end: 60 }, { start: 0, end: 60 }])
-    expectPlacement(r[0], 0, 50)
-    expectPlacement(r[1], 50, 50)
+    const placements = layoutOverlaps([span(0, 60), span(0, 60)])
+
+    expect(rounded(placements)).toEqual([{ left: 0, width: 50 }, { left: 50, width: 50 }])
   })
 
   it('部分的に重なる2件も半分ずつ', () => {
-    const r = layoutOverlaps([{ start: 0, end: 60 }, { start: 30, end: 90 }])
-    expectPlacement(r[0], 0, 50)
-    expectPlacement(r[1], 50, 50)
+    const placements = layoutOverlaps([span(0, 60), span(30, 90)])
+
+    expect(rounded(placements)).toEqual([{ left: 0, width: 50 }, { left: 50, width: 50 }])
   })
 
   it('端が接するだけなら重なりとみなさない', () => {
-    const r = layoutOverlaps([{ start: 0, end: 60 }, { start: 60, end: 120 }])
-    expectPlacement(r[0], 0, 100)
-    expectPlacement(r[1], 0, 100)
+    const placements = layoutOverlaps([span(0, 60), span(60, 120)])
+
+    expect(rounded(placements)).toEqual([{ left: 0, width: 100 }, { left: 0, width: 100 }])
   })
 
   it('3件が同時なら3分割', () => {
-    const r = layoutOverlaps([
-      { start: 0, end: 60 }, { start: 0, end: 60 }, { start: 0, end: 60 },
+    const placements = layoutOverlaps([span(0, 60), span(0, 60), span(0, 60)])
+
+    expect(rounded(placements)).toEqual([
+      { left: 0, width: THIRD },
+      { left: THIRD, width: THIRD },
+      { left: TWO_THIRDS, width: THIRD },
     ])
-    expectPlacement(r[0], 0, 100 / 3)
-    expectPlacement(r[1], 100 / 3, 100 / 3)
-    expectPlacement(r[2], 200 / 3, 100 / 3)
   })
 
-  it('長い1件の右側に短い2件が縦に並ぶ', () => {
-    // A(0-180) の隣で B(0-60) と C(60-120) が同じ列を共有する
-    const r = layoutOverlaps([
-      { start: 0, end: 180 }, { start: 0, end: 60 }, { start: 60, end: 120 },
+  it('長い1件の右側に、重ならない短い2件が同じ列で縦に並ぶ', () => {
+    const placements = layoutOverlaps([span(0, 180), span(0, 60), span(60, 120)])
+
+    expect(rounded(placements)).toEqual([
+      { left: 0, width: 50 },
+      { left: 50, width: 50 },
+      { left: 50, width: 50 },
     ])
-    expectPlacement(r[0], 0, 50)
-    expectPlacement(r[1], 50, 50)
-    expectPlacement(r[2], 50, 50)
   })
 
   it('同じ開始なら長い方が左に来る', () => {
-    // 短い方を先に渡しても、長い A が左（left=0）になる
-    const r = layoutOverlaps([{ start: 0, end: 60 }, { start: 0, end: 180 }])
-    expectPlacement(r[0], 50, 50)
-    expectPlacement(r[1], 0, 50)
+    // 短い方を先に渡しても、長い方が left=0 になる
+    const placements = layoutOverlaps([span(0, 60), span(0, 180)])
+
+    expect(rounded(placements)).toEqual([{ left: 50, width: 50 }, { left: 0, width: 50 }])
   })
 
-  it('右隣が空いていれば幅を伸ばす', () => {
-    // A(0-60) と B(0-60) が2列を占め、C(60-120) は右隣が空くので全幅へ伸びる
-    const r = layoutOverlaps([
-      { start: 0, end: 60 }, { start: 0, end: 60 }, { start: 60, end: 120 },
+  it('右隣の列が空いていれば幅を伸ばす', () => {
+    // 2列のクラスタの中で、3件目は右隣の列と重ならないので全幅へ伸びる
+    const placements = layoutOverlaps([span(0, 120), span(0, 60), span(60, 120)])
+
+    expect(rounded(placements)[1]).toEqual({ left: 50, width: 50 })
+  })
+
+  it('右隣の列の空きが途切れたところで伸ばすのを止める', () => {
+    // A(0-60) B(0-60) C(30-90) で3列。D(60-120) は1列目に入り、2列目（B）は空いているが
+    // 3列目の C と重なるので、2列分で止まる
+    const placements = layoutOverlaps([span(0, 60), span(0, 60), span(30, 90), span(60, 120)])
+
+    expect(rounded(placements)[3]).toEqual({ left: 0, width: TWO_THIRDS })
+  })
+
+  it('右隣の列が空いている間だけ幅を伸ばす', () => {
+    // A(0-60) B(0-60) C(0-60) が3列。D(60-120) は1列目に入り、右の2列とも空いているので全幅
+    const placements = layoutOverlaps([span(0, 60), span(0, 60), span(0, 60), span(60, 120)])
+
+    expect(rounded(placements)[3]).toEqual({ left: 0, width: 100 })
+  })
+
+  it('重なりが途切れた後の一団は別クラスタとして全幅になる', () => {
+    const placements = layoutOverlaps([span(0, 60), span(0, 60), span(120, 180)])
+
+    expect(rounded(placements)[2]).toEqual({ left: 0, width: 100 })
+  })
+
+  it('連鎖して重なる一団は同じクラスタとして列数を揃える', () => {
+    // A-B が重なり、B-C が重なる（A と C は重ならない）→ 3件で1クラスタ・2列
+    const placements = layoutOverlaps([span(0, 60), span(30, 90), span(60, 120)])
+
+    expect(rounded(placements)).toEqual([
+      { left: 0, width: 50 },
+      { left: 50, width: 50 },
+      { left: 0, width: 50 },
     ])
-    expectPlacement(r[0], 0, 50)
-    expectPlacement(r[1], 50, 50)
-    expectPlacement(r[2], 0, 100)
   })
 
-  it('重ならない一団は別クラスタとして全幅になる', () => {
-    const r = layoutOverlaps([
-      { start: 0, end: 60 }, { start: 0, end: 60 },
-      { start: 120, end: 180 },
-    ])
-    expectPlacement(r[0], 0, 50)
-    expectPlacement(r[1], 50, 50)
-    expectPlacement(r[2], 0, 100)
-  })
+  it('入力の並び順に依存しない（結果は入力順で返る）', () => {
+    const spans = [span(0, 180), span(0, 60), span(60, 120)]
+    const forward = rounded(layoutOverlaps(spans))
 
-  it('入力の並び順に依存しない', () => {
-    const spans: Span[] = [
-      { start: 0, end: 180 }, { start: 0, end: 60 }, { start: 60, end: 120 },
-    ]
-    const forward = layoutOverlaps(spans)
-    const reversed = layoutOverlaps([...spans].reverse())
-    // reversed は入力順に返るので、元の順に並べ直して比較する
-    expectPlacement(reversed[2], forward[0].left, forward[0].width)
-    expectPlacement(reversed[1], forward[1].left, forward[1].width)
-    expectPlacement(reversed[0], forward[2].left, forward[2].width)
+    const reversed = rounded(layoutOverlaps([...spans].reverse()))
+
+    expect(reversed).toEqual([...forward].reverse())
   })
 
   it('left + width が 100 を超えない', () => {
-    const r = layoutOverlaps([
-      { start: 0, end: 60 }, { start: 0, end: 60 }, { start: 0, end: 60 },
-      { start: 30, end: 90 },
-    ])
-    for (const p of r) {
-      expect(p.left + p.width).toBeLessThanOrEqual(100.0001)
-    }
+    const spans = [span(0, 60), span(0, 60), span(0, 60), span(30, 90)]
+
+    const placements = layoutOverlaps(spans)
+
+    expect(placements.every(p => p.left + p.width <= 100.0001)).toBe(true)
   })
 })
