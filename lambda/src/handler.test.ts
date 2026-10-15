@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { handler } from './handler'
 import { issueSessionJwt, verifySessionJwt, type SessionClaims } from './sessionJwt'
 import { signState, verifyState } from './stateSign'
@@ -610,10 +610,28 @@ describe('GET /auth/start の state 検証', () => {
     expect(res.body).not.toContain('<script>alert(1)</script>')
   })
 
-  it('SLACK_CLIENT_ID が未設定ならエラーにする', async () => {
-    delete process.env.SLACK_CLIENT_ID
+  describe('SLACK_CLIENT_ID が未設定のとき', () => {
+    let errorLog: ReturnType<typeof vi.spyOn>
 
-    await expect(start('a'.repeat(32))).rejects.toThrow('環境変数 SLACK_CLIENT_ID が未設定')
+    beforeEach(() => {
+      errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+      delete process.env.SLACK_CLIENT_ID
+    })
+
+    afterEach(() => errorLog.mockRestore())
+
+    it('500 で {error:"internal error"} を返す', async () => {
+      const res = await start('a'.repeat(32))
+
+      expect(res.statusCode).toBe(500)
+      expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+    })
+
+    it('未設定の変数名を console.error に出す', async () => {
+      await start('a'.repeat(32))
+
+      expect(errorLog.mock.calls.flat().map(String).join(' ')).toContain('SLACK_CLIENT_ID')
+    })
   })
 })
 
