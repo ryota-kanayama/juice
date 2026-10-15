@@ -13,6 +13,7 @@ use std::sync::Mutex;
 
 const CURRENT_VERSION: i64 = 1;
 
+#[derive(Debug)]
 pub struct DailyMonth {
     pub version: i64,
     pub days: Map<String, Value>,
@@ -70,9 +71,18 @@ impl DailyStore {
         Some(DailyMonth { version, days })
     }
 
+    /// 読み取りは壊れたファイルの退避（rename）を伴うので、書き込みと同じロックで直列化する。
+    /// write_lock は非再入なので、既にロックを持つ呼び出し元は get_month_locked を直接呼ぶこと
+    /// （ここを呼ぶとデッドロックする）。
     pub fn get_month(&self, year_month: &str) -> Result<DailyMonth, StoreError> {
+        let _guard = lock(&self.write_lock);
+        self.get_month_locked(year_month)
+    }
+
+    /// write_lock を取得済みの呼び出し元専用の読み取り。自身ではロックを取らない。
+    fn get_month_locked(&self, year_month: &str) -> Result<DailyMonth, StoreError> {
         let path = self.file_path(year_month)?; // 不正な yearMonth はここで即 throw
-        if let Some((_, month)) = read_json_with_backup(&path, Self::parse_month) {
+        if let Some((_, month)) = read_json_with_backup(&path, Self::parse_month)? {
             return Ok(month);
         }
         Ok(DailyMonth {
@@ -89,7 +99,7 @@ impl DailyStore {
     pub fn set_day(&self, date: &str, patch: Value) -> Result<(), StoreError> {
         let year_month = Self::year_month_of(date)?;
         let _guard = lock(&self.write_lock);
-        let mut month = self.get_month(&year_month)?;
+        let mut month = self.get_month_locked(&year_month)?;
         let mut record = month
             .days
             .get(date)
@@ -117,7 +127,7 @@ impl DailyStore {
         }
         for (year_month, list) in by_month {
             let _guard = lock(&self.write_lock);
-            let mut month = self.get_month(&year_month)?;
+            let mut month = self.get_month_locked(&year_month)?;
             let stamp = now_iso();
             for (date, record) in list {
                 if month.days.contains_key(&date) {
@@ -150,7 +160,12 @@ impl DailyStore {
         }
         for year_month in months {
             let _guard = lock(&self.write_lock);
-            let mut month = self.get_month(&year_month)?;
+            let mut month = match self.get_month_locked(&year_month) {
+                Ok(month) => month,
+                // 壊れた月は退避済み。他の月の整理は続ける
+                Err(StoreError::Corrupt(_)) => continue,
+                Err(e) => return Err(e),
+            };
             let before = month.days.len();
             month.days.retain(|date, _| date.as_str() >= cutoff.as_str());
             if month.days.len() != before {
@@ -191,7 +206,9 @@ fn parse_daily_filename(name: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fs_util::{append_ext, corrupt_copies};
     use serde_json::json;
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     fn new_store() -> (DailyStore, TempDir) {
@@ -301,6 +318,91 @@ mod tests {
         assert_eq!(day["workStart"], "09:00"); // .bak の内容（workEnd 前）
     }
 
+    #[test]
+    fn corrupt_file_is_moved_aside_when_restored_from_bak() {
+        let (s, dir) = new_store();
+        s.set_day("2026-06-17", json!({ "workStart": "09:00" })).unwrap();
+        s.set_day("2026-06-17", json!({ "workEnd": "18:00" })).unwrap();
+        std::fs::write(dir.path().join("daily-2026-06.json"), "{ broken").unwrap();
+
+        s.get_month("2026-06").unwrap();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "daily-2026-06.json"),
+            vec!["{ broken".to_string()]
+        );
+    }
+
+    /// 2026-06 の本体も .bak も壊す。本体のパスを返す。
+    fn corrupt_both_files(dir: &TempDir) -> PathBuf {
+        let primary = dir.path().join("daily-2026-06.json");
+        std::fs::write(&primary, "BAD primary").unwrap();
+        std::fs::write(append_ext(&primary, ".bak"), "BAD bak").unwrap();
+        primary
+    }
+
+    #[test]
+    fn get_month_returns_corrupt_error_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let result = s.get_month("2026-06");
+
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn get_month_keeps_corrupt_primary_content_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        let _ = s.get_month("2026-06");
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "daily-2026-06.json"),
+            vec!["BAD primary".to_string()]
+        );
+    }
+
+    #[test]
+    fn get_month_keeps_corrupt_backup_content_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        let _ = s.get_month("2026-06");
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "daily-2026-06.json.bak"),
+            vec!["BAD bak".to_string()]
+        );
+    }
+
+    #[test]
+    fn set_day_returns_corrupt_error_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let result = s.set_day("2026-06-17", json!({ "workStart": "09:00" }));
+
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn set_day_writes_nothing_when_both_are_corrupt() {
+        let (s, dir) = new_store();
+        let primary = corrupt_both_files(&dir);
+
+        let _ = s.set_day("2026-06-17", json!({ "workStart": "09:00" }));
+
+        assert!(!primary.exists(), "月ファイルが新しく書かれないこと");
+    }
+
     fn import_three_legacy_entries(s: &DailyStore) {
         s.set_day("2026-06-17", json!({ "workStart": "08:00" })).unwrap();
         s.import_legacy(vec![
@@ -369,6 +471,121 @@ mod tests {
         s.prune(90).unwrap();
 
         assert!(s.get_day(&recent).unwrap().is_some());
+    }
+
+    /// year_month の月ファイルを本体も .bak も壊して置く。
+    fn corrupt_month(dir: &TempDir, year_month: &str) {
+        let primary = dir.path().join(format!("daily-{year_month}.json"));
+        std::fs::write(&primary, "BAD primary").unwrap();
+        std::fs::write(append_ext(&primary, ".bak"), "BAD bak").unwrap();
+    }
+
+    #[test]
+    fn prune_returns_ok_when_some_months_are_corrupt() {
+        let (s, dir) = new_store();
+        s.set_day("2019-02-10", json!({ "workStart": "09:00" })).unwrap();
+        corrupt_month(&dir, "2019-01");
+        corrupt_month(&dir, "2019-03");
+
+        let result = s.prune(90);
+
+        assert!(result.is_ok(), "壊れた月があっても Ok を返すこと: {result:?}");
+    }
+
+    #[test]
+    fn prune_removes_old_days_from_intact_months_around_corrupt_ones() {
+        let (s, dir) = new_store();
+        // read_dir の順序に依らないよう、壊れた月と正常な月を交互に置く
+        for ym in ["2019-01", "2019-03", "2019-05"] {
+            corrupt_month(&dir, ym);
+        }
+        for date in ["2019-02-10", "2019-04-10", "2019-06-10"] {
+            s.set_day(date, json!({ "workStart": "09:00" })).unwrap();
+        }
+
+        s.prune(90).unwrap();
+
+        let remaining: Vec<Option<Value>> = ["2019-02-10", "2019-04-10", "2019-06-10"]
+            .iter()
+            .map(|d| s.get_day(d).unwrap())
+            .collect();
+        assert_eq!(remaining, vec![None, None, None]);
+    }
+
+    #[test]
+    fn import_legacy_returns_corrupt_error_when_the_month_is_corrupt() {
+        let (s, dir) = new_store();
+        corrupt_month(&dir, "2026-06");
+
+        let result = s.import_legacy(vec![LegacyEntry {
+            date: "2026-06-17".into(),
+            record: json!({ "workStart": "09:00" }),
+        }]);
+
+        let primary = dir.path().join("daily-2026-06.json");
+        assert!(
+            matches!(result, Err(StoreError::Corrupt(ref p)) if *p == primary),
+            "本体のパスを持つ Corrupt エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn import_legacy_writes_nothing_when_the_month_is_corrupt() {
+        let (s, dir) = new_store();
+        corrupt_month(&dir, "2026-06");
+
+        let _ = s.import_legacy(vec![LegacyEntry {
+            date: "2026-06-17".into(),
+            record: json!({ "workStart": "09:00" }),
+        }]);
+
+        assert!(
+            !dir.path().join("daily-2026-06.json").exists(),
+            "月ファイルが新しく書かれないこと"
+        );
+    }
+
+    // --- 読み取りも書き込みと同じロックで直列化する ---
+    // 壊れたファイルの退避（rename）を伴うので、書き手の保存と交差してはならない。
+
+    /// write_lock を保持したまま f を別スレッドで走らせ、200ms 以内に終わるかを返す。
+    /// 終わったら Some(結果)、待たされたら None（ロックを放した後に必ず完了を待つ）。
+    fn run_while_locked<T: Send + 'static>(
+        s: &Arc<DailyStore>,
+        f: impl FnOnce(&DailyStore) -> T + Send + 'static,
+    ) -> Option<T> {
+        let guard = lock(&s.write_lock);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = {
+            let s = Arc::clone(s);
+            std::thread::spawn(move || tx.send(f(&s)).unwrap())
+        };
+
+        let early = rx.recv_timeout(std::time::Duration::from_millis(200)).ok();
+
+        drop(guard);
+        worker.join().unwrap();
+        early
+    }
+
+    #[test]
+    fn get_month_waits_while_the_write_lock_is_held() {
+        let (s, dir) = new_store();
+        corrupt_month(&dir, "2026-06");
+
+        let early = run_while_locked(&Arc::new(s), |s| s.get_month("2026-06").is_err());
+
+        assert_eq!(early, None, "ロック中は読み取りが待たされること");
+    }
+
+    #[test]
+    fn get_day_waits_while_the_write_lock_is_held() {
+        let (s, dir) = new_store();
+        corrupt_month(&dir, "2026-06");
+
+        let early = run_while_locked(&Arc::new(s), |s| s.get_day("2026-06-17").is_err());
+
+        assert_eq!(early, None, "ロック中は読み取りが待たされること");
     }
 
     #[test]

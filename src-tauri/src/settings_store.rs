@@ -74,11 +74,22 @@ impl SettingsStore {
         Some(raw.into_settings())
     }
 
-    /// プライマリ→.bak→デフォルトの順に読む。失敗はすべてフォールバック。
+    /// プライマリ→.bak→デフォルトの順に読む。壊れていたときは退避したうえでデフォルトを使う
+    /// （両方壊れていたときも同じ）。壊れてはいないが読めない（I/O エラー）ときだけ Err。
+    /// 退避（rename）を伴うので、write_lock を取得済みの呼び出し元専用。自身ではロックを取らない。
+    fn read_locked(&self) -> Result<Settings, StoreError> {
+        match read_json_with_backup(&self.file_path(), Self::parse) {
+            Ok(found) => Ok(found.map(|(_, settings)| settings).unwrap_or_default()),
+            Err(StoreError::Corrupt(_)) => Ok(Settings::default()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// 書き込みと同じロックを取って読む。読めなかったとき（I/O エラー）はデフォルトを返す。
+    /// write_lock は非再入なので、既にロックを持つ update からは read_locked を呼ぶこと。
     fn read_all(&self) -> Settings {
-        read_json_with_backup(&self.file_path(), Self::parse)
-            .map(|(_, settings)| settings)
-            .unwrap_or_default()
+        let _guard = lock(&self.write_lock);
+        self.read_locked().unwrap_or_default()
     }
 
     fn write_all(&self, settings: &Settings) -> Result<(), StoreError> {
@@ -86,9 +97,10 @@ impl SettingsStore {
     }
 
     /// 現在の設定を読み、mutate を適用して書き戻す（直列化される）。
+    /// 読めなかったとき（I/O エラー）はデフォルトで上書きせず、エラーを返す。
     fn update(&self, mutate: impl FnOnce(&mut Settings)) -> Result<(), StoreError> {
         let _guard = lock(&self.write_lock);
-        let mut s = self.read_all();
+        let mut s = self.read_locked()?;
         mutate(&mut s);
         self.write_all(&s)
     }
@@ -249,6 +261,7 @@ fn migrate_theme_id(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fs_util::{append_ext, corrupt_copies};
     use std::sync::Arc;
     use tempfile::TempDir;
 
@@ -456,6 +469,140 @@ mod tests {
         let theme = s.get_theme();
 
         assert_eq!(theme, "soda");
+    }
+
+    /// 本体も .bak も壊す。
+    fn corrupt_both_files(dir: &TempDir) {
+        let primary = dir.path().join("settings.json");
+        std::fs::write(&primary, "INVALID primary").unwrap();
+        std::fs::write(append_ext(&primary, ".bak"), "INVALID bak").unwrap();
+    }
+
+    #[test]
+    fn both_corrupt_settings_fall_back_to_defaults() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "milk");
+    }
+
+    #[test]
+    fn both_corrupt_settings_keep_corrupt_primary_content() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        s.get_theme();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "settings.json"),
+            vec!["INVALID primary".to_string()]
+        );
+    }
+
+    #[test]
+    fn both_corrupt_settings_keep_corrupt_backup_content() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        s.get_theme();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "settings.json.bak"),
+            vec!["INVALID bak".to_string()]
+        );
+    }
+
+    // --- 読めないだけ（I/O エラー）の設定は壊れたものとして扱わない ---
+
+    /// settings.json の位置にディレクトリを置いて、読み込みを I/O エラーにする。
+    fn make_settings_unreadable(dir: &TempDir) -> PathBuf {
+        let path = dir.path().join("settings.json");
+        std::fs::create_dir(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn unreadable_settings_fall_back_to_defaults_on_read() {
+        let (s, dir) = new_store();
+        make_settings_unreadable(&dir);
+
+        let theme = s.get_theme();
+
+        assert_eq!(theme, "milk");
+    }
+
+    #[test]
+    fn unreadable_settings_make_update_return_io_error() {
+        let (s, dir) = new_store();
+        make_settings_unreadable(&dir);
+
+        let result = s.set_theme("soda");
+
+        assert!(
+            matches!(result, Err(StoreError::Io(_))),
+            "既定値で上書きせず Io エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn unreadable_settings_are_left_in_place_by_update() {
+        let (s, dir) = new_store();
+        let path = make_settings_unreadable(&dir);
+
+        let _ = s.set_theme("soda");
+
+        assert!(path.is_dir(), "何も書き換えないこと");
+    }
+
+    #[test]
+    fn unreadable_settings_make_update_write_no_backup() {
+        let (s, dir) = new_store();
+        make_settings_unreadable(&dir);
+
+        let _ = s.set_theme("soda");
+
+        assert!(
+            !append_ext(&dir.path().join("settings.json"), ".bak").exists(),
+            ".bak へ退避しないこと"
+        );
+    }
+
+    #[test]
+    fn corrupt_settings_are_replaced_by_defaults_on_update() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+
+        s.set_theme("soda").unwrap();
+
+        assert_eq!(s.get_theme(), "soda");
+    }
+
+    // --- 読み取りも書き込みと同じロックで直列化する ---
+    // 壊れたファイルの退避（rename）を伴うので、書き手の保存と交差してはならない。
+
+    #[test]
+    fn getter_waits_while_the_write_lock_is_held() {
+        let (s, dir) = new_store();
+        corrupt_both_files(&dir);
+        let s = Arc::new(s);
+        let guard = lock(&s.write_lock);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let reader = {
+            let s = Arc::clone(&s);
+            std::thread::spawn(move || tx.send(s.get_theme()).unwrap())
+        };
+
+        let early = rx.recv_timeout(std::time::Duration::from_millis(200));
+
+        drop(guard);
+        reader.join().unwrap();
+        assert_eq!(
+            early,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout),
+            "ロック中は読み取りが待たされること"
+        );
     }
 
     #[test]
