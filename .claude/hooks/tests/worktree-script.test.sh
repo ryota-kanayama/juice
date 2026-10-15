@@ -1,7 +1,7 @@
 #!/bin/bash
 # worktree スキルの実体(.claude/skills/worktree/scripts/wt.sh)の cleanup のテスト。
 # フックではないが、消す操作を持つスクリプトなので同じ合成リポジトリの道具立てでここから走らせる。
-# 作業ツリー・ブランチを消す前の安全確認だけを見る(create と list は見ない)。
+# 作業ツリー・ブランチを消す前の安全確認を見る。create は終了コードだけを見る(list は見ない)。
 #
 # 検証の要は「確認に1つでも落ちたら何も消さない」。消す側より、止まる側を厚く刺す。
 # gh は PATH 先頭の偽物に差し替え、マージ済み PR の有無と先端を環境変数で与える。
@@ -66,6 +66,12 @@ still_there() { # 何も消えていないこと(作業ツリー・ローカル�
   [ -d "$feat" ] && git -C "$repo/main" show-ref --quiet refs/heads/feat \
     && git -C "$repo/origin.git" show-ref --quiet refs/heads/feat
 }
+
+# --- create: 最後まで通る -----------------------------------------------------
+# 完了メッセージで変数の直後に全角文字を置くと、bash 3.2 がそれを変数名の一部と読み、set -u で落ちていた
+mkrepo
+wt "$repo/main" create feat2
+assert_exit_zero "create は完了メッセージまで出して 0 で終わる" "$rc"
 
 # --- cleanup: 全部通れば3つとも消す -------------------------------------------
 mkrepo; merged "$sha"
