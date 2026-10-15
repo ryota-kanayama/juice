@@ -658,43 +658,144 @@ describe('内部で例外が起きたとき', () => {
     handler(makeEvent(path, {}, bearer(withEmail()), { method: 'POST', body }))
 
   // DynamoDB（失効チェック）を使う各ルート
-  const routes: Array<[string, () => ReturnType<typeof handler>]> = [
-    ['GET /auth/me', () => handler(makeEvent('/auth/me', {}, bearer(withEmail())))],
-    ['POST /auth/refresh', () => post('/auth/refresh')],
-    ['POST /api/attendance.send', () => post('/api/attendance.send', JSON.stringify({ text: 't' }))],
-    ['POST /api/whiteboard.telework', () => post('/api/whiteboard.telework')],
-    ['POST /api/whiteboard.leave', () => post('/api/whiteboard.leave')],
-  ]
+  const me = () => handler(makeEvent('/auth/me', {}, bearer(withEmail())))
+  const refresh = () => post('/auth/refresh')
+  const sendAttendance = () => post('/api/attendance.send', JSON.stringify({ text: 't' }))
+  const telework = () => post('/api/whiteboard.telework')
+  const leave = () => post('/api/whiteboard.leave')
 
   let errorLog: ReturnType<typeof vi.spyOn>
   const loggedText = () => errorLog.mock.calls.flat().map(String).join(' ')
 
   beforeEach(() => {
     errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
-    errorLog.mockClear()
     vi.mocked(isRevoked).mockRejectedValue(new Error(CAUSE))
   })
 
-  it.each(routes)('%s で DynamoDB が失敗したら 500', async (_label, request) => {
-    const res = await request()
+  afterEach(() => errorLog.mockRestore())
+
+  it('500 の応答も、他の JSON 応答と同じヘッダを返す', async () => {
+    const res = await me()
+
+    expect(res.headers).toEqual({ 'Content-Type': 'application/json; charset=utf-8' })
+  })
+
+  it('GET /auth/me で DynamoDB が失敗したら 500', async () => {
+    const res = await me()
 
     expect(res.statusCode).toBe(500)
   })
 
-  it.each(routes)('%s で DynamoDB が失敗したら本文は {error:"internal error"}', async (_label, request) => {
-    const res = await request()
+  it('GET /auth/me で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await me()
 
     expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
   })
 
-  it.each(routes)('%s で DynamoDB が失敗しても、上流の例外メッセージを返さない', async (_label, request) => {
-    const res = await request()
+  it('GET /auth/me で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await me()
 
     expect(res.body).not.toContain(CAUSE)
   })
 
-  it.each(routes)('%s で DynamoDB が失敗したら、原因を console.error に出す', async (_label, request) => {
-    await request()
+  it('GET /auth/me で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await me()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('POST /auth/refresh で DynamoDB が失敗したら 500', async () => {
+    const res = await refresh()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('POST /auth/refresh で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await refresh()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('POST /auth/refresh で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await refresh()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('POST /auth/refresh で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await refresh()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('POST /api/attendance.send で DynamoDB が失敗したら 500', async () => {
+    const res = await sendAttendance()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('POST /api/attendance.send で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await sendAttendance()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('POST /api/attendance.send で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await sendAttendance()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('POST /api/attendance.send で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await sendAttendance()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('POST /api/whiteboard.telework で DynamoDB が失敗したら 500', async () => {
+    const res = await telework()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('POST /api/whiteboard.telework で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await telework()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('POST /api/whiteboard.telework で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await telework()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('POST /api/whiteboard.telework で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await telework()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('POST /api/whiteboard.leave で DynamoDB が失敗したら 500', async () => {
+    const res = await leave()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('POST /api/whiteboard.leave で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await leave()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('POST /api/whiteboard.leave で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await leave()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('POST /api/whiteboard.leave で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await leave()
 
     expect(loggedText()).toContain(CAUSE)
   })
