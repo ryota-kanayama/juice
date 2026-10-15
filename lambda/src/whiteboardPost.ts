@@ -1,4 +1,5 @@
 import { FETCH_TIMEOUT_MS } from './http'
+import { redactKey } from './redact'
 
 // magnet_id: ホワイトボード上の状態を示す値（旧 src/main/integrations/whiteboard.ts と同じ）
 const MAGNET_TELEWORK = 2
@@ -9,11 +10,6 @@ const MAGNET_LEAVE = 3
 const LEAVE_LABEL = '退勤'
 
 export type WhiteboardKind = 'telework' | 'leave'
-
-// fetch の失敗メッセージには URL（apiKey を含む）が入りうる。呼び出し側がログに出すので伏せる。
-function redactKey(message: string, apiKey: string): string {
-  return message.replaceAll(apiKey, '***').replaceAll(encodeURIComponent(apiKey), '***')
-}
 
 /**
  * /api/users から現在のマグネット名を取得する。
