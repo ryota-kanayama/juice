@@ -1,5 +1,6 @@
 import type { SessionClaims } from './sessionJwt'
 import { FETCH_TIMEOUT_MS } from './http'
+import { redactKey } from './redact'
 
 const MAX_TEXT_LENGTH = 2000
 
@@ -50,7 +51,7 @@ export async function postAttendance(
   opts: { apiUrl: string; apiKey: string }
 ): Promise<{ ok: boolean; status: number; body: string } | { error: string }> {
   try {
-    const res = await fetch(`${opts.apiUrl}?key=${opts.apiKey}`, {
+    const res = await fetch(`${opts.apiUrl}?key=${encodeURIComponent(opts.apiKey)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ user_name: userName, text }),
@@ -58,6 +59,6 @@ export async function postAttendance(
     })
     return { ok: res.ok, status: res.status, body: await res.text() }
   } catch (e) {
-    return { error: `network: ${e instanceof Error ? e.message : 'unknown'}` }
+    return { error: `network: ${e instanceof Error ? redactKey(e.message, opts.apiKey) : 'unknown'}` }
   }
 }
