@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { calcBreakMinutes } from '../domain/attendance'
 import { settingsRepository } from '../repositories/settingsRepository'
 import type { TimerSessionState } from './useTimerSession'
@@ -17,7 +17,7 @@ function nowHHMM(): string {
 }
 
 export function useBreak(ts: TimerSessionState, workday: WorkdayState): BreakState {
-  const [isOnBreak, setIsOnBreak] = useState(false)
+  const isOnBreak = workday.breakStart !== null && workday.breakEnd === null
   const lastSessionRef = useRef<Session | null>(null)
   const behaviorRef = useRef<'stop' | 'pause'>('stop')
 
@@ -37,18 +37,17 @@ export function useBreak(ts: TimerSessionState, workday: WorkdayState): BreakSta
       }
     }
     workday.startBreak(nowHHMM())
-    setIsOnBreak(true)
   }, [ts, workday])
 
   const handleBreakEnd = useCallback((): void => {
     const endTime = nowHHMM()
     workday.endBreak(endTime)
     workday.setBreakMinutes(calcBreakMinutes(workday.breakStart, endTime))
-    setIsOnBreak(false)
     if (behaviorRef.current === 'pause') {
       ts.resume()
     } else if (lastSessionRef.current) {
-      ts.startMore(lastSessionRef.current)
+      // 休憩中に別の作業を始めていたら、その計測を上書きしないよう再開しない
+      if (!ts.isRunning) ts.startMore(lastSessionRef.current)
       lastSessionRef.current = null
     }
   }, [ts, workday])
