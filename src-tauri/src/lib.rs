@@ -22,6 +22,7 @@ mod oauth;
 #[cfg_attr(target_os = "macos", path = "panel/macos.rs")]
 #[cfg_attr(not(target_os = "macos"), path = "panel/windows.rs")]
 mod panel;
+mod quit;
 mod release_notes;
 mod session_store;
 mod settings_store;

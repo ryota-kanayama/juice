@@ -159,10 +159,45 @@ describe('TimerPage', () => {
       expect(readyToQuit).toHaveBeenCalledOnce()
     })
 
-    // 既知の不具合（#125）: 購読の依存に毎レンダー作り直される ts を渡しているため、
-    // 計測中は1秒ごとに購読を張り直している。張り直しの隙間に届いたイベントは取りこぼす。
-    // 直ったら it.fails を外す
-    it.fails('計測中に時間が進んでも購読を張り直さない', async () => {
+    it('計測していなければ、何も保存しない', async () => {
+      await renderTimerPage({ workStart: '09:00' })
+
+      await firePrepareQuit()
+
+      expect(saveSession).not.toHaveBeenCalled()
+    })
+
+    it('購読後に開始した計測を、その作業名で保存する', async () => {
+      await renderTimerPage({ workStart: '09:00' })
+      await startTimer('購読後に開始した作業')
+
+      await firePrepareQuit()
+
+      expect(saveSession).toHaveBeenCalledWith(expect.objectContaining({ name: '購読後に開始した作業' }))
+    })
+
+    it('再描画しても購読を張り直さない', async () => {
+      const view = await renderTimerPage({ workStart: '09:00' })
+
+      view.rerender(<DailyDataProvider><TimerPage sessions={stubSessions()} /></DailyDataProvider>)
+      await act(async () => {})
+
+      expect(onUpdatePrepareQuit).toHaveBeenCalledOnce()
+    })
+
+    it('再描画しても購読を解除しない', async () => {
+      const unsubscribe = vi.fn()
+      onUpdatePrepareQuit.mockReset().mockReturnValue(unsubscribe)
+      const view = await renderTimerPage({ workStart: '09:00' })
+
+      view.rerender(<DailyDataProvider><TimerPage sessions={stubSessions()} /></DailyDataProvider>)
+      await act(async () => {})
+
+      expect(unsubscribe).not.toHaveBeenCalled()
+    })
+
+    // 計測中は1秒ごとに再描画されるため、購読の張り直しの隙間に届いたイベントを取りこぼしていた（#125）
+    it('計測中に時間が進んでも購読を張り直さない', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
       await renderTimerPage({ workStart: '09:00' })
       await startTimer()
