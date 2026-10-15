@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { TimerForm } from './components/Popover/TimerForm'
 import { ActiveTimer } from './components/Popover/ActiveTimer'
 import { SessionList } from './components/Popover/SessionList'
@@ -266,17 +266,21 @@ function PopoverView() {
 export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsState; tourDemo?: boolean }) {
   const ts = useTimerSession(sessions)
 
-  // 更新適用直前：稼働中の区間を保存してから main へ ack を返す
+  // 終了直前（更新適用・トレイ「終了」）：稼働中の区間を保存してから main へ ack を返す。
+  // 購読は1回だけ張り、最新の ts は ref 経由で読む（張り直しの間に届いた通知を取りこぼさない）。
+  const tsRef = useRef(ts)
+  useLayoutEffect(() => { tsRef.current = ts })
   useEffect(() => {
     return updateRepository.onPrepareQuit(() => {
       void (async () => {
-        if (ts.isRunning) {
-          await ts.stop(ts.activeTimerProjectCode, ts.activeTimerWorkCategory).catch(() => {})
+        const current = tsRef.current
+        if (current.isRunning) {
+          await current.stop(current.activeTimerProjectCode, current.activeTimerWorkCategory).catch(() => {})
         }
         await updateRepository.readyToQuit().catch(() => {})
       })()
     })
-  }, [ts])
+  }, [])
 
   const workday = useWorkday(ts.today)
   const breakState = useBreak(ts, workday)

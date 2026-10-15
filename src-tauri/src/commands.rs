@@ -364,7 +364,7 @@ pub fn update_pending(
 
 #[tauri::command]
 pub fn update_ready_to_quit(app: tauri::AppHandle) {
-    crate::update::notify_renderer_ready(&app);
+    crate::quit::notify_renderer_ready(&app);
 }
 
 // ---- 勤怠 / ホワイトボード ----
