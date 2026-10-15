@@ -4,11 +4,14 @@ import { TimerPage } from './App'
 import { DailyDataProvider } from './daily/DailyDataContext'
 import type { SessionsState } from './hooks/useSessions'
 import type { DayRecord } from '../../shared/types'
+import { makeSession } from './test/factories'
 
 const TODAY = '2026-06-10'
 
 const getDailyMonth = vi.fn()
 const saveSession = vi.fn()
+const updateSession = vi.fn()
+const getBreakBehaviorSettings = vi.fn()
 const readyToQuit = vi.fn()
 const onUpdatePrepareQuit = vi.fn()
 let prepareQuit: (() => void) | null = null
@@ -16,11 +19,11 @@ let prepareQuit: (() => void) | null = null
 vi.stubGlobal('bridge', {
   getSessions: vi.fn().mockResolvedValue([]),
   saveSession,
-  updateSession: vi.fn().mockResolvedValue(undefined),
+  updateSession,
   getDailyMonth,
   setDailyDay: vi.fn().mockResolvedValue(undefined),
   onDailyChanged: () => () => {},
-  getBreakBehaviorSettings: vi.fn().mockResolvedValue({ behavior: 'stop' }),
+  getBreakBehaviorSettings,
   getElapsedSettings: vi.fn().mockResolvedValue({ enabled: false, minutes: 30 }),
   onElapsedNotificationFired: () => () => {},
   timerStarted: vi.fn().mockResolvedValue(undefined),
@@ -30,10 +33,10 @@ vi.stubGlobal('bridge', {
   openCalendarWindow: vi.fn().mockResolvedValue(undefined),
 })
 
-function stubSessions(): SessionsState {
+function stubSessions(todaySessions: SessionsState['todaySessions'] = []): SessionsState {
   return {
     today: TODAY,
-    todaySessions: [],
+    todaySessions,
     upsertToday: vi.fn(),
     applyStartMore: vi.fn(),
     update: vi.fn(),
@@ -44,9 +47,10 @@ function stubSessions(): SessionsState {
 }
 
 /** 今日の勤務記録を用意して描画し、読み込みを待つ */
-async function renderTimerPage(day?: DayRecord, props: { tourDemo?: boolean } = {}) {
+async function renderTimerPage(day?: DayRecord, props: { tourDemo?: boolean; todaySessions?: SessionsState['todaySessions'] } = {}) {
+  const { todaySessions, ...pageProps } = props
   getDailyMonth.mockResolvedValue({ version: 1, days: day ? { [TODAY]: day } : {} })
-  const view = render(<DailyDataProvider><TimerPage sessions={stubSessions()} {...props} /></DailyDataProvider>)
+  const view = render(<DailyDataProvider><TimerPage sessions={stubSessions(todaySessions)} {...pageProps} /></DailyDataProvider>)
   await act(async () => {})
   return view
 }
@@ -63,7 +67,9 @@ async function firePrepareQuit(): Promise<void> {
 
 beforeEach(() => {
   getDailyMonth.mockReset()
+  getBreakBehaviorSettings.mockReset().mockResolvedValue({ behavior: 'stop' })
   saveSession.mockReset().mockResolvedValue(undefined)
+  updateSession.mockReset().mockResolvedValue(undefined)
   readyToQuit.mockReset().mockResolvedValue(undefined)
   prepareQuit = null
   onUpdatePrepareQuit.mockReset().mockImplementation((cb: () => void) => {
@@ -127,7 +133,7 @@ describe('TimerPage', () => {
     })
   })
 
-  describe('更新の適用直前（prepare-quit）', () => {
+  describe('終了直前（prepare-quit）', () => {
     it('計測していなければ、そのまま準備完了を返す', async () => {
       await renderTimerPage({ workStart: '09:00' })
 
@@ -200,12 +206,72 @@ describe('TimerPage', () => {
     it('計測中に時間が進んでも購読を張り直さない', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
       await renderTimerPage({ workStart: '09:00' })
-      await startTimer()
       const subscriptions = onUpdatePrepareQuit.mock.calls.length
+      await startTimer()
 
       act(() => { vi.advanceTimersByTime(3000) })
 
       expect(onUpdatePrepareQuit.mock.calls.length).toBe(subscriptions)
+    })
+
+    it('計測の開始と停止をまたいでも購読を張り直さない', async () => {
+      await renderTimerPage({ workStart: '09:00' })
+      const subscriptions = onUpdatePrepareQuit.mock.calls.length
+      await startTimer()
+
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'やめる' })) })
+
+      expect(onUpdatePrepareQuit.mock.calls.length).toBe(subscriptions)
+    })
+
+    it('アンマウントすると購読を解除する', async () => {
+      const unsubscribe = vi.fn()
+      onUpdatePrepareQuit.mockReset().mockReturnValue(unsubscribe)
+      const view = await renderTimerPage({ workStart: '09:00' })
+
+      view.unmount()
+
+      expect(unsubscribe).toHaveBeenCalledOnce()
+    })
+
+    it('一時停止中でも、計測した区間を保存する', async () => {
+      getBreakBehaviorSettings.mockResolvedValue({ behavior: 'pause' })
+      await renderTimerPage({ workStart: '09:00' })
+      await startTimer('一時停止中の作業')
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩' })) })
+
+      await firePrepareQuit()
+
+      expect(saveSession).toHaveBeenCalledWith(expect.objectContaining({ name: '一時停止中の作業' }))
+    })
+
+    it('「追加で注ぐ」で続けた計測を、その PJコード・作業区分のまま保存する', async () => {
+      const previous = makeSession({
+        name: '続きの作業',
+        projectCode: 'PJ-9',
+        workCategory: '設計',
+        date: TODAY,
+        times: [{ startTime: `${TODAY}T09:00:00`, endTime: `${TODAY}T09:30:00` }],
+      })
+      await renderTimerPage({ workStart: '09:00' }, { todaySessions: [previous] })
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '追加で注ぐ' })) })
+
+      await firePrepareQuit()
+
+      expect(updateSession).toHaveBeenCalledWith(expect.objectContaining({ projectCode: 'PJ-9', workCategory: '設計' }))
+    })
+
+    it('準備完了の通知が失敗しても、未処理の拒否を出さない', async () => {
+      readyToQuit.mockRejectedValue(new Error('ipc closed'))
+      const onUnhandled = vi.fn()
+      process.on('unhandledRejection', onUnhandled)
+      await renderTimerPage({ workStart: '09:00' })
+
+      await firePrepareQuit()
+      await new Promise(resolve => setTimeout(resolve, 0))
+      process.off('unhandledRejection', onUnhandled)
+
+      expect(onUnhandled).not.toHaveBeenCalled()
     })
   })
 })
