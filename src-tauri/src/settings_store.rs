@@ -4,10 +4,10 @@
 // - themeId は旧→新テーマへ移行、未知は milk にフォールバック
 // - read-modify-write を Mutex で直列化、tmp→rename 原子書き込み + .bak フォールバック
 
-use crate::session_store::{append_ext, StoreError};
+use crate::fs_util::{lock, read_json_with_backup, write_json_atomic, StoreError};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -65,10 +65,6 @@ impl SettingsStore {
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, ()> {
-        self.write_lock.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
     fn file_path(&self) -> PathBuf {
         self.data_dir.join("settings.json")
     }
@@ -80,35 +76,18 @@ impl SettingsStore {
 
     /// プライマリ→.bak→デフォルトの順に読む。失敗はすべてフォールバック。
     fn read_all(&self) -> Settings {
-        let path = self.file_path();
-        if let Ok(c) = std::fs::read_to_string(&path) {
-            if let Some(s) = Self::parse(&c) {
-                return s;
-            }
-        }
-        if let Ok(c) = std::fs::read_to_string(append_ext(&path, ".bak")) {
-            if let Some(s) = Self::parse(&c) {
-                return s;
-            }
-        }
-        Settings::default()
+        read_json_with_backup(&self.file_path(), Self::parse)
+            .map(|(_, settings)| settings)
+            .unwrap_or_default()
     }
 
     fn write_all(&self, settings: &Settings) -> Result<(), StoreError> {
-        std::fs::create_dir_all(&self.data_dir)?;
-        let path = self.file_path();
-        let tmp = append_ext(&path, ".tmp");
-        let bak = append_ext(&path, ".bak");
-        let json = serde_json::to_string_pretty(settings)?;
-        std::fs::write(&tmp, json)?;
-        let _ = std::fs::rename(&path, &bak);
-        std::fs::rename(&tmp, &path)?;
-        Ok(())
+        write_json_atomic(&self.file_path(), settings)
     }
 
     /// 現在の設定を読み、mutate を適用して書き戻す（直列化される）。
     fn update(&self, mutate: impl FnOnce(&mut Settings)) -> Result<(), StoreError> {
-        let _guard = self.lock();
+        let _guard = lock(&self.write_lock);
         let mut s = self.read_all();
         mutate(&mut s);
         self.write_all(&s)

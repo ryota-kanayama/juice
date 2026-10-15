@@ -3,12 +3,13 @@
 // day レコードは renderer から部分パッチ（任意キー）で来るため、構造体ではなく
 // serde_json::Value(オブジェクト) で保持し、JS の {...existing, ...patch} を忠実に再現する。
 
-use crate::session_store::{append_ext, is_date, is_year_month, StoreError};
+use crate::fs_util::{lock, read_json_with_backup, write_json_atomic, StoreError};
+use crate::session_store::{is_date, is_year_month};
 use chrono::{Duration, Local, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::path::PathBuf;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
 
 const CURRENT_VERSION: i64 = 1;
 
@@ -43,10 +44,6 @@ impl DailyStore {
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, ()> {
-        self.write_lock.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
     fn file_path(&self, year_month: &str) -> Result<PathBuf, StoreError> {
         if !is_year_month(year_month) {
             return Err(StoreError::InvalidYearMonth(year_month.to_string()));
@@ -75,15 +72,8 @@ impl DailyStore {
 
     pub fn get_month(&self, year_month: &str) -> Result<DailyMonth, StoreError> {
         let path = self.file_path(year_month)?; // 不正な yearMonth はここで即 throw
-        if let Ok(c) = std::fs::read_to_string(&path) {
-            if let Some(m) = Self::parse_month(&c) {
-                return Ok(m);
-            }
-        }
-        if let Ok(c) = std::fs::read_to_string(append_ext(&path, ".bak")) {
-            if let Some(m) = Self::parse_month(&c) {
-                return Ok(m);
-            }
+        if let Some((_, month)) = read_json_with_backup(&path, Self::parse_month) {
+            return Ok(month);
         }
         Ok(DailyMonth {
             version: CURRENT_VERSION,
@@ -98,7 +88,7 @@ impl DailyStore {
 
     pub fn set_day(&self, date: &str, patch: Value) -> Result<(), StoreError> {
         let year_month = Self::year_month_of(date)?;
-        let _guard = self.lock();
+        let _guard = lock(&self.write_lock);
         let mut month = self.get_month(&year_month)?;
         let mut record = month
             .days
@@ -126,7 +116,7 @@ impl DailyStore {
             by_month.entry(ym).or_default().push((e.date, e.record));
         }
         for (year_month, list) in by_month {
-            let _guard = self.lock();
+            let _guard = lock(&self.write_lock);
             let mut month = self.get_month(&year_month)?;
             let stamp = now_iso();
             for (date, record) in list {
@@ -159,7 +149,7 @@ impl DailyStore {
             }
         }
         for year_month in months {
-            let _guard = self.lock();
+            let _guard = lock(&self.write_lock);
             let mut month = self.get_month(&year_month)?;
             let before = month.days.len();
             month.days.retain(|date, _| date.as_str() >= cutoff.as_str());
@@ -172,18 +162,14 @@ impl DailyStore {
 
     /// tmp→rename の原子的書き込み。version は常に CURRENT_VERSION で書く。
     fn write(&self, year_month: &str, month: &DailyMonth) -> Result<(), StoreError> {
-        std::fs::create_dir_all(&self.data_dir)?;
         let path = self.file_path(year_month)?;
-        let tmp = append_ext(&path, ".tmp");
-        let bak = append_ext(&path, ".bak");
-        let json = serde_json::to_string_pretty(&DailyMonthOut {
-            version: CURRENT_VERSION,
-            days: &month.days,
-        })?;
-        std::fs::write(&tmp, json)?;
-        let _ = std::fs::rename(&path, &bak);
-        std::fs::rename(&tmp, &path)?;
-        Ok(())
+        write_json_atomic(
+            &path,
+            &DailyMonthOut {
+                version: CURRENT_VERSION,
+                days: &month.days,
+            },
+        )
     }
 }
 
