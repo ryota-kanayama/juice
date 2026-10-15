@@ -30,7 +30,7 @@ const WAKE_INTERVAL_SECS: u64 = 60;
 
 // ---- 型 ----
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateInfo {
     pub current_version: String,
@@ -98,6 +98,13 @@ impl InstallGate {
 /// スコープを抜けるときにゲートを開ける。早期 return が多い install を確実に再実行可能へ戻す。
 struct InstallGuard<'a>(&'a InstallGate);
 
+impl InstallGuard<'_> {
+    /// ゲートを開けないままガードを手放す。成功してアプリを終了へ進める経路用。
+    fn keep_closed(self) {
+        todo!()
+    }
+}
+
 impl Drop for InstallGuard<'_> {
     fn drop(&mut self) {
         self.0.finish();
@@ -109,6 +116,23 @@ impl Drop for InstallGuard<'_> {
 pub fn approved_update(last: Option<UpdateInfo>, approved: &str) -> Option<UpdateInfo> {
     let approved = normalize_version(approved);
     last.filter(|i| i.has_update && normalize_version(&i.latest_version) == approved)
+}
+
+/// 承認された版に対して `install` が何をするか。
+#[derive(Debug, PartialEq, Eq)]
+pub enum InstallPlan {
+    /// 承認どおり。この更新を入れる
+    Proceed(UpdateInfo),
+    /// 承認した版とは食い違うが、別の更新が控えられている。画面へ知らせ直す
+    Reannounce(UpdateInfo),
+    /// 入れられる更新が無い
+    Mismatch,
+}
+
+/// 承認された版と直近のチェック結果から、`install` の行き先を決める。
+pub fn plan_install(last: Option<UpdateInfo>, approved: &str) -> InstallPlan {
+    let _ = (last, approved);
+    todo!()
 }
 
 // ---- バージョン比較（Electron 版 shared/version.ts 相当） ----
@@ -817,32 +841,68 @@ mod tests {
         assert!(s.contains(r#"DMG='/tmp/x'\''y.dmg'"#));
     }
 
-    /// 差し替えスクリプトを、偽のコマンドを差した PATH で実際に走らせる。
-    /// 退避（mv）が失敗する状況（.app が無い）で、コピー（cp）まで進んだかを返す。
+    /// 差し替えスクリプトの終わり方。
     #[cfg(unix)]
-    fn script_reaches_cp_when_backup_move_fails() -> bool {
+    #[derive(Clone, Copy)]
+    enum ScriptScenario {
+        /// .app が無く、退避の mv が失敗する
+        BackupMoveFails,
+        /// 退避は通るが、cp -R が失敗する
+        CopyFails,
+        /// 退避もコピーも通る
+        Succeeds,
+    }
+
+    #[cfg(unix)]
+    struct ScriptRun {
+        /// 偽コマンドが呼ばれた記録（「名前 引数…」を1行ずつ）
+        calls: Vec<String>,
+        /// `mktemp -d` が返したマウント用ディレクトリ
+        mount: String,
+        /// 差し替え対象の .app
+        app: String,
+        /// スクリプトの終了後にマウント用ディレクトリが残っているか
+        mount_left: bool,
+    }
+
+    /// 差し替えスクリプトを、偽のコマンドを差した PATH で実際に走らせる。
+    /// hdiutil / open / xattr / cp は呼ばれた記録だけを残す。mktemp は固定のディレクトリを返す。
+    #[cfg(unix)]
+    fn run_install_script(scenario: ScriptScenario) -> ScriptRun {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::TempDir::new().unwrap();
         let bin = dir.path().join("bin");
         std::fs::create_dir(&bin).unwrap();
-        let cp_calls = dir.path().join("cp-calls");
-        for name in ["hdiutil", "open", "xattr"] {
-            std::fs::write(bin.join(name), "#!/bin/bash\nexit 0\n").unwrap();
-        }
-        std::fs::write(
-            bin.join("cp"),
-            format!("#!/bin/bash\necho called >> '{}'\nexit 0\n", cp_calls.display()),
-        )
-        .unwrap();
-        for entry in std::fs::read_dir(&bin).unwrap() {
-            let path = entry.unwrap().path();
+        let calls_path = dir.path().join("calls");
+        let mount = dir.path().join("mount");
+        let app = dir.path().join("Juice.app");
+        let write_fake = |name: &str, body: String| {
+            let path = bin.join(name);
+            std::fs::write(&path, format!("#!/bin/bash\n{body}")).unwrap();
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        let recording = |exit: i32| {
+            format!(
+                "echo \"$(basename \"$0\") $*\" >> '{}'\nexit {exit}\n",
+                calls_path.display()
+            )
+        };
+        for name in ["hdiutil", "open", "xattr"] {
+            write_fake(name, recording(0));
         }
-        let missing_app = dir.path().join("Missing.app");
+        let cp_exit = if matches!(scenario, ScriptScenario::CopyFails) { 1 } else { 0 };
+        write_fake("cp", recording(cp_exit));
+        write_fake(
+            "mktemp",
+            format!("mkdir -p '{m}'\necho '{m}'\n", m = mount.display()),
+        );
+        if !matches!(scenario, ScriptScenario::BackupMoveFails) {
+            std::fs::create_dir(&app).unwrap();
+        }
         let script = build_install_script(
             999_999_999,
             "/dev/null",
-            &missing_app.to_string_lossy(),
+            &app.to_string_lossy(),
             &dir.path().join("log").to_string_lossy(),
         );
         let script_path = dir.path().join("update.sh");
@@ -854,15 +914,72 @@ mod tests {
             .status()
             .unwrap();
 
-        cp_calls.exists()
+        let calls = std::fs::read_to_string(&calls_path)
+            .map(|c| c.lines().map(String::from).collect())
+            .unwrap_or_default();
+        ScriptRun {
+            calls,
+            mount: mount.to_string_lossy().to_string(),
+            app: app.to_string_lossy().to_string(),
+            mount_left: mount.exists(),
+        }
     }
 
     #[cfg(unix)]
     #[test]
     fn install_script_stops_before_copy_when_backup_move_fails() {
-        let reached_cp = script_reaches_cp_when_backup_move_fails();
+        let run = run_install_script(ScriptScenario::BackupMoveFails);
 
-        assert!(!reached_cp, "退避の mv が失敗したら cp -R に進まず中断すること");
+        let reached_cp = run.calls.iter().any(|c| c.starts_with("cp "));
+
+        assert!(!reached_cp, "退避の mv が失敗したら cp -R に進まず中断すること: {:?}", run.calls);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_script_unmounts_the_dmg_when_backup_move_fails() {
+        let run = run_install_script(ScriptScenario::BackupMoveFails);
+
+        let detach = format!("hdiutil detach {} -quiet", run.mount);
+
+        assert!(run.calls.contains(&detach), "退避に失敗したら DMG をアンマウントすること: {:?}", run.calls);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_script_reopens_the_old_app_when_backup_move_fails() {
+        let run = run_install_script(ScriptScenario::BackupMoveFails);
+
+        let reopen = format!("open {}", run.app);
+
+        assert!(run.calls.contains(&reopen), "退避に失敗したら旧アプリを開き直すこと: {:?}", run.calls);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_script_removes_the_mount_dir_when_backup_move_fails() {
+        let run = run_install_script(ScriptScenario::BackupMoveFails);
+
+        assert!(!run.mount_left, "退避に失敗したらマウント用ディレクトリを消すこと");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_script_removes_the_mount_dir_when_copy_fails() {
+        let run = run_install_script(ScriptScenario::CopyFails);
+
+        assert!(!run.mount_left, "コピーに失敗したらマウント用ディレクトリを消すこと");
+    }
+
+    // 陽性対照: 退避が通れば cp -R まで進む（上の「進まない」テストが空振りでないことの裏付け）
+    #[cfg(unix)]
+    #[test]
+    fn install_script_copies_the_new_app_when_backup_move_succeeds() {
+        let run = run_install_script(ScriptScenario::Succeeds);
+
+        let copy = format!("cp -R {}/Juice.app {}", run.mount, run.app);
+
+        assert!(run.calls.contains(&copy), "退避が通れば新アプリを cp -R でコピーすること: {:?}", run.calls);
     }
 
     #[test]
@@ -871,7 +988,7 @@ mod tests {
 
         let accepted = gate.try_begin();
 
-        assert!(accepted);
+        assert!(accepted, "最初の実行要求は受け付けること");
     }
 
     #[test]
@@ -881,7 +998,7 @@ mod tests {
 
         let accepted = gate.try_begin();
 
-        assert!(!accepted);
+        assert!(!accepted, "実行中の2回目の要求は受け付けないこと");
     }
 
     #[test]
@@ -892,16 +1009,52 @@ mod tests {
 
         let accepted = gate.try_begin();
 
-        assert!(accepted);
+        assert!(accepted, "finish のあとは再び受け付けること");
+    }
+
+    #[test]
+    fn install_guard_keeps_the_gate_closed_while_alive() {
+        let gate = InstallGate::default();
+        gate.try_begin();
+        let _guard = InstallGuard(&gate);
+
+        let accepted = gate.try_begin();
+
+        assert!(!accepted, "ガードが生きている間は新しい要求を受け付けないこと");
+    }
+
+    #[test]
+    fn install_guard_opens_the_gate_when_dropped() {
+        let gate = InstallGate::default();
+        gate.try_begin();
+        let guard = InstallGuard(&gate);
+        drop(guard);
+
+        let accepted = gate.try_begin();
+
+        assert!(accepted, "ガードを drop したら再び受け付けること");
+    }
+
+    #[test]
+    fn install_guard_keep_closed_leaves_the_gate_closed_after_the_guard_is_gone() {
+        // 成功してアプリを終了へ進める経路では、終了までの間に二重実行されないようにする
+        let gate = InstallGate::default();
+        gate.try_begin();
+        let guard = InstallGuard(&gate);
+        guard.keep_closed();
+
+        let accepted = gate.try_begin();
+
+        assert!(!accepted, "keep_closed したらガードが無くなってもゲートは閉じたままであること");
     }
 
     #[test]
     fn approved_update_returns_info_when_version_matches() {
         let last = Some(sample_info("2.2.0", "notes"));
 
-        let approved = approved_update(last, "2.2.0").unwrap();
+        let approved = approved_update(last, "2.2.0");
 
-        assert_eq!(approved.latest_version, "2.2.0");
+        assert_eq!(approved, Some(sample_info("2.2.0", "notes")));
     }
 
     #[test]
@@ -921,6 +1074,34 @@ mod tests {
     }
 
     #[test]
+    fn approved_update_is_none_when_the_matching_version_has_no_update() {
+        let mut info = sample_info("2.2.0", "notes");
+        info.has_update = false;
+
+        let approved = approved_update(Some(info), "2.2.0");
+
+        assert!(approved.is_none(), "更新が無いチェック結果は、版が一致しても返さないこと");
+    }
+
+    #[test]
+    fn approved_update_is_none_when_the_approved_version_is_empty() {
+        let last = Some(sample_info("2.2.0", "notes"));
+
+        let approved = approved_update(last, "");
+
+        assert!(approved.is_none(), "承認版が空文字なら返さないこと");
+    }
+
+    #[test]
+    fn approved_update_is_none_when_the_approved_version_is_only_a_prefix() {
+        let last = Some(sample_info("2.2.0", "notes"));
+
+        let approved = approved_update(last, "2.2");
+
+        assert!(approved.is_none(), "承認版 2.2 はチェック済みの 2.2.0 と部分一致しても返さないこと");
+    }
+
+    #[test]
     fn approved_update_ignores_v_prefix_on_the_approved_version() {
         let last = Some(sample_info("2.2.0", "notes"));
 
@@ -936,6 +1117,51 @@ mod tests {
         let approved = approved_update(last, "2.2.0").unwrap();
 
         assert_eq!(approved.latest_version, "v2.2.0");
+    }
+
+    #[test]
+    fn plan_install_proceeds_when_the_approved_version_matches() {
+        let last = Some(sample_info("2.2.0", "notes"));
+
+        let plan = plan_install(last, "2.2.0");
+
+        assert_eq!(plan, InstallPlan::Proceed(sample_info("2.2.0", "notes")));
+    }
+
+    #[test]
+    fn plan_install_reannounces_the_newer_update_when_versions_differ() {
+        let last = Some(sample_info("2.3.0", "newer"));
+
+        let plan = plan_install(last, "2.2.0");
+
+        assert_eq!(plan, InstallPlan::Reannounce(sample_info("2.3.0", "newer")));
+    }
+
+    #[test]
+    fn plan_install_is_mismatch_when_never_checked() {
+        let plan = plan_install(None, "2.2.0");
+
+        assert_eq!(plan, InstallPlan::Mismatch);
+    }
+
+    #[test]
+    fn plan_install_is_mismatch_when_the_last_check_has_no_update() {
+        let mut info = sample_info("2.3.0", "notes");
+        info.has_update = false;
+
+        let plan = plan_install(Some(info), "2.2.0");
+
+        assert_eq!(plan, InstallPlan::Mismatch, "更新が無いチェック結果は出し直さないこと");
+    }
+
+    #[test]
+    fn plan_install_is_mismatch_when_the_matching_version_has_no_update() {
+        let mut info = sample_info("2.2.0", "notes");
+        info.has_update = false;
+
+        let plan = plan_install(Some(info), "2.2.0");
+
+        assert_eq!(plan, InstallPlan::Mismatch);
     }
 
     #[test]
