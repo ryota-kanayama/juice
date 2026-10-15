@@ -338,9 +338,10 @@ mod tests {
     }
 
     /// 未移行（version 無し・単区間が totalTime と食い違う）の月ファイルを置く。
+    const LEGACY_MONTH_RAW: &str = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
+
     fn write_legacy_month(dir: &TempDir) {
-        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
-        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+        std::fs::write(dir.path().join("sessions-2026-05.json"), LEGACY_MONTH_RAW).unwrap();
     }
 
     // --- 読み書き ---
@@ -855,6 +856,92 @@ mod tests {
         assert!(!dir.path().join("sessions-2026-05.json.pre-v2.bak").exists());
     }
 
+    #[test]
+    fn pre_migration_backup_copies_bak_when_primary_is_corrupt() {
+        let (store, dir) = new_store();
+        std::fs::write(dir.path().join("sessions-2026-05.json"), "{ broken").unwrap();
+        std::fs::write(
+            dir.path().join("sessions-2026-05.json.bak"),
+            LEGACY_MONTH_RAW,
+        )
+        .unwrap();
+
+        store.get_sessions("2026-05").unwrap();
+
+        let pre =
+            std::fs::read_to_string(dir.path().join("sessions-2026-05.json.pre-v2.bak")).unwrap();
+        assert_eq!(pre, LEGACY_MONTH_RAW);
+    }
+
+    #[test]
+    fn existing_pre_migration_backup_is_not_overwritten() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        let pre_path = dir.path().join("sessions-2026-05.json.pre-v2.bak");
+        std::fs::write(&pre_path, "earlier backup").unwrap();
+
+        store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&pre_path).unwrap(),
+            "earlier backup"
+        );
+    }
+
+    /// 退避先が壊れたシンボリックリンク（存在判定は偽、コピーは失敗する）だと、
+    /// 退避に失敗するが本体への保存は通る状況を作れる。
+    #[cfg(unix)]
+    fn make_pre_migration_backup_fail(dir: &TempDir) {
+        std::os::unix::fs::symlink(
+            dir.path().join("no-such-dir").join("target"),
+            dir.path().join("sessions-2026-05.json.pre-v2.bak"),
+        )
+        .unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn migration_is_aborted_and_original_returned_when_backup_fails() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        make_pre_migration_backup_fail(&dir);
+
+        let got = store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            got[0].times[0].end_time.as_deref(),
+            Some("2026-05-20T10:01:00")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn migration_leaves_file_untouched_when_backup_fails() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        make_pre_migration_backup_fail(&dir);
+
+        store.get_sessions("2026-05").unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("sessions-2026-05.json")).unwrap();
+        assert_eq!(content, LEGACY_MONTH_RAW);
+    }
+
+    #[test]
+    fn original_is_returned_when_saving_migrated_content_fails() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        // tmp の位置にディレクトリを置いて、移行後の保存だけを失敗させる（退避は成功する）
+        std::fs::create_dir(dir.path().join("sessions-2026-05.json.tmp")).unwrap();
+
+        let got = store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            got[0].times[0].end_time.as_deref(),
+            Some("2026-05-20T10:01:00")
+        );
+    }
+
     // --- ロックの直列化 ---
 
     /// 未移行の月へ別スレッドで保存し、デッドロックしないかを時間を計って確かめる。
@@ -998,22 +1085,6 @@ mod tests {
     #[test]
     fn is_date_rejects_non_digit_in_day_ones() {
         assert!(!is_date("2026-02-2x"));
-    }
-
-    // --- StoreError の表示 ---
-
-    #[test]
-    fn invalid_year_month_error_message_names_the_input() {
-        let msg = StoreError::InvalidYearMonth("2026/06".into()).to_string();
-
-        assert_eq!(msg, "invalid yearMonth: 2026/06");
-    }
-
-    #[test]
-    fn invalid_date_error_message_names_the_input() {
-        let msg = StoreError::InvalidDate("x".into()).to_string();
-
-        assert_eq!(msg, "invalid session.date: x");
     }
 
     // --- migrate_sessions の境界値 ---

@@ -98,10 +98,35 @@ mod tests {
         assert_eq!(*guard, 7);
     }
 
+    /// ディレクトリ直下のファイル名を昇順で返す。
+    fn file_names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// tmp の位置にディレクトリを置き、tmp への書き込みを失敗させる。
+    fn block_tmp_with_directory(path: &Path) {
+        std::fs::create_dir(append_ext(path, ".tmp")).unwrap();
+    }
+
     #[test]
     fn write_json_atomic_creates_missing_parent_directories() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("nested").join("data.json");
+
+        write_json_atomic(&path, &json!({ "a": 1 })).unwrap();
+
+        assert!(path.is_file(), "親ディレクトリごとファイルができること");
+    }
+
+    #[test]
+    fn write_json_atomic_writes_pretty_printed_json() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
 
         write_json_atomic(&path, &json!({ "a": 1 })).unwrap();
 
@@ -115,7 +140,53 @@ mod tests {
 
         write_json_atomic(&path, &json!({ "a": 1 })).unwrap();
 
-        assert!(!append_ext(&path, ".tmp").exists(), "tmp が残らないこと");
+        assert_eq!(file_names(dir.path()), vec!["data.json".to_string()]);
+    }
+
+    #[test]
+    fn write_json_atomic_returns_io_error_when_tmp_cannot_be_written() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        block_tmp_with_directory(&path);
+
+        let result = write_json_atomic(&path, &json!({ "a": 1 }));
+
+        assert!(
+            matches!(result, Err(StoreError::Io(_))),
+            "tmp に書けないときは Io エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn write_json_atomic_returns_io_error_when_rename_to_primary_fails() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        // 本体の位置にディレクトリがあり、退避先 .bak も空でないディレクトリなので、
+        // 本体の退避も tmp の差し替えも失敗する
+        std::fs::create_dir(&path).unwrap();
+        std::fs::create_dir_all(append_ext(&path, ".bak").join("keep")).unwrap();
+
+        let result = write_json_atomic(&path, &json!({ "a": 1 }));
+
+        assert!(
+            matches!(result, Err(StoreError::Io(_))),
+            "本体への rename が失敗したときは Io エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn write_json_atomic_keeps_primary_when_tmp_cannot_be_written() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, r#"{"a":1}"#).unwrap();
+        block_tmp_with_directory(&path);
+
+        let _ = write_json_atomic(&path, &json!({ "a": 2 }));
+
+        assert_eq!(
+            std::fs::read_to_string(&path).ok(),
+            Some(r#"{"a":1}"#.to_string())
+        );
     }
 
     #[test]
@@ -227,18 +298,35 @@ mod tests {
     }
 
     #[test]
-    fn store_error_messages_are_unchanged() {
-        let io = StoreError::Io(std::io::Error::other("disk full")).to_string();
-        let year_month = StoreError::InvalidYearMonth("2026/06".into()).to_string();
-        let date = StoreError::InvalidDate("x".into()).to_string();
+    fn io_error_message_is_prefixed_with_io_error() {
+        let msg = StoreError::Io(std::io::Error::other("disk full")).to_string();
+
+        assert_eq!(msg, "io error: disk full");
+    }
+
+    #[test]
+    fn invalid_year_month_error_message_names_the_input() {
+        let msg = StoreError::InvalidYearMonth("2026/06".into()).to_string();
+
+        assert_eq!(msg, "invalid yearMonth: 2026/06");
+    }
+
+    #[test]
+    fn invalid_date_error_message_names_the_input() {
+        let msg = StoreError::InvalidDate("x".into()).to_string();
+
+        assert_eq!(msg, "invalid session.date: x");
+    }
+
+    #[test]
+    fn serde_error_message_is_prefixed_with_serialize_error() {
+        let cause = serde_json::from_str::<Value>("{").unwrap_err();
+
+        let msg = StoreError::Serde(cause).to_string();
 
         assert_eq!(
-            (io, year_month, date),
-            (
-                "io error: disk full".to_string(),
-                "invalid yearMonth: 2026/06".to_string(),
-                "invalid session.date: x".to_string()
-            )
+            msg,
+            "serialize error: EOF while parsing an object at line 1 column 1"
         );
     }
 }
