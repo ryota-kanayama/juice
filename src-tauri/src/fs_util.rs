@@ -158,8 +158,9 @@ fn read_one<T>(path: &Path, parse: &mut impl FnMut(&str) -> Option<T>) -> ReadOn
 /// .bak から読めたときはログを出す。本体も .bak も読めないときは
 /// Err(StoreError::Corrupt(本体のパス)) を返す。
 /// 壊れてはいないが読めない（I/O エラー）ものがあるときは、何も動かさず Err(StoreError::Io) を返す。
-/// 壊れた本体を退避できないときも、.bak を採用せず Err(StoreError::Io) を返す
-/// （採用すると、次の保存が壊れた本体で正常な .bak を上書きする）。
+/// 壊れた本体を移動も複製もできないときは、.bak を採用せず Err(StoreError::Io) を返す
+/// （採用すると、次の保存が壊れた本体で正常な .bak を上書きし、壊れた中身はどこにも残らない）。
+/// 複製だけできたときは .bak を採用する（壊れた中身は .corrupt- に残る）。
 ///
 /// 退避は rename を伴うので、呼び出し元は書き込みと同じロックを持った状態で呼ぶこと。
 pub(crate) fn read_json_with_backup<T>(
