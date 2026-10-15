@@ -4,6 +4,7 @@ import { handler } from './handler'
 import { issueSessionJwt, verifySessionJwt, type SessionClaims } from './sessionJwt'
 import { signState, verifyState } from './stateSign'
 import { isRevoked } from './revocations'
+import { loadSecrets } from './secrets'
 import * as slackOidc from './slackOidc'
 import * as attendanceSend from './attendanceSend'
 import * as whiteboardPost from './whiteboardPost'
@@ -629,5 +630,99 @@ describe('ホワイトボード API のルーティング', () => {
     const res = await handler(makeEvent('/api/whiteboard.other', {}, bearer(withEmail()), { method: 'POST', body: '{}' }))
 
     expect(res.statusCode).toBe(404)
+  })
+})
+
+describe('内部で例外が起きたとき', () => {
+  const CAUSE = 'ProvisionedThroughputExceeded: table=juice-revocations'
+  const withEmail = () => tokenFor({ email: 'a@jsl.co.jp' })
+  const post = (path: string, body = '{}') =>
+    handler(makeEvent(path, {}, bearer(withEmail()), { method: 'POST', body }))
+
+  // DynamoDB（失効チェック）を使う各ルート
+  const routes: Array<[string, () => ReturnType<typeof handler>]> = [
+    ['GET /auth/me', () => handler(makeEvent('/auth/me', {}, bearer(withEmail())))],
+    ['POST /auth/refresh', () => post('/auth/refresh')],
+    ['POST /api/attendance.send', () => post('/api/attendance.send', JSON.stringify({ text: 't' }))],
+    ['POST /api/whiteboard.telework', () => post('/api/whiteboard.telework')],
+    ['POST /api/whiteboard.leave', () => post('/api/whiteboard.leave')],
+  ]
+
+  let errorLog: ReturnType<typeof vi.spyOn>
+  const loggedText = () => errorLog.mock.calls.flat().map(String).join(' ')
+
+  beforeEach(() => {
+    errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    errorLog.mockClear()
+    vi.mocked(isRevoked).mockRejectedValue(new Error(CAUSE))
+  })
+
+  it.each(routes)('%s で DynamoDB が失敗したら 500', async (_label, request) => {
+    const res = await request()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it.each(routes)('%s で DynamoDB が失敗したら本文は {error:"internal error"}', async (_label, request) => {
+    const res = await request()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it.each(routes)('%s で DynamoDB が失敗しても、上流の例外メッセージを返さない', async (_label, request) => {
+    const res = await request()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it.each(routes)('%s で DynamoDB が失敗したら、原因を console.error に出す', async (_label, request) => {
+    await request()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('SSM（秘密値の取得）が失敗したら 500 で {error:"internal error"}', async () => {
+    vi.mocked(loadSecrets).mockRejectedValueOnce(new Error(CAUSE))
+
+    const res = await handler(makeEvent('/auth/me', {}, bearer(withEmail())))
+
+    expect(res.statusCode).toBe(500)
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('SSM が失敗しても、上流の例外メッセージを返さない', async () => {
+    vi.mocked(loadSecrets).mockRejectedValueOnce(new Error(CAUSE))
+
+    const res = await handler(makeEvent('/auth/me', {}, bearer(withEmail())))
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('SSM が失敗したら、原因を console.error に出す', async () => {
+    vi.mocked(loadSecrets).mockRejectedValueOnce(new Error(CAUSE))
+
+    await handler(makeEvent('/auth/me', {}, bearer(withEmail())))
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('勤怠 API の呼び出しが例外を投げたら 500 で {error:"internal error"}', async () => {
+    vi.mocked(isRevoked).mockResolvedValue(false)
+    vi.mocked(attendanceSend.postAttendance).mockRejectedValue(new Error(CAUSE))
+
+    const res = await post('/api/attendance.send', JSON.stringify({ text: 't' }))
+
+    expect(res.statusCode).toBe(500)
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('ホワイトボード API の呼び出しが例外を投げたら 500 で {error:"internal error"}', async () => {
+    vi.mocked(isRevoked).mockResolvedValue(false)
+    vi.mocked(whiteboardPost.postWhiteboard).mockRejectedValue(new Error(CAUSE))
+
+    const res = await post('/api/whiteboard.telework')
+
+    expect(res.statusCode).toBe(500)
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
   })
 })

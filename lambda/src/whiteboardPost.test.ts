@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { postWhiteboard } from './whiteboardPost'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -149,6 +149,95 @@ describe('postWhiteboard', () => {
       const result = await postWhiteboard('telework', EMAIL, OPTS)
 
       expect(result).toEqual({ error: 'network: ETIMEDOUT' })
+    })
+  })
+
+  describe('記号を含む API キー', () => {
+    // & = + はそのまま載せるとクエリが壊れる（別パラメータや空白として解釈される）
+    const SYMBOL_KEY = 'a&b=c+d'
+    const ENCODED_KEY = 'a%26b%3Dc%2Bd'
+    const SYMBOL_OPTS = { apiUrl: 'https://wb.test', apiKey: SYMBOL_KEY }
+
+    it('/api/users のクエリには URL エンコードして載せる', async () => {
+      const fetchMock = stubFetch(currentMagnet('出社'), { ok: true }, { ok: true })
+
+      await postWhiteboard('leave', EMAIL, SYMBOL_OPTS)
+
+      expect(fetchMock.mock.calls[0][0]).toBe(`https://wb.test/api/users?apiKey=${ENCODED_KEY}&id=${encodeURIComponent(EMAIL)}`)
+    })
+
+    it('/api/attendance のクエリには URL エンコードして載せる', async () => {
+      const fetchMock = stubFetch({ ok: true }, { ok: true })
+
+      await postWhiteboard('telework', EMAIL, SYMBOL_OPTS)
+
+      expect(fetchMock.mock.calls[0][0]).toBe(`https://wb.test/api/attendance?apiKey=${ENCODED_KEY}`)
+    })
+
+    it('/api/magnet のクエリには URL エンコードして載せる', async () => {
+      const fetchMock = stubFetch({ ok: true }, { ok: true })
+
+      await postWhiteboard('telework', EMAIL, SYMBOL_OPTS)
+
+      expect(fetchMock.mock.calls[1][0]).toBe(`https://wb.test/api/magnet?apiKey=${ENCODED_KEY}`)
+    })
+  })
+
+  describe('失敗したときのログ（API キーを出さない）', () => {
+    const SECRET_KEY = 'SUPERSECRETKEY'
+    const SECRET_OPTS = { apiUrl: 'https://wb.test', apiKey: SECRET_KEY }
+    // fetch の失敗メッセージには、実際に URL（キーを含む）が入りうる
+    const urlLeakingError = () => new Error(`fetch failed: https://wb.test/api/attendance?apiKey=${SECRET_KEY}`)
+
+    let spies: Array<ReturnType<typeof vi.spyOn>>
+    const logged = () => spies.flatMap((s) => s.mock.calls.flat()).map(String).join(' ')
+
+    beforeEach(() => {
+      spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}))
+      spies.forEach((s) => s.mockClear())
+    })
+
+    afterEach(() => vi.restoreAllMocks())
+
+    it('打刻が非2xxで失敗しても、ログに API キーを出さない', async () => {
+      stubFetch({ ok: false, status: 502 })
+
+      await postWhiteboard('telework', EMAIL, SECRET_OPTS)
+
+      expect(logged()).not.toContain(SECRET_KEY)
+    })
+
+    it('マグネット更新が非2xxで失敗しても、ログに API キーを出さない', async () => {
+      stubFetch({ ok: true }, { ok: false, status: 500 })
+
+      await postWhiteboard('telework', EMAIL, SECRET_OPTS)
+
+      expect(logged()).not.toContain(SECRET_KEY)
+    })
+
+    it('fetch が失敗しても、ログに API キーを出さない', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(urlLeakingError()))
+
+      await postWhiteboard('telework', EMAIL, SECRET_OPTS)
+
+      expect(logged()).not.toContain(SECRET_KEY)
+    })
+
+    // 呼び出し側（handler）はこの error をそのまま console.error に出すので、ここに混ざればログに漏れる
+    it('fetch の失敗メッセージに URL（API キー）が含まれていても、返す error に API キーを含めない', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(urlLeakingError()))
+
+      const result = await postWhiteboard('telework', EMAIL, SECRET_OPTS)
+
+      expect(JSON.stringify(result)).not.toContain(SECRET_KEY)
+    })
+
+    it('現在のマグネット取得で fetch が失敗しても、ログに API キーを出さない', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(urlLeakingError()))
+
+      await postWhiteboard('leave', EMAIL, SECRET_OPTS)
+
+      expect(logged()).not.toContain(SECRET_KEY)
     })
   })
 })
