@@ -5,44 +5,12 @@
 // - 書き込みは tmp→rename で原子的に行い、旧ファイルは .bak に退避する
 // - 破損時は .bak へフォールバックする
 
+use crate::fs_util::{append_ext, lock, read_json_with_backup, write_json_atomic, StoreError};
 use crate::types::{Session, TimeInterval, WorkLocation};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard};
-
-#[derive(Debug)]
-pub enum StoreError {
-    InvalidYearMonth(String),
-    InvalidDate(String),
-    Io(std::io::Error),
-    Serde(serde_json::Error),
-}
-
-impl std::fmt::Display for StoreError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            StoreError::InvalidYearMonth(s) => write!(f, "invalid yearMonth: {s}"),
-            StoreError::InvalidDate(s) => write!(f, "invalid session.date: {s}"),
-            StoreError::Io(e) => write!(f, "io error: {e}"),
-            StoreError::Serde(e) => write!(f, "serialize error: {e}"),
-        }
-    }
-}
-
-impl std::error::Error for StoreError {}
-
-impl From<std::io::Error> for StoreError {
-    fn from(e: std::io::Error) -> Self {
-        StoreError::Io(e)
-    }
-}
-
-impl From<serde_json::Error> for StoreError {
-    fn from(e: serde_json::Error) -> Self {
-        StoreError::Serde(e)
-    }
-}
+use std::path::PathBuf;
+use std::sync::Mutex;
 
 /// "YYYY-MM" を検証（パストラバーサル防止）。正規表現 ^\d{4}-\d{2}$ 相当。
 pub(crate) fn is_year_month(s: &str) -> bool {
@@ -142,13 +110,6 @@ impl SessionStore {
         }
     }
 
-    /// ファイルへ触れる操作（read-modify-write と、移行を伴う読み取り）を直列化する
-    /// write_lock を取得。非再入なので、保持したまま取り直さないこと。
-    /// 直前の操作が panic で毒された場合も中身を取り出して継続する。
-    fn lock(&self) -> MutexGuard<'_, ()> {
-        self.write_lock.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
     fn file_path(&self, year_month: &str) -> Result<PathBuf, StoreError> {
         if !is_year_month(year_month) {
             return Err(StoreError::InvalidYearMonth(year_month.to_string()));
@@ -163,11 +124,10 @@ impl SessionStore {
         Ok(session.date[0..7].to_string())
     }
 
-    /// ファイルを読んでパース。読み取り・パース失敗はいずれも None。
+    /// 内容をパース。パース失敗は None。
     /// 返り値は (ファイルの version, セッション)。version 無しは 1 とみなす。
-    fn read_parse(path: &Path) -> Option<(u32, Vec<Session>)> {
-        let content = std::fs::read_to_string(path).ok()?;
-        let raw: RawSessionFile = serde_json::from_str(&content).ok()?;
+    fn parse(content: &str) -> Option<(u32, Vec<Session>)> {
+        let raw: RawSessionFile = serde_json::from_str(content).ok()?;
         let version = if raw.version == 0 { 1 } else { raw.version };
         Some((version, raw.sessions.into_iter().map(into_session).collect()))
     }
@@ -176,7 +136,7 @@ impl SessionStore {
         // 読み取りは移行の write を伴いうるので、書き込みと同じロックで直列化する。
         // write_lock は非再入なので、既にロックを持つ write 系からは
         // get_sessions_locked を直接呼ぶこと（ここを呼ぶとデッドロックする）。
-        let _guard = self.lock();
+        let _guard = lock(&self.write_lock);
         self.get_sessions_locked(year_month)
     }
 
@@ -185,12 +145,7 @@ impl SessionStore {
         // 不正な yearMonth はここで即 throw（try の外で検証）
         let path = self.file_path(year_month)?;
         // 読み取り元のパスも覚えておく（移行前の退避はこのファイルを複製する）
-        let read = Self::read_parse(&path)
-            .map(|parsed| (path.clone(), parsed))
-            .or_else(|| {
-                let bak = append_ext(&path, ".bak");
-                Self::read_parse(&bak).map(|parsed| (bak, parsed))
-            });
+        let read = read_json_with_backup(&path, Self::parse);
         let Some((source, (version, sessions))) = read else {
             return Ok(Vec::new());
         };
@@ -223,7 +178,7 @@ impl SessionStore {
 
     pub fn save_session(&self, session: Session) -> Result<(), StoreError> {
         let year_month = Self::year_month_of(&session)?;
-        let _guard = self.lock();
+        let _guard = lock(&self.write_lock);
         let mut sessions = self.get_sessions_locked(&year_month)?;
         sessions.push(session);
         self.write(&year_month, &sessions)
@@ -231,7 +186,7 @@ impl SessionStore {
 
     pub fn update_session(&self, session: Session) -> Result<(), StoreError> {
         let year_month = Self::year_month_of(&session)?;
-        let _guard = self.lock();
+        let _guard = lock(&self.write_lock);
         let mut sessions = self.get_sessions_locked(&year_month)?;
         match sessions.iter().position(|s| s.id == session.id) {
             Some(i) => sessions[i] = session,
@@ -243,7 +198,7 @@ impl SessionStore {
     pub fn delete_session(&self, id: &str, year_month: &str) -> Result<(), StoreError> {
         // 先に検証してから直列化（不正な yearMonth は即時に拒否する）
         self.file_path(year_month)?;
-        let _guard = self.lock();
+        let _guard = lock(&self.write_lock);
         let mut sessions = self.get_sessions_locked(year_month)?;
         sessions.retain(|s| s.id != id);
         self.write(year_month, &sessions)
@@ -251,27 +206,15 @@ impl SessionStore {
 
     /// tmp へ書いてから rename で原子的に差し替え、旧ファイルは .bak へ退避する。
     fn write(&self, year_month: &str, sessions: &[Session]) -> Result<(), StoreError> {
-        std::fs::create_dir_all(&self.data_dir)?;
         let path = self.file_path(year_month)?;
-        let tmp = append_ext(&path, ".tmp");
-        let bak = append_ext(&path, ".bak");
-        let json = serde_json::to_string_pretty(&SessionFileOut {
-            version: SESSION_FILE_VERSION,
-            sessions,
-        })?;
-        std::fs::write(&tmp, json)?;
-        // プライマリが未存在なら無視
-        let _ = std::fs::rename(&path, &bak);
-        std::fs::rename(&tmp, &path)?;
-        Ok(())
+        write_json_atomic(
+            &path,
+            &SessionFileOut {
+                version: SESSION_FILE_VERSION,
+                sessions,
+            },
+        )
     }
-}
-
-/// `${path}.ext` のようにパス末尾へ拡張子を付け足す（with_extension と違い置換しない）。
-pub(crate) fn append_ext(path: &Path, suffix: &str) -> PathBuf {
-    let mut s = path.as_os_str().to_owned();
-    s.push(suffix);
-    PathBuf::from(s)
 }
 
 /// 旧フォーマット（totalTime なし）向けに times[] から合計分を算出。
@@ -394,10 +337,12 @@ mod tests {
         }
     }
 
-    /// 未移行（version 無し・単区間が totalTime と食い違う）の月ファイルを置く。
+    /// 未移行（version 無し・単区間が totalTime と食い違う）の月ファイルの中身。
+    const LEGACY_MONTH_RAW: &str = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
+
+    /// 未移行の月ファイルを置く。
     fn write_legacy_month(dir: &TempDir) {
-        let raw = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
-        std::fs::write(dir.path().join("sessions-2026-05.json"), raw).unwrap();
+        std::fs::write(dir.path().join("sessions-2026-05.json"), LEGACY_MONTH_RAW).unwrap();
     }
 
     // --- 読み書き ---
@@ -912,6 +857,92 @@ mod tests {
         assert!(!dir.path().join("sessions-2026-05.json.pre-v2.bak").exists());
     }
 
+    #[test]
+    fn pre_migration_backup_copies_bak_when_primary_is_corrupt() {
+        let (store, dir) = new_store();
+        std::fs::write(dir.path().join("sessions-2026-05.json"), "{ broken").unwrap();
+        std::fs::write(
+            dir.path().join("sessions-2026-05.json.bak"),
+            LEGACY_MONTH_RAW,
+        )
+        .unwrap();
+
+        store.get_sessions("2026-05").unwrap();
+
+        let pre =
+            std::fs::read_to_string(dir.path().join("sessions-2026-05.json.pre-v2.bak")).unwrap();
+        assert_eq!(pre, LEGACY_MONTH_RAW);
+    }
+
+    #[test]
+    fn existing_pre_migration_backup_is_not_overwritten() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        let pre_path = dir.path().join("sessions-2026-05.json.pre-v2.bak");
+        std::fs::write(&pre_path, "earlier backup").unwrap();
+
+        store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&pre_path).unwrap(),
+            "earlier backup"
+        );
+    }
+
+    /// 退避先が壊れたシンボリックリンク（存在判定は偽、コピーは失敗する）だと、
+    /// 退避に失敗するが本体への保存は通る状況を作れる。
+    #[cfg(unix)]
+    fn make_pre_migration_backup_fail(dir: &TempDir) {
+        std::os::unix::fs::symlink(
+            dir.path().join("no-such-dir").join("target"),
+            dir.path().join("sessions-2026-05.json.pre-v2.bak"),
+        )
+        .unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn migration_is_aborted_and_original_returned_when_backup_fails() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        make_pre_migration_backup_fail(&dir);
+
+        let got = store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            got[0].times[0].end_time.as_deref(),
+            Some("2026-05-20T10:01:00")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn migration_leaves_file_untouched_when_backup_fails() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        make_pre_migration_backup_fail(&dir);
+
+        store.get_sessions("2026-05").unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("sessions-2026-05.json")).unwrap();
+        assert_eq!(content, LEGACY_MONTH_RAW);
+    }
+
+    #[test]
+    fn original_is_returned_when_saving_migrated_content_fails() {
+        let (store, dir) = new_store();
+        write_legacy_month(&dir);
+        // tmp の位置にディレクトリを置いて、移行後の保存だけを失敗させる（退避は成功する）
+        std::fs::create_dir(dir.path().join("sessions-2026-05.json.tmp")).unwrap();
+
+        let got = store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            got[0].times[0].end_time.as_deref(),
+            Some("2026-05-20T10:01:00")
+        );
+    }
+
     // --- ロックの直列化 ---
 
     /// 未移行の月へ別スレッドで保存し、デッドロックしないかを時間を計って確かめる。
@@ -1055,22 +1086,6 @@ mod tests {
     #[test]
     fn is_date_rejects_non_digit_in_day_ones() {
         assert!(!is_date("2026-02-2x"));
-    }
-
-    // --- StoreError の表示 ---
-
-    #[test]
-    fn invalid_year_month_error_message_names_the_input() {
-        let msg = StoreError::InvalidYearMonth("2026/06".into()).to_string();
-
-        assert_eq!(msg, "invalid yearMonth: 2026/06");
-    }
-
-    #[test]
-    fn invalid_date_error_message_names_the_input() {
-        let msg = StoreError::InvalidDate("x".into()).to_string();
-
-        assert_eq!(msg, "invalid session.date: x");
     }
 
     // --- migrate_sessions の境界値 ---
