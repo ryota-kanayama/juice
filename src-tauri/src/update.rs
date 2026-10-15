@@ -101,7 +101,7 @@ struct InstallGuard<'a>(&'a InstallGate);
 impl InstallGuard<'_> {
     /// ゲートを開けないままガードを手放す。成功してアプリを終了へ進める経路用。
     fn keep_closed(self) {
-        todo!()
+        std::mem::forget(self);
     }
 }
 
@@ -131,8 +131,13 @@ pub enum InstallPlan {
 
 /// 承認された版と直近のチェック結果から、`install` の行き先を決める。
 pub fn plan_install(last: Option<UpdateInfo>, approved: &str) -> InstallPlan {
-    let _ = (last, approved);
-    todo!()
+    if let Some(info) = approved_update(last.clone(), approved) {
+        return InstallPlan::Proceed(info);
+    }
+    match last {
+        Some(info) if info.has_update => InstallPlan::Reannounce(info),
+        _ => InstallPlan::Mismatch,
+    }
 }
 
 // ---- バージョン比較（Electron 版 shared/version.ts 相当） ----
@@ -456,6 +461,7 @@ rm -rf "$BACKUP"
 if ! mv "$APP" "$BACKUP"; then
   echo "backup failed: could not move $APP to $BACKUP"
   hdiutil detach "$MOUNT" -quiet
+  rmdir "$MOUNT" 2>/dev/null
   open "$APP"
   exit 1
 fi
@@ -463,6 +469,7 @@ if ! cp -R "$MOUNT/$APP_NAME" "$APP"; then
   rm -rf "$APP"
   mv "$BACKUP" "$APP"
   hdiutil detach "$MOUNT" -quiet
+  rmdir "$MOUNT" 2>/dev/null
   open "$APP"
   exit 1
 fi
@@ -555,10 +562,17 @@ pub async fn install(app: &AppHandle, approved_version: &str) {
     if !gate.try_begin() {
         return;
     }
-    let _running = InstallGuard(&gate);
-    let info = match approved_update(app.state::<LastChecked>().get(), approved_version) {
-        Some(i) => i,
-        None => {
+    let running = InstallGuard(&gate);
+    let info = match plan_install(app.state::<LastChecked>().get(), approved_version) {
+        InstallPlan::Proceed(i) => i,
+        // 承認のあとに別の版が見つかっていた。行き止まりにせず、画面を「更新あり」に戻して
+        // 新しい版を承認し直してもらう。
+        InstallPlan::Reannounce(i) => {
+            eprintln!("[update] install: approved version {approved_version} differs from the last check; reannouncing {}", i.latest_version);
+            let _ = app.emit("update-available", &i);
+            return;
+        }
+        InstallPlan::Mismatch => {
             eprintln!("[update] install: approved version {approved_version} does not match the last check");
             emit_progress(app, 0, true, Some("更新情報が変わりました。もう一度確認してください".into()));
             return;
@@ -618,15 +632,17 @@ pub async fn install(app: &AppHandle, approved_version: &str) {
             emit_progress(app, 0, true, Some("インストーラの起動に失敗しました".into()));
             return;
         }
+        // 成功してアプリを終了する。終了が済むまでゲートを開けず、二重実行を防ぐ。
+        running.keep_closed();
         app.exit(0);
     }
     #[cfg(not(windows))]
-    install_macos(app, &work_dir, &dest).await;
+    install_macos(app, &work_dir, &dest, running).await;
 }
 
 /// macOS: アプリ終了後に .app を DMG の中身へ差し替える。
 #[cfg(not(windows))]
-async fn install_macos(app: &AppHandle, work_dir: &PathBuf, dest: &PathBuf) {
+async fn install_macos(app: &AppHandle, work_dir: &PathBuf, dest: &PathBuf, running: InstallGuard<'_>) {
     // dev / .app パス不明は自己差し替え不可 → DMG を開く従来挙動
     let app_path = match (is_packaged(), app_bundle_path()) {
         (true, Some(p)) => p,
@@ -640,6 +656,8 @@ async fn install_macos(app: &AppHandle, work_dir: &PathBuf, dest: &PathBuf) {
         eprintln!("[update] run_installer failed: {e}");
         return;
     }
+    // 成功してアプリを終了する。終了が済むまでゲートを開けず、二重実行を防ぐ。
+    running.keep_closed();
     app.exit(0);
 }
 
