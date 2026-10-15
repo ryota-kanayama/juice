@@ -9,7 +9,7 @@ interface DailyData {
   getDay: (date: string) => DayRecord | null
   /** 当該月を一度だけロードしキャッシュへ取り込む（冪等） */
   ensureMonth: (yearMonth: string) => void
-  /** 部分更新（楽観的にキャッシュ反映 + IPC で write-through）。保存に失敗したらその月をディスクから読み直して戻し、reject はしない */
+  /** 部分更新（楽観的にキャッシュ反映 + IPC で write-through）。保存に失敗したらその日をディスクの値に戻す。reject はしない */
   setDay: (date: string, patch: DayRecord) => Promise<void>
 }
 
@@ -72,13 +72,14 @@ export function DailyDataProvider({ children }: { children: ReactNode }) {
       await dailyRepository.setDay(date, patch)
     } catch (err) {
       console.error(`[DailyDataProvider] setDay(${date}) の保存に失敗しました:`, err)
-      // 楽観反映を戻す。ディスクが正なので refreshMonth とは違い、失敗した日が
-      // ディスクに無ければキャッシュからも消す
+      // 楽観反映を戻す。ディスクが正なので refreshMonth とは違い、ディスクに無ければ
+      // キャッシュからも消す。戻すのは失敗した日だけで、他の日の保存中の反映は潰さない
       try {
         const month = await dailyRepository.getMonth(date.slice(0, 7))
         setDays(prev => {
           const { [date]: _failed, ...rest } = prev
-          return { ...rest, ...month.days }
+          const onDisk = month.days[date]
+          return onDisk ? { ...rest, [date]: onDisk } : rest
         })
       } catch (reloadErr) {
         console.error(`[DailyDataProvider] getMonth(${date.slice(0, 7)}) の読み直しに失敗しました:`, reloadErr)

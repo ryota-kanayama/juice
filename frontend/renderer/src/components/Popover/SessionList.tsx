@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Session, TimeInterval } from '../../types/session'
 import { formatLocalDate, orderSessions } from '../../../../shared/sessionUtils'
 import { applySessionEdit } from '../../domain/session'
@@ -63,11 +63,18 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const customOrder = daily.getDay(todayKey)?.sessionOrder ?? null
 
   // セッションの追加/削除に customOrder を追従させる。死んだIDを除き新規IDを末尾へ。
+  // 保存に失敗すると setDay がディスクの順序へ戻して再びずれるため、同じ日・同じ並びの同期は1回しか試みない。
+  // 表示は orderSessions が補正するので、同期の保存が失敗しても画面は崩れない
+  const lastSyncRef = useRef<string | null>(null)
   useEffect(() => {
     if (!customOrder) return
     const synced = orderSessions(sessions, customOrder).map(s => s.id)
     const changed = synced.length !== customOrder.length || synced.some((id, i) => id !== customOrder[i])
-    if (changed) void daily.setDay(todayKey, { sessionOrder: synced })
+    if (!changed) return
+    const attempt = JSON.stringify([todayKey, synced])
+    if (lastSyncRef.current === attempt) return
+    lastSyncRef.current = attempt
+    void daily.setDay(todayKey, { sessionOrder: synced })
   }, [sessions, customOrder, todayKey, daily])
 
   const sortedSessions = orderSessions(sessions, customOrder)

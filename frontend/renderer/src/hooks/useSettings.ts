@@ -24,20 +24,6 @@ export interface SettingsState {
   setLaunchAtLogin: (enabled: boolean) => void
 }
 
-/**
- * 楽観反映した設定を保存する。保存に失敗したら原因を出し、ディスクの値を読み直して
- * 画面を戻す（画面だけが保存された設定と食い違ったままになるのを防ぐ）。
- * 読み直しも失敗したときは画面の値を保つ。返す Promise は reject しない。
- */
-function persist(label: string, save: Promise<void>, reload: () => Promise<void>): Promise<void> {
-  return Promise.resolve(save).catch((err: unknown) => {
-    console.error(`[useSettings] ${label} の保存に失敗しました:`, err)
-    return reload().catch((reloadErr: unknown) => {
-      console.error(`[useSettings] ${label} の読み直しに失敗しました:`, reloadErr)
-    })
-  })
-}
-
 /** 設定画面のオーケストレーション。各設定の読み出し・即時反映・永続化を統括。 */
 export function useSettings(): SettingsState {
   const [activeThemeId, setActiveThemeId] = useState(DEFAULT_THEME_ID)
@@ -69,12 +55,29 @@ export function useSettings(): SettingsState {
     launchAtLogin: () => settingsRepository.getLaunchAtLogin().then(setLaunchAtLoginState),
   }), [])
 
+  /**
+   * 楽観反映した設定を保存する。保存に失敗したら原因を出し、ディスクの値を読み直して画面を戻す。
+   * 読み直しも失敗したときは画面の値を保つ。返す Promise は reject しない。
+   */
+  const persist = async (key: keyof typeof reloaders, save: Promise<void>, reload = reloaders[key]): Promise<void> => {
+    try {
+      await save
+    } catch (err) {
+      console.error(`[useSettings] ${key} の保存に失敗しました:`, err)
+      try {
+        await reload()
+      } catch (reloadErr) {
+        console.error(`[useSettings] ${key} の読み直しに失敗しました:`, reloadErr)
+      }
+    }
+  }
+
   useEffect(() => {
     const offThemeChanged = settingsRepository.onThemeChanged(setActiveThemeId)
-    for (const [label, reload] of Object.entries(reloaders)) {
+    for (const [key, reload] of Object.entries(reloaders)) {
       // 失敗した設定は既定値のまま使い続ける
       reload().catch((err: unknown) => {
-        console.error(`[useSettings] ${label} の読み込みに失敗しました:`, err)
+        console.error(`[useSettings] ${key} の読み込みに失敗しました:`, err)
       })
     }
     return offThemeChanged
@@ -98,32 +101,32 @@ export function useSettings(): SettingsState {
     setIdle: (enabled, minutes): void => {
       setIdleEnabled(enabled)
       setIdleMinutes(minutes)
-      void persist('idle', settingsRepository.setIdle(enabled, minutes), reloaders.idle)
+      void persist('idle', settingsRepository.setIdle(enabled, minutes))
     },
     setElapsed: (enabled, minutes): void => {
       setElapsedEnabled(enabled)
       setElapsedMinutes(minutes)
-      void persist('elapsed', settingsRepository.setElapsed(enabled, minutes), reloaders.elapsed)
+      void persist('elapsed', settingsRepository.setElapsed(enabled, minutes))
     },
     setPomodoro: (enabled): void => {
       setPomodoroEnabled(enabled)
-      void persist('pomodoro', settingsRepository.setPomodoro(enabled), reloaders.pomodoro)
+      void persist('pomodoro', settingsRepository.setPomodoro(enabled))
     },
     setWhiteboard: (enabled): void => {
       setWhiteboardEnabled(enabled)
-      void persist('whiteboard', settingsRepository.setWhiteboard(enabled), reloaders.whiteboard)
+      void persist('whiteboard', settingsRepository.setWhiteboard(enabled))
     },
     setBreakBehavior: (b): void => {
       setBreakBehaviorState(b)
-      void persist('breakBehavior', settingsRepository.setBreakBehavior(b), reloaders.breakBehavior)
+      void persist('breakBehavior', settingsRepository.setBreakBehavior(b))
     },
     setMainProjectCode: (code): void => {
       setMainProjectCodeState(code)
-      void persist('mainProjectCode', settingsRepository.setMainProjectCode(code), reloaders.mainProjectCode)
+      void persist('mainProjectCode', settingsRepository.setMainProjectCode(code))
     },
     setLaunchAtLogin: (enabled): void => {
       setLaunchAtLoginState(enabled)
-      void persist('launchAtLogin', settingsRepository.setLaunchAtLogin(enabled), reloaders.launchAtLogin)
+      void persist('launchAtLogin', settingsRepository.setLaunchAtLogin(enabled))
     },
   }
 }
