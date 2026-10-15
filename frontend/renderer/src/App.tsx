@@ -286,6 +286,15 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
   const breakState = useBreak(ts, workday)
   const suggestions = useSuggestions(ts.todaySessions, ts.today)
 
+  // 休憩は1日1回。タイマー画面の休憩ボタンは、休憩前は「休憩」、休憩中は「休憩終了」、休憩後は出さない
+  const breakFinished = workday.breakStart !== null && workday.breakEnd !== null
+  let onBreak: (() => void) | undefined
+  if (breakState.isOnBreak) {
+    onBreak = () => { breakState.handleBreakEnd() }
+  } else if (!breakFinished) {
+    onBreak = () => { void breakState.handleBreakStart(ts.activeTimerProjectCode, ts.activeTimerWorkCategory) }
+  }
+
   return (
     <div className={styles.timerPage}>
       {ts.midnightSession && (
@@ -322,7 +331,7 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
             projectCodeSuggestions={suggestions.projectCodes}
             workCategorySuggestions={suggestions.workCategories}
             onStop={ts.stop}
-            onBreak={workday.breakStart === null ? () => { void breakState.handleBreakStart(ts.activeTimerProjectCode, ts.activeTimerWorkCategory) } : undefined}
+            onBreak={onBreak}
             isOnBreak={breakState.isOnBreak}
           />
         </div>

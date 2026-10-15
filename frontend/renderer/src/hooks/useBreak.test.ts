@@ -59,6 +59,16 @@ const makeWorkday = (overrides: Partial<WorkdayState> = {}): WorkdayState => ({
   ...overrides,
 })
 
+/** 計測中で、`stopForBreak` を呼ぶと計測が止まる（`isRunning` が false になる）タイマー */
+const makeRunningTs = (session: ReturnType<typeof makeSession> | null = null): TimerSessionState => {
+  const ts = makeTs({ isRunning: true })
+  ts.stopForBreak = vi.fn().mockImplementation(async () => {
+    ts.isRunning = false
+    return session
+  })
+  return ts
+}
+
 type Hook = RenderHookResult<BreakState, unknown>['result']
 
 /** 休憩時の動作設定を読み込ませてから返す */
@@ -83,21 +93,27 @@ afterEach(() => {
 })
 
 describe('useBreak', () => {
-  it('初期状態は休憩中ではない', async () => {
-    const hook = await renderBreak(makeTs(), makeWorkday())
+  describe('休憩中かどうか（日次データから導く）', () => {
+    it('休憩を始めていなければ、休憩中ではない', async () => {
+      const hook = await renderBreak(makeTs(), makeWorkday({ breakStart: null, breakEnd: null }))
 
-    expect(hook.current.isOnBreak).toBe(false)
-  })
+      expect(hook.current.isOnBreak).toBe(false)
+    })
 
-  describe('休憩開始（共通）', () => {
-    it('休憩中になる', async () => {
-      const hook = await renderBreak(makeTs(), makeWorkday())
-
-      await startBreak(hook)
+    it('休憩を始めて終えていなければ、休憩中', async () => {
+      const hook = await renderBreak(makeTs(), makeWorkday({ breakStart: '12:00', breakEnd: null }))
 
       expect(hook.current.isOnBreak).toBe(true)
     })
 
+    it('休憩を終えていれば、休憩中ではない', async () => {
+      const hook = await renderBreak(makeTs(), makeWorkday({ breakStart: '12:00', breakEnd: '12:45' }))
+
+      expect(hook.current.isOnBreak).toBe(false)
+    })
+  })
+
+  describe('休憩開始（共通）', () => {
     it('現在時刻を休憩開始として記録する', async () => {
       const workday = makeWorkday()
       const hook = await renderBreak(makeTs(), workday)
@@ -109,15 +125,6 @@ describe('useBreak', () => {
   })
 
   describe('休憩終了（共通）', () => {
-    it('休憩中でなくなる', async () => {
-      const hook = await renderBreak(makeTs(), makeWorkday())
-      await startBreak(hook)
-
-      act(() => { hook.current.handleBreakEnd() })
-
-      expect(hook.current.isOnBreak).toBe(false)
-    })
-
     it('現在時刻を休憩終了として記録する', async () => {
       const workday = makeWorkday()
       const hook = await renderBreak(makeTs(), workday)
@@ -162,7 +169,7 @@ describe('useBreak', () => {
 
     it('休憩終了で、止めた作業を「もう一杯」で再開する', async () => {
       const session = makeSession()
-      const ts = makeTs({ isRunning: true, stopForBreak: vi.fn().mockResolvedValue(session) })
+      const ts = makeRunningTs(session)
       const hook = await renderBreak(ts, makeWorkday())
       await startBreak(hook)
 
@@ -181,8 +188,33 @@ describe('useBreak', () => {
       expect(ts.startMore).not.toHaveBeenCalled()
     })
 
+    it('休憩中に別の作業を始めて計測中なら、止めた作業を再開しない（計測中の作業を上書きしない）', async () => {
+      const ts = makeRunningTs(makeSession())
+      const hook = await renderBreak(ts, makeWorkday())
+      await startBreak(hook)
+      ts.isRunning = true
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(ts.startMore).not.toHaveBeenCalled()
+    })
+
+    it('別の作業が計測中に休憩を終えたあと、計測していない状態から次の休憩を始めて終えても、休憩前の古い作業を再開しない', async () => {
+      const ts = makeRunningTs(makeSession())
+      const hook = await renderBreak(ts, makeWorkday())
+      await startBreak(hook)
+      ts.isRunning = true
+      act(() => { hook.current.handleBreakEnd() })
+      ts.isRunning = false
+      await startBreak(hook)
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(ts.startMore).not.toHaveBeenCalled()
+    })
+
     it('再開は一度きり（次の休憩終了で同じ作業を再開しない）', async () => {
-      const ts = makeTs({ isRunning: true, stopForBreak: vi.fn().mockResolvedValue(makeSession()) })
+      const ts = makeRunningTs(makeSession())
       const hook = await renderBreak(ts, makeWorkday())
       await startBreak(hook)
       act(() => { hook.current.handleBreakEnd() })

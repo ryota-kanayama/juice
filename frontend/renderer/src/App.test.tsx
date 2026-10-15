@@ -11,6 +11,7 @@ const TODAY = '2026-06-10'
 const getDailyMonth = vi.fn()
 const saveSession = vi.fn()
 const updateSession = vi.fn()
+const setDailyDay = vi.fn()
 const getBreakBehaviorSettings = vi.fn()
 const readyToQuit = vi.fn()
 const onUpdatePrepareQuit = vi.fn()
@@ -21,7 +22,7 @@ vi.stubGlobal('bridge', {
   saveSession,
   updateSession,
   getDailyMonth,
-  setDailyDay: vi.fn().mockResolvedValue(undefined),
+  setDailyDay,
   onDailyChanged: () => () => {},
   getBreakBehaviorSettings,
   getElapsedSettings: vi.fn().mockResolvedValue({ enabled: false, minutes: 30 }),
@@ -70,6 +71,7 @@ beforeEach(() => {
   getBreakBehaviorSettings.mockReset().mockResolvedValue({ behavior: 'stop' })
   saveSession.mockReset().mockResolvedValue(undefined)
   updateSession.mockReset().mockResolvedValue(undefined)
+  setDailyDay.mockReset().mockResolvedValue(undefined)
   readyToQuit.mockReset().mockResolvedValue(undefined)
   prepareQuit = null
   onUpdatePrepareQuit.mockReset().mockImplementation((cb: () => void) => {
@@ -116,6 +118,137 @@ describe('TimerPage', () => {
       await startTimer('テスト作業')
 
       expect(screen.getByRole('button', { name: 'やめる' })).toBeInTheDocument()
+    })
+  })
+
+  describe('休憩中のタイマー画面', () => {
+    /** 休憩時の動作を設定し、計測中の画面で「休憩」を押す。`now` を渡すと休憩の開始時刻がその時刻になる */
+    async function startBreakWhileRunning(behavior: 'pause' | 'stop', now = new Date(`${TODAY}T12:00:00`)): Promise<void> {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      vi.setSystemTime(now)
+      getBreakBehaviorSettings.mockResolvedValue({ behavior })
+      await renderTimerPage({ workStart: '09:00' })
+      await startTimer('休憩をはさむ作業')
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩' })) })
+    }
+
+    describe('休憩時の動作が「一時停止」', () => {
+      it('休憩を始めると「休憩終了」を出す', async () => {
+        await startBreakWhileRunning('pause')
+
+        expect(screen.getByRole('button', { name: '休憩終了' })).toBeInTheDocument()
+      })
+
+      it('休憩を始めても「やめる」は出し続ける', async () => {
+        await startBreakWhileRunning('pause')
+
+        expect(screen.getByRole('button', { name: 'やめる' })).toBeInTheDocument()
+      })
+
+      it('「休憩終了」を押すと、その時刻を休憩終了として記録する', async () => {
+        await startBreakWhileRunning('pause')
+        vi.setSystemTime(new Date(`${TODAY}T12:30:00`))
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩終了' })) })
+
+        expect(setDailyDay).toHaveBeenCalledWith(TODAY, { breakEnd: '12:30' })
+      })
+
+      it('休憩を終えると、休憩ボタン（「休憩」「休憩終了」とも）は出さない', async () => {
+        await startBreakWhileRunning('pause')
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩終了' })) })
+
+        expect(screen.queryAllByRole('button', { name: /^休憩/ })).toEqual([])
+      })
+    })
+
+    describe('休憩時の動作が「一時停止」（時間の進み方）', () => {
+      it('休憩中は経過時間が進まない', async () => {
+        await startBreakWhileRunning('pause')
+
+        act(() => { vi.advanceTimersByTime(10 * 60 * 1000) })
+
+        expect(screen.getByText('0分経過')).toBeInTheDocument()
+      })
+
+      it('「休憩終了」を押すと、一時停止が解けて経過時間が進む', async () => {
+        await startBreakWhileRunning('pause')
+        act(() => { vi.advanceTimersByTime(10 * 60 * 1000) })
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩終了' })) })
+
+        act(() => { vi.advanceTimersByTime(2 * 60 * 1000) })
+
+        expect(screen.getByText('2分経過')).toBeInTheDocument()
+      })
+    })
+
+    describe('再起動後に日次データだけが休憩中のとき', () => {
+      it('作業を始めると、タイマー画面に「休憩終了」を出す', async () => {
+        await renderTimerPage({ workStart: '09:00', breakStart: '12:00' })
+
+        await startTimer('再起動後の作業')
+
+        expect(screen.getByRole('button', { name: '休憩終了' })).toBeInTheDocument()
+      })
+    })
+
+    describe('休憩時の動作が「停止」で、休憩中に別の作業を始めたとき', () => {
+      const OTHER = '休憩中に始めた作業'
+
+      /** 作業を休憩で止めたあと、別の作業を始めてタイマー画面の「休憩終了」を押す */
+      async function endBreakWhileOtherWorkRunning(): Promise<void> {
+        await startBreakWhileRunning('stop')
+        await startTimer(OTHER)
+        vi.setSystemTime(new Date(`${TODAY}T12:30:00`))
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩終了' })) })
+      }
+
+      it('「休憩終了」を押しても、計測中の作業を画面に残す', async () => {
+        await endBreakWhileOtherWorkRunning()
+
+        expect(screen.getByText(OTHER)).toBeInTheDocument()
+      })
+
+      it('「休憩終了」のあとに「やめる」と、その作業を保存する', async () => {
+        await endBreakWhileOtherWorkRunning()
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'やめる' })) })
+
+        expect(saveSession).toHaveBeenLastCalledWith(expect.objectContaining({ name: OTHER }))
+      })
+
+      it('「休憩終了」を押すと、その時刻を休憩終了として記録する', async () => {
+        await endBreakWhileOtherWorkRunning()
+
+        expect(setDailyDay).toHaveBeenCalledWith(TODAY, { breakEnd: '12:30' })
+      })
+    })
+
+    describe('休憩していないとき', () => {
+      it('計測中は「休憩」を出す', async () => {
+        getBreakBehaviorSettings.mockResolvedValue({ behavior: 'pause' })
+        await renderTimerPage({ workStart: '09:00' })
+
+        await startTimer('休憩前の作業')
+
+        expect(screen.getByRole('button', { name: '休憩' })).toBeInTheDocument()
+      })
+    })
+
+    describe('休憩時の動作が「停止」', () => {
+      it('休憩を始めると、計測を止めてタイマー画面を閉じる', async () => {
+        await startBreakWhileRunning('stop')
+
+        expect(screen.queryByRole('button', { name: 'やめる' })).not.toBeInTheDocument()
+      })
+
+      it('休憩を始めると、勤務時間バーの「休憩終了」を出す', async () => {
+        await startBreakWhileRunning('stop')
+
+        expect(screen.getByRole('button', { name: '休憩終了' })).toBeInTheDocument()
+      })
     })
   })
 
