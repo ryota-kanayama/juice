@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { settingsRepository } from '../repositories/settingsRepository'
 import { applyTheme } from '../theme/applyTheme'
 import { DEFAULT_THEME_ID } from '../theme/themeParams'
@@ -37,28 +37,51 @@ export function useSettings(): SettingsState {
   const [mainProjectCode, setMainProjectCodeState] = useState('')
   const [launchAtLogin, setLaunchAtLoginState] = useState(false)
 
-  useEffect(() => {
-    const offThemeChanged = settingsRepository.onThemeChanged(setActiveThemeId)
-    settingsRepository.getTheme().then(setActiveThemeId)
-    settingsRepository.getIdle().then(({ enabled, minutes }) => {
+  // ディスクから読んで画面へ反映する。初回の読み込みと、保存失敗時の巻き戻しで共用する
+  const reloaders = useMemo(() => ({
+    theme: () => settingsRepository.getTheme().then(setActiveThemeId),
+    idle: () => settingsRepository.getIdle().then(({ enabled, minutes }) => {
       setIdleEnabled(enabled)
       setIdleMinutes(minutes)
-    })
-    settingsRepository.getElapsed().then(({ enabled, minutes }) => {
+    }),
+    elapsed: () => settingsRepository.getElapsed().then(({ enabled, minutes }) => {
       setElapsedEnabled(enabled)
       setElapsedMinutes(minutes)
-    })
-    settingsRepository.getPomodoro().then(({ enabled }) => {
-      setPomodoroEnabled(enabled)
-    })
-    settingsRepository.getWhiteboard().then(({ enabled }) => {
-      setWhiteboardEnabled(enabled)
-    })
-    settingsRepository.getBreakBehavior().then(({ behavior }) => setBreakBehaviorState(behavior))
-    settingsRepository.getMainProjectCode().then(setMainProjectCodeState)
-    settingsRepository.getLaunchAtLogin().then(setLaunchAtLoginState)
+    }),
+    pomodoro: () => settingsRepository.getPomodoro().then(({ enabled }) => setPomodoroEnabled(enabled)),
+    whiteboard: () => settingsRepository.getWhiteboard().then(({ enabled }) => setWhiteboardEnabled(enabled)),
+    breakBehavior: () => settingsRepository.getBreakBehavior().then(({ behavior }) => setBreakBehaviorState(behavior)),
+    mainProjectCode: () => settingsRepository.getMainProjectCode().then(setMainProjectCodeState),
+    launchAtLogin: () => settingsRepository.getLaunchAtLogin().then(setLaunchAtLoginState),
+  }), [])
+
+  /**
+   * 楽観反映した設定を保存する。保存に失敗したら原因を出し、ディスクの値を読み直して画面を戻す。
+   * 読み直しも失敗したときは画面の値を保つ。返す Promise は reject しない。
+   */
+  const persist = async (key: keyof typeof reloaders, save: Promise<void>, reload = reloaders[key]): Promise<void> => {
+    try {
+      await save
+    } catch (err) {
+      console.error(`[useSettings] ${key} の保存に失敗しました:`, err)
+      try {
+        await reload()
+      } catch (reloadErr) {
+        console.error(`[useSettings] ${key} の読み直しに失敗しました:`, reloadErr)
+      }
+    }
+  }
+
+  useEffect(() => {
+    const offThemeChanged = settingsRepository.onThemeChanged(setActiveThemeId)
+    for (const [key, reload] of Object.entries(reloaders)) {
+      // 失敗した設定は既定値のまま使い続ける
+      reload().catch((err: unknown) => {
+        console.error(`[useSettings] ${key} の読み込みに失敗しました:`, err)
+      })
+    }
     return offThemeChanged
-  }, [])
+  }, [reloaders])
 
   return {
     activeThemeId, idleEnabled, idleMinutes, elapsedEnabled, elapsedMinutes, pomodoroEnabled,
@@ -68,37 +91,42 @@ export function useSettings(): SettingsState {
       // 即時反映（IPC待ちなし）
       applyTheme(themeId)
       setActiveThemeId(themeId)
-      settingsRepository.setTheme(themeId)
+      // 失敗時は画面の見た目もディスクのテーマに戻す
+      void persist('theme', settingsRepository.setTheme(themeId), () =>
+        settingsRepository.getTheme().then(diskThemeId => {
+          applyTheme(diskThemeId)
+          setActiveThemeId(diskThemeId)
+        }))
     },
     setIdle: (enabled, minutes): void => {
       setIdleEnabled(enabled)
       setIdleMinutes(minutes)
-      settingsRepository.setIdle(enabled, minutes)
+      void persist('idle', settingsRepository.setIdle(enabled, minutes))
     },
     setElapsed: (enabled, minutes): void => {
       setElapsedEnabled(enabled)
       setElapsedMinutes(minutes)
-      settingsRepository.setElapsed(enabled, minutes)
+      void persist('elapsed', settingsRepository.setElapsed(enabled, minutes))
     },
     setPomodoro: (enabled): void => {
       setPomodoroEnabled(enabled)
-      settingsRepository.setPomodoro(enabled)
+      void persist('pomodoro', settingsRepository.setPomodoro(enabled))
     },
     setWhiteboard: (enabled): void => {
       setWhiteboardEnabled(enabled)
-      settingsRepository.setWhiteboard(enabled)
+      void persist('whiteboard', settingsRepository.setWhiteboard(enabled))
     },
     setBreakBehavior: (b): void => {
       setBreakBehaviorState(b)
-      settingsRepository.setBreakBehavior(b)
+      void persist('breakBehavior', settingsRepository.setBreakBehavior(b))
     },
     setMainProjectCode: (code): void => {
       setMainProjectCodeState(code)
-      settingsRepository.setMainProjectCode(code)
+      void persist('mainProjectCode', settingsRepository.setMainProjectCode(code))
     },
     setLaunchAtLogin: (enabled): void => {
       setLaunchAtLoginState(enabled)
-      settingsRepository.setLaunchAtLogin(enabled)
+      void persist('launchAtLogin', settingsRepository.setLaunchAtLogin(enabled))
     },
   }
 }
