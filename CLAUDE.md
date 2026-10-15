@@ -75,10 +75,10 @@ echo "herdr=${HERDR_PANE_ID:-} entry=${CLAUDE_CODE_ENTRYPOINT:-}"
 | 判定 | 実行環境 | 子の出し先 |
 | --- | --- | --- |
 | `HERDR_PANE_ID` が空でない | herdr のペイン | `herdr agent start` で別ペインに子セッションを立てる（`orchestrate` の手順どおり） |
-| `CLAUDE_CODE_ENTRYPOINT` が `claude-vscode` | VSCode 拡張 | 子セッションを立てられないので、サブエージェントへ出す。Red/Green の分離は `tdd` の手順で行い、レビューは司令が持つ |
-| どちらでもない | 素の端末など | 出し先をユーザーに確認する |
+| `CLAUDE_CODE_ENTRYPOINT` が `claude-vscode` | VSCode 拡張 | 指示書を `.claude/handoff/` に書き、貼り付け用の文面をコードブロックでユーザーに渡す。ユーザーが別セッションを開いて貼る（`orchestrate` の「子を直接起動できないとき」） |
+| どちらでもない | 素の端末など | VSCode 拡張と同じく指示書で渡す |
 
-VSCode 拡張で並行作業が要るときは、herdr への切り替えをユーザーに提案する。VSCode 拡張から `tauri dev` を起動するときは `env -u ELECTRON_RUN_AS_NODE` を付ける（[Commands](#commands)）。
+VSCode 拡張から `tauri dev` を起動するときは `env -u ELECTRON_RUN_AS_NODE` を付ける（[Commands](#commands)）。
 
 ## アーキテクチャ
 

@@ -7,6 +7,7 @@ jsl-hub の `.claude/` から持ち込み、juice 向けに調整した。
 - **skills** — 設計・実装・レビューの進め方。ユーザーが `/名前` で呼ぶことも、条件が揃えば自発的に発動することもある
 - **settings.json** — フックの登録(パスは `$CLAUDE_PROJECT_DIR` 相対)
 - **state/** — セッション別の状態。機械生成で git 管理外
+- **handoff/** — 子セッションへの指示書(`orchestrate` が書く)。git 管理外
 
 依存: `bash`・`jq`(必須)、`git`(一部のフックのみ)、`gh`(`worktree` スキルの `list`・`cleanup`)。`jq` が無ければレビュー強制のフックは無音で素通しする。
 

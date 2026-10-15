@@ -57,6 +57,7 @@ coverage
 .claude/settings.local.json
 .claude/worktrees/
 .claude/state/
+.claude/handoff/
 docs
 
 # TypeScript build info
