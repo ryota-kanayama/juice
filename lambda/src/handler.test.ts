@@ -440,3 +440,194 @@ it('知らないパスは 404', async () => {
 
   expect(res.statusCode).toBe(404)
 })
+
+describe('レスポンスの形', () => {
+  const quiet = () => vi.spyOn(console, 'error').mockImplementation(() => {})
+
+  it('JSON のレスポンスは UTF-8 の application/json で返す', async () => {
+    const res = await handler(makeEvent('/auth/me'))
+
+    expect(res.headers).toEqual({ 'Content-Type': 'application/json; charset=utf-8' })
+  })
+
+  it('JWT が無い /auth/me は {error:"unauthorized"}', async () => {
+    const res = await handler(makeEvent('/auth/me'))
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'unauthorized' })
+  })
+
+  it('JWT が無い /auth/refresh は {error:"unauthorized"}', async () => {
+    const res = await handler(makeEvent('/auth/refresh', {}, {}, { method: 'POST' }))
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'unauthorized' })
+  })
+
+  it('JWT が無い勤怠送信は {error:"unauthorized"}', async () => {
+    const res = await handler(makeEvent('/api/attendance.send', {}, {}, { method: 'POST', body: '{}' }))
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'unauthorized' })
+  })
+
+  it('JWT が無いホワイトボード送信は {error:"unauthorized"}', async () => {
+    const res = await handler(makeEvent('/api/whiteboard.leave', {}, {}, { method: 'POST', body: '{}' }))
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'unauthorized' })
+  })
+
+  it('知らないパスは {error:"not found"}', async () => {
+    const res = await handler(makeEvent('/nope'))
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'not found' })
+  })
+
+  it('本文が不正な勤怠送信は {error:"bad request"}', async () => {
+    const res = await handler(
+      makeEvent('/api/attendance.send', {}, bearer(tokenFor()), { method: 'POST', body: JSON.stringify({ text: '' }) }),
+    )
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'bad request' })
+  })
+
+  it('勤怠 API に届かなければ {error:"attendance api error"}', async () => {
+    vi.mocked(attendanceSend.postAttendance).mockResolvedValue({ error: 'network: x' })
+    quiet()
+
+    const res = await handler(
+      makeEvent('/api/attendance.send', {}, bearer(tokenFor()), { method: 'POST', body: JSON.stringify({ text: 't' }) }),
+    )
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'attendance api error' })
+  })
+
+  it('ホワイトボードの送信に成功したら {ok:true}', async () => {
+    vi.mocked(whiteboardPost.postWhiteboard).mockResolvedValue({ ok: true })
+
+    const res = await handler(
+      makeEvent('/api/whiteboard.telework', {}, bearer(tokenFor({ email: 'a@jsl.co.jp' })), { method: 'POST', body: '{}' }),
+    )
+
+    expect(JSON.parse(res.body!)).toEqual({ ok: true })
+  })
+
+  it('ホワイトボード API が失敗したら {error:"whiteboard api error"}', async () => {
+    vi.mocked(whiteboardPost.postWhiteboard).mockResolvedValue({ error: 'magnet: 500' })
+    quiet()
+
+    const res = await handler(
+      makeEvent('/api/whiteboard.leave', {}, bearer(tokenFor({ email: 'a@jsl.co.jp' })), { method: 'POST', body: '{}' }),
+    )
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'whiteboard api error' })
+  })
+
+  it('エラーページは UTF-8 の text/html で返す', async () => {
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: 'unsigned' }))
+
+    expect(res.headers).toEqual({ 'Content-Type': 'text/html; charset=utf-8' })
+  })
+
+  it('Slack 認証に失敗したら、その旨をエラーページに出す', async () => {
+    vi.mocked(slackOidc.fetchSlackIdentity).mockResolvedValue({ error: 'token: bad' })
+    quiet()
+
+    const res = await handler(makeEvent('/auth/callback', { code: 'C1', state: SIGNED }))
+
+    expect(res.body).toContain('Slack 認証に失敗しました')
+  })
+})
+
+describe('Authorization ヘッダーの解釈', () => {
+  const me = (authorization: string) => handler(makeEvent('/auth/me', {}, { authorization }))
+
+  it('Bearer の前に余計な文字があれば 401', async () => {
+    const res = await me(`x Bearer ${tokenFor()}`)
+
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('トークンの後ろに改行と余計な文字が続けば 401', async () => {
+    const res = await me(`Bearer ${tokenFor()}\nextra`)
+
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('Bearer の後にトークンが無ければ 401', async () => {
+    const res = await me('Bearer ')
+
+    expect(res.statusCode).toBe(401)
+  })
+})
+
+describe('GET /auth/start の state 検証', () => {
+  const start = (state: string) => handler(makeEvent('/auth/start', { state }))
+
+  it('16 文字の state は受け付ける（302）', async () => {
+    const res = await start('a'.repeat(16))
+
+    expect(res.statusCode).toBe(302)
+  })
+
+  it('128 文字の state は受け付ける（302）', async () => {
+    const res = await start('a'.repeat(128))
+
+    expect(res.statusCode).toBe(302)
+  })
+
+  it('15 文字の state は 400', async () => {
+    const res = await start('a'.repeat(15))
+
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('129 文字の state は 400', async () => {
+    const res = await start('a'.repeat(129))
+
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('先頭に使えない文字がある state は 400', async () => {
+    const res = await start(`!${'a'.repeat(20)}`)
+
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('末尾に使えない文字がある state は 400', async () => {
+    const res = await start(`${'a'.repeat(20)}!`)
+
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('state が無ければ 400', async () => {
+    const res = await handler(makeEvent('/auth/start'))
+
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('エラーページは state の値をエコーしない', async () => {
+    const res = await start('<script>alert(1)</script>')
+
+    expect(res.body).not.toContain('<script>alert(1)</script>')
+  })
+
+  it('SLACK_CLIENT_ID が未設定ならエラーにする', async () => {
+    delete process.env.SLACK_CLIENT_ID
+
+    await expect(start('a'.repeat(32))).rejects.toThrow('環境変数 SLACK_CLIENT_ID が未設定')
+  })
+})
+
+describe('ホワイトボード API のルーティング', () => {
+  const withEmail = () => tokenFor({ email: 'a@jsl.co.jp' })
+
+  it('GET では受け付けない（404）', async () => {
+    const res = await handler(makeEvent('/api/whiteboard.telework', {}, bearer(withEmail())))
+
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('知らない種類は POST でも 404', async () => {
+    const res = await handler(makeEvent('/api/whiteboard.other', {}, bearer(withEmail()), { method: 'POST', body: '{}' }))
+
+    expect(res.statusCode).toBe(404)
+  })
+})
