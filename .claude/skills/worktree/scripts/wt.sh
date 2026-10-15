@@ -83,7 +83,7 @@ cmd_create() {
   if [ -f "$path/.envrc" ] && command -v direnv >/dev/null 2>&1; then
     (cd "$path" && direnv allow) || info "注意: direnv allow に失敗しました。$path で手で実行してください"
   fi
-  info "作成: $path(ブランチ $b、起点 $REMOTE/$base = $(git rev-parse --short "$REMOTE/$base"))"
+  info "作成: ${path}(ブランチ ${b}、起点 ${REMOTE}/${base} = $(git rev-parse --short "$REMOTE/$base"))"
 }
 
 cmd_list() {
