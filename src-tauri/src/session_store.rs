@@ -337,9 +337,10 @@ mod tests {
         }
     }
 
-    /// 未移行（version 無し・単区間が totalTime と食い違う）の月ファイルを置く。
+    /// 未移行（version 無し・単区間が totalTime と食い違う）の月ファイルの中身。
     const LEGACY_MONTH_RAW: &str = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30}]}"##;
 
+    /// 未移行の月ファイルを置く。
     fn write_legacy_month(dir: &TempDir) {
         std::fs::write(dir.path().join("sessions-2026-05.json"), LEGACY_MONTH_RAW).unwrap();
     }
