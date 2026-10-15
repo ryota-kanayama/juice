@@ -322,8 +322,12 @@ export function TimerPage({ sessions, tourDemo = false }: { sessions: SessionsSt
             projectCodeSuggestions={suggestions.projectCodes}
             workCategorySuggestions={suggestions.workCategories}
             onStop={ts.stop}
-            onBreak={workday.breakStart === null ? () => { void breakState.handleBreakStart(ts.activeTimerProjectCode, ts.activeTimerWorkCategory) } : undefined}
-            isOnBreak={breakState.isOnBreak}
+            onBreak={
+              workday.breakStart === null ? () => { void breakState.handleBreakStart(ts.activeTimerProjectCode, ts.activeTimerWorkCategory) }
+                : workday.breakEnd === null ? () => { breakState.handleBreakEnd() }
+                  : undefined
+            }
+            isOnBreak={workday.breakStart !== null && workday.breakEnd === null}
           />
         </div>
       ) : !workday.workStart ? (
