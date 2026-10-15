@@ -182,7 +182,7 @@ pub fn run() {
             app.manage(holidays::HolidaysClient::new());
             app.manage(auth::AuthStore::new(data_dir));
             app.manage(oauth::PendingState::default());
-            app.manage(quit::UpdateAck::default());
+            app.manage(quit::PrepareQuitAck::default());
             app.manage(quit::QuitGate::default());
             app.manage(update::LastChecked::default());
             app.manage(AnchorPos::default());
