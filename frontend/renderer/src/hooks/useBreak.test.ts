@@ -199,6 +199,20 @@ describe('useBreak', () => {
       expect(ts.startMore).not.toHaveBeenCalled()
     })
 
+    it('別の作業が計測中に休憩を終えたあと、計測していない状態から次の休憩を始めて終えても、休憩前の古い作業を再開しない', async () => {
+      const ts = makeRunningTs(makeSession())
+      const hook = await renderBreak(ts, makeWorkday())
+      await startBreak(hook)
+      ts.isRunning = true
+      act(() => { hook.current.handleBreakEnd() })
+      ts.isRunning = false
+      await startBreak(hook)
+
+      act(() => { hook.current.handleBreakEnd() })
+
+      expect(ts.startMore).not.toHaveBeenCalled()
+    })
+
     it('再開は一度きり（次の休憩終了で同じ作業を再開しない）', async () => {
       const ts = makeRunningTs(makeSession())
       const hook = await renderBreak(ts, makeWorkday())
