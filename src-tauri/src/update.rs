@@ -78,6 +78,29 @@ impl LastChecked {
     }
 }
 
+/// `update_install` の二重実行を防ぐゲート。
+#[allow(dead_code)] // Green で update_install から使う
+#[derive(Default)]
+pub struct InstallGate(std::sync::atomic::AtomicBool);
+
+#[allow(dead_code)] // Green で update_install から使う
+impl InstallGate {
+    /// 実行を始められれば true。すでに実行中なら false。
+    pub fn try_begin(&self) -> bool {
+        todo!()
+    }
+    /// 実行の終了を知らせる。以降は再び始められる。
+    pub fn finish(&self) {
+        todo!()
+    }
+}
+
+/// 画面で承認されたバージョンと、保持している直近のチェック結果が一致するときだけ、その情報を返す。
+#[allow(dead_code)] // Green で update_install から使う
+pub fn approved_update(_last: Option<UpdateInfo>, _approved: &str) -> Option<UpdateInfo> {
+    todo!()
+}
+
 // ---- バージョン比較（Electron 版 shared/version.ts 相当） ----
 
 /// 先頭の v/V と前後空白を除く。
@@ -770,6 +793,127 @@ mod tests {
 
         // ' は '\'' へエスケープされる
         assert!(s.contains(r#"DMG='/tmp/x'\''y.dmg'"#));
+    }
+
+    /// 差し替えスクリプトを、偽のコマンドを差した PATH で実際に走らせる。
+    /// 退避（mv）が失敗する状況（.app が無い）で、コピー（cp）まで進んだかを返す。
+    #[cfg(unix)]
+    fn script_reaches_cp_when_backup_move_fails() -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::TempDir::new().unwrap();
+        let bin = dir.path().join("bin");
+        std::fs::create_dir(&bin).unwrap();
+        let cp_calls = dir.path().join("cp-calls");
+        for name in ["hdiutil", "open", "xattr"] {
+            std::fs::write(bin.join(name), "#!/bin/bash\nexit 0\n").unwrap();
+        }
+        std::fs::write(
+            bin.join("cp"),
+            format!("#!/bin/bash\necho called >> '{}'\nexit 0\n", cp_calls.display()),
+        )
+        .unwrap();
+        for entry in std::fs::read_dir(&bin).unwrap() {
+            let path = entry.unwrap().path();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let missing_app = dir.path().join("Missing.app");
+        let script = build_install_script(
+            999_999_999,
+            "/dev/null",
+            &missing_app.to_string_lossy(),
+            &dir.path().join("log").to_string_lossy(),
+        );
+        let script_path = dir.path().join("update.sh");
+        std::fs::write(&script_path, script).unwrap();
+
+        std::process::Command::new("/bin/bash")
+            .arg(&script_path)
+            .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
+            .status()
+            .unwrap();
+
+        cp_calls.exists()
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn install_script_stops_before_copy_when_backup_move_fails() {
+        let reached_cp = script_reaches_cp_when_backup_move_fails();
+
+        assert!(!reached_cp, "退避の mv が失敗したら cp -R に進まず中断すること");
+    }
+
+    #[test]
+    fn install_gate_accepts_the_first_request() {
+        let gate = InstallGate::default();
+
+        let accepted = gate.try_begin();
+
+        assert!(accepted);
+    }
+
+    #[test]
+    fn install_gate_rejects_a_second_request_while_running() {
+        let gate = InstallGate::default();
+        gate.try_begin();
+
+        let accepted = gate.try_begin();
+
+        assert!(!accepted);
+    }
+
+    #[test]
+    fn install_gate_accepts_again_after_finish() {
+        let gate = InstallGate::default();
+        gate.try_begin();
+        gate.finish();
+
+        let accepted = gate.try_begin();
+
+        assert!(accepted);
+    }
+
+    #[test]
+    fn approved_update_returns_info_when_version_matches() {
+        let last = Some(sample_info("2.2.0", "notes"));
+
+        let approved = approved_update(last, "2.2.0").unwrap();
+
+        assert_eq!(approved.latest_version, "2.2.0");
+    }
+
+    #[test]
+    fn approved_update_is_none_when_version_differs() {
+        let last = Some(sample_info("2.3.0", "notes"));
+
+        let approved = approved_update(last, "2.2.0");
+
+        assert!(approved.is_none());
+    }
+
+    #[test]
+    fn approved_update_is_none_when_never_checked() {
+        let approved = approved_update(None, "2.2.0");
+
+        assert!(approved.is_none());
+    }
+
+    #[test]
+    fn approved_update_ignores_v_prefix_on_the_approved_version() {
+        let last = Some(sample_info("2.2.0", "notes"));
+
+        let approved = approved_update(last, "v2.2.0").unwrap();
+
+        assert_eq!(approved.latest_version, "2.2.0");
+    }
+
+    #[test]
+    fn approved_update_ignores_v_prefix_on_the_checked_version() {
+        let last = Some(sample_info("v2.2.0", "notes"));
+
+        let approved = approved_update(last, "2.2.0").unwrap();
+
+        assert_eq!(approved.latest_version, "v2.2.0");
     }
 
     #[test]

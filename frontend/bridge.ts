@@ -95,7 +95,7 @@ const bridge = {
   checkForUpdate: () => invoke("update_check"),
   dismissUpdate: (version: string) =>
     invoke("settings_set_dismissed_update_version", { version }),
-  installUpdate: () => invoke("update_install"),
+  installUpdate: (version?: string) => invoke("update_install", { version }),
   readyToQuit: () => invoke("update_ready_to_quit"),
   getPendingUpdate: () => invoke("update_pending"),
 

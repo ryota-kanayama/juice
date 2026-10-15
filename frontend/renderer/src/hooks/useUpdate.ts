@@ -15,6 +15,10 @@ export interface UpdateState {
   checkedUpToDate: boolean
   check: () => Promise<void>
   install: () => void
+  /** 計測中の更新で、アプリ内の確認ダイアログを出しているか */
+  confirmingInstall: boolean
+  confirmInstall: () => void
+  cancelInstall: () => void
   dismiss: () => void
 }
 
@@ -119,5 +123,13 @@ export function useUpdate(): UpdateState {
     setPhase('idle')
   }
 
-  return { phase, info, percent, error, currentVersion, checking, checkedUpToDate, check, install, dismiss }
+  // Red のスタブ: 確認ダイアログの本体は Green で実装する
+  const confirmingInstall = false
+  const confirmInstall = (): void => { throw new Error('todo') }
+  const cancelInstall = (): void => { throw new Error('todo') }
+
+  return {
+    phase, info, percent, error, currentVersion, checking, checkedUpToDate,
+    check, install, confirmingInstall, confirmInstall, cancelInstall, dismiss,
+  }
 }
