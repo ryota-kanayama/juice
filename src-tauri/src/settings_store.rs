@@ -74,7 +74,8 @@ impl SettingsStore {
         Some(raw.into_settings())
     }
 
-    /// プライマリ→.bak→デフォルトの順に読む。失敗はすべてフォールバック。
+    /// プライマリ→.bak→デフォルトの順に読む。失敗はすべてフォールバック
+    /// （両方壊れていたときも、壊れたファイルは退避したうえでデフォルトを使う）。
     fn read_all(&self) -> Settings {
         read_json_with_backup(&self.file_path(), Self::parse)
             .ok()

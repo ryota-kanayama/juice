@@ -4,6 +4,7 @@
 // - 読み込みは本体→.bak の順に試す（既定値への落とし込みは呼び出し側）
 
 use serde::Serialize;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 
@@ -35,7 +36,8 @@ pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 /// value を整形 JSON にして path へ原子的に書く。
-/// 親ディレクトリを作り、tmp へ書いてから、既存の本体を .bak へ退避し、tmp を本体へ rename する。
+/// 親ディレクトリを作り、tmp へ書いて sync_all で永続化してから、
+/// 既存の本体を .bak へ退避し、tmp を本体へ rename する。
 pub(crate) fn write_json_atomic<T: Serialize + ?Sized>(
     path: &Path,
     value: &T,
@@ -46,26 +48,97 @@ pub(crate) fn write_json_atomic<T: Serialize + ?Sized>(
     let tmp = append_ext(path, ".tmp");
     let bak = append_ext(path, ".bak");
     let json = serde_json::to_string_pretty(value)?;
-    std::fs::write(&tmp, json)?;
+    let mut file = std::fs::File::create(&tmp)?;
+    file.write_all(json.as_bytes())?;
+    file.sync_all()?;
+    drop(file);
     // 本体が未存在なら無視
     let _ = std::fs::rename(path, &bak);
     std::fs::rename(&tmp, path)?;
     Ok(())
 }
 
+/// 退避先のパス `<path>.corrupt-<ローカル日時 ミリ秒まで>` を返す。同名があれば連番を足す。
+pub(crate) fn corrupt_path(path: &Path) -> PathBuf {
+    let stamp = chrono::Local::now().format("%Y%m%dT%H%M%S%.3f");
+    let base = append_ext(path, &format!(".corrupt-{stamp}"));
+    if !base.exists() {
+        return base;
+    }
+    (1..)
+        .map(|n| append_ext(&base, &format!("-{n}")))
+        .find(|p| !p.exists())
+        .expect("unbounded range")
+}
+
+/// 壊れたファイルを `.corrupt-<日時>` へ移動する（元の場所からは無くなる）。
+fn move_aside(path: &Path) {
+    let to = corrupt_path(path);
+    match std::fs::rename(path, &to) {
+        Ok(()) => eprintln!("[juice] corrupt file moved: {} -> {}", path.display(), to.display()),
+        Err(e) => eprintln!("[juice] failed to move corrupt file {}: {e}", path.display()),
+    }
+}
+
+/// 元のファイルを残したまま `.corrupt-<日時>` へ複製する。
+pub(crate) fn copy_aside(path: &Path) {
+    let to = corrupt_path(path);
+    match std::fs::copy(path, &to) {
+        Ok(_) => eprintln!("[juice] corrupt file copied: {} -> {}", path.display(), to.display()),
+        Err(e) => eprintln!("[juice] failed to copy corrupt file {}: {e}", path.display()),
+    }
+}
+
+/// 1つのファイルを読んだ結果。存在しない（NotFound）のと壊れているのは区別する。
+enum ReadOne<T> {
+    Missing,
+    Corrupt,
+    Ok(T),
+}
+
+fn read_one<T>(path: &Path, parse: &mut impl FnMut(&str) -> Option<T>) -> ReadOne<T> {
+    match std::fs::read_to_string(path) {
+        Ok(content) => parse(&content).map_or(ReadOne::Corrupt, ReadOne::Ok),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => ReadOne::Missing,
+        Err(_) => ReadOne::Corrupt,
+    }
+}
+
 /// 本体→.bak の順に読み、parse が Some を返した最初のものを (読み取り元のパス, 値) で返す。
 /// 本体も .bak も存在しないときは Ok(None)。
-/// 壊れているもの（読めない・パースできない）は .corrupt-<日時> へ退避し、
-/// 本体も .bak も読めないときは Err(StoreError::Corrupt(本体のパス)) を返す。
+/// 壊れているもの（読めない・パースできない）は .corrupt-<日時> へ移動する。
+/// .bak から読めたときはログを出す。本体も .bak も読めないときは
+/// Err(StoreError::Corrupt(本体のパス)) を返す。
 pub(crate) fn read_json_with_backup<T>(
     path: &Path,
-    parse: impl Fn(&str) -> Option<T>,
+    mut parse: impl FnMut(&str) -> Option<T>,
 ) -> Result<Option<(PathBuf, T)>, StoreError> {
-    let read_one = |p: PathBuf| {
-        let content = std::fs::read_to_string(&p).ok()?;
-        parse(&content).map(|value| (p, value))
+    let primary = match read_one(path, &mut parse) {
+        ReadOne::Ok(value) => return Ok(Some((path.to_path_buf(), value))),
+        other => other,
     };
-    Ok(read_one(path.to_path_buf()).or_else(|| read_one(append_ext(path, ".bak"))))
+    let bak_path = append_ext(path, ".bak");
+    let backup = read_one(&bak_path, &mut parse);
+    let primary_corrupt = matches!(primary, ReadOne::Corrupt);
+    match backup {
+        ReadOne::Ok(value) => {
+            eprintln!("[juice] restored from backup: {}", bak_path.display());
+            if primary_corrupt {
+                move_aside(path);
+            }
+            Ok(Some((bak_path, value)))
+        }
+        ReadOne::Missing if !primary_corrupt => Ok(None),
+        backup => {
+            if primary_corrupt {
+                move_aside(path);
+            }
+            if matches!(backup, ReadOne::Corrupt) {
+                move_aside(&bak_path);
+            }
+            Err(StoreError::Corrupt(path.to_path_buf()))
+        }
+    }
 }
 
 /// テスト共通: `<file_name>.corrupt-` で始まる退避ファイルの中身を、ファイル名順に返す。

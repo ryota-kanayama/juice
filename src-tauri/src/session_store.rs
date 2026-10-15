@@ -5,7 +5,9 @@
 // - 書き込みは tmp→rename で原子的に行い、旧ファイルは .bak に退避する
 // - 破損時は .bak へフォールバックする
 
-use crate::fs_util::{append_ext, lock, read_json_with_backup, write_json_atomic, StoreError};
+use crate::fs_util::{
+    append_ext, copy_aside, lock, read_json_with_backup, write_json_atomic, StoreError,
+};
 use crate::types::{Session, TimeInterval, WorkLocation};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
@@ -67,7 +69,8 @@ const PRE_MIGRATION_BACKUP_SUFFIX: &str = ".pre-v2.bak";
 struct RawSessionFile {
     #[serde(default)]
     version: u32,
-    sessions: Vec<RawSession>,
+    /// レコード単位で読むため、ここでは形を問わない。
+    sessions: Vec<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -124,12 +127,21 @@ impl SessionStore {
         Ok(session.date[0..7].to_string())
     }
 
-    /// 内容をパース。パース失敗は None。
-    /// 返り値は (ファイルの version, セッション)。version 無しは 1 とみなす。
-    fn parse(content: &str) -> Option<(u32, Vec<Session>)> {
+    /// 内容をパース。ファイル全体のパース失敗は None。
+    /// 返り値は (ファイルの version, セッション, 形の不正で除いたレコード数)。
+    /// version 無しは 1 とみなす。
+    fn parse(content: &str) -> Option<(u32, Vec<Session>, usize)> {
         let raw: RawSessionFile = serde_json::from_str(content).ok()?;
         let version = if raw.version == 0 { 1 } else { raw.version };
-        Some((version, raw.sessions.into_iter().map(into_session).collect()))
+        let total = raw.sessions.len();
+        let sessions: Vec<Session> = raw
+            .sessions
+            .into_iter()
+            .filter_map(|v| serde_json::from_value::<RawSession>(v).ok())
+            .map(into_session)
+            .collect();
+        let skipped = total - sessions.len();
+        Some((version, sessions, skipped))
     }
 
     pub fn get_sessions(&self, year_month: &str) -> Result<Vec<Session>, StoreError> {
@@ -146,10 +158,26 @@ impl SessionStore {
         let path = self.file_path(year_month)?;
         // 読み取り元のパスも覚えておく（移行前の退避はこのファイルを複製する）
         let read = read_json_with_backup(&path, Self::parse)?;
-        let Some((source, (version, sessions))) = read else {
+        let Some((source, (version, sessions, skipped))) = read else {
             return Ok(Vec::new());
         };
+        // 形の不正なレコードだけを除いて読む。元のファイルは複製して残す
+        // （複製したので、以後の書き直しで不正なレコードが消えても中身は失われない）。
+        if skipped > 0 {
+            eprintln!(
+                "[juice] {} malformed session records skipped in {}",
+                skipped,
+                source.display()
+            );
+            copy_aside(&source);
+        }
         if version >= SESSION_FILE_VERSION {
+            // 書き直しに失敗しても読めた分は返す（次回の読み込みで再試行される）
+            if skipped > 0 {
+                if let Err(e) = self.write(year_month, &sessions) {
+                    eprintln!("[juice] rewriting {year_month} without malformed records failed: {e}");
+                }
+            }
             return Ok(sessions);
         }
         // 一度だけの移行。

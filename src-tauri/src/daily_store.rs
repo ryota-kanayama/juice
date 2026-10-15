@@ -150,7 +150,12 @@ impl DailyStore {
         }
         for year_month in months {
             let _guard = lock(&self.write_lock);
-            let mut month = self.get_month(&year_month)?;
+            let mut month = match self.get_month(&year_month) {
+                Ok(month) => month,
+                // 壊れた月は退避済み。他の月の整理は続ける
+                Err(StoreError::Corrupt(_)) => continue,
+                Err(e) => return Err(e),
+            };
             let before = month.days.len();
             month.days.retain(|date, _| date.as_str() >= cutoff.as_str());
             if month.days.len() != before {
