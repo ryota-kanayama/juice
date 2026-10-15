@@ -1,0 +1,36 @@
+{
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "mutate": [
+    "frontend/renderer/src/domain/**/*.ts",
+    "frontend/renderer/src/hooks/**/*.{ts,tsx}",
+    "frontend/renderer/src/daily/**/*.{ts,tsx}",
+    "frontend/shared/**/*.ts",
+    "lambda/src/**/*.ts",
+    "!**/*.test.{ts,tsx}",
+    "!**/*.d.ts"
+  ],
+  "coverageAnalysis": "perTest",
+  "reporters": [
+    "json",
+    "clear-text",
+    "progress"
+  ],
+  "jsonReporter": {
+    "fileName": "reports/mutation-final.json"
+  },
+  "concurrency": 4,
+  "timeoutMS": 20000,
+  "tempDirName": "reports/stryker-tmp",
+  "cleanTempDir": true,
+  "ignorePatterns": [
+    "src-tauri",
+    "reports",
+    "dist",
+    ".git",
+    ".claude",
+    "docs"
+  ]
+}

@@ -128,4 +128,4 @@ description: テストの書き方規約(言語非依存)。テストを書く�
 - **配置**: フロントのテストは対象と同じ場所の `*.test.ts(x)`。共通のテストデータは `frontend/renderer/src/test/factories.ts`(`makeSession` など)を使い、テストごとの重要な値だけ上書きする。`window.bridge` は各テストで `vi.stubGlobal` する。
 - **決定的にする**: 乱数・現在時刻・タイマーに依存させない(`Math.random` のスタブ、固定の日付、`vi.useFakeTimers`)。
 - **データ**: テストは実ファイルの `Juice/`(本番データ)にも `juice-dev/` にも触れない。ストアは一時ディレクトリで検証する。
-- **変異解析**: Stryker(設定は `stryker.conf.json`、`npx stryker run`)。対象は `domain`・`hooks`・`daily`・`shared`・`lambda`。Rust 側は未確立で、上の手動手順で回す。
+- **変異解析**: Stryker(設定は `stryker.conf.json`、`npm run mutation`)。対象は `domain`・`hooks`・`daily`・`shared`・`lambda`。Rust 側は未確立で、上の手動手順で回す。

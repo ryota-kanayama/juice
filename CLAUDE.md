@@ -38,6 +38,9 @@ npm run tauri build
 
 # 静的解析（フロント）
 npm run lint
+
+# ミューテーションテスト（Stryker。結果は reports/ に出る）
+npm run mutation
 ```
 
 ## 作業の進め方
