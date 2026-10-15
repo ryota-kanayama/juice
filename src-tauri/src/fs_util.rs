@@ -81,12 +81,13 @@ fn move_aside(path: &Path) {
 }
 
 /// 元のファイルを残したまま `.corrupt-<日時>` へ複製する。
-pub(crate) fn copy_aside(path: &Path) {
+pub(crate) fn copy_aside(path: &Path) -> bool {
     let to = corrupt_path(path);
     match std::fs::copy(path, &to) {
         Ok(_) => eprintln!("[juice] corrupt file copied: {} -> {}", path.display(), to.display()),
         Err(e) => eprintln!("[juice] failed to copy corrupt file {}: {e}", path.display()),
     }
+    true
 }
 
 /// 1つのファイルを読んだ結果。存在しない（NotFound）のと壊れているのは区別する。
@@ -559,6 +560,283 @@ mod tests {
         let read = read_json_with_backup(&path, parse_json).unwrap();
 
         assert_eq!(read, None);
+    }
+
+    /// `<file_name>.corrupt-` で始まる退避ファイルの中身（バイト列）を、ファイル名順に返す。
+    fn corrupt_copy_bytes(dir: &Path, file_name: &str) -> Vec<Vec<u8>> {
+        let prefix = format!("{file_name}.corrupt-");
+        let mut found: Vec<(String, Vec<u8>)> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap())
+            .filter(|e| e.file_name().to_string_lossy().starts_with(&prefix))
+            .map(|e| {
+                (
+                    e.file_name().to_string_lossy().into_owned(),
+                    std::fs::read(e.path()).unwrap(),
+                )
+            })
+            .collect();
+        found.sort();
+        found.into_iter().map(|(_, bytes)| bytes).collect()
+    }
+
+    // --- UTF-8 でない本体は壊れたものとして扱う ---
+
+    #[test]
+    fn read_json_with_backup_returns_corrupt_error_when_primary_is_not_utf8() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, [0xff, 0xfe]).unwrap();
+
+        let read = read_json_with_backup(&path, parse_json);
+
+        assert!(
+            matches!(read, Err(StoreError::Corrupt(ref p)) if *p == path),
+            "本体のパスを持つ Corrupt エラーになること: {read:?}"
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_moves_non_utf8_primary_aside() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, [0xff, 0xfe]).unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(
+            corrupt_copy_bytes(dir.path(), "data.json"),
+            vec![vec![0xff, 0xfe]]
+        );
+    }
+
+    // --- 読めないだけ（I/O エラー）のものは壊れたとみなさず、何も動かさない ---
+
+    #[test]
+    fn read_json_with_backup_returns_io_error_when_primary_is_a_directory() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::create_dir(&path).unwrap();
+
+        let read = read_json_with_backup(&path, parse_json);
+
+        assert!(
+            matches!(read, Err(StoreError::Io(_))),
+            "Io エラーになること: {read:?}"
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_moves_nothing_when_primary_is_a_directory() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(append_ext(&path, ".bak"), r#"{"a":1}"#).unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(
+            file_names(dir.path()),
+            vec!["data.json".to_string(), "data.json.bak".to_string()]
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_does_not_adopt_backup_when_primary_cannot_be_read() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(append_ext(&path, ".bak"), r#"{"a":1}"#).unwrap();
+
+        let read = read_json_with_backup(&path, parse_json);
+
+        assert!(
+            matches!(read, Err(StoreError::Io(_))),
+            "本体が読めないときは .bak を採用せず Io エラーになること: {read:?}"
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_returns_io_error_when_backup_is_a_directory() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::create_dir(append_ext(&path, ".bak")).unwrap();
+
+        let read = read_json_with_backup(&path, parse_json);
+
+        assert!(
+            matches!(read, Err(StoreError::Io(_))),
+            "Io エラーになること: {read:?}"
+        );
+    }
+
+    #[test]
+    fn read_json_with_backup_leaves_corrupt_primary_in_place_when_backup_cannot_be_read() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "{ broken").unwrap();
+        std::fs::create_dir(append_ext(&path, ".bak")).unwrap();
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(
+            file_names(dir.path()),
+            vec!["data.json".to_string(), "data.json.bak".to_string()]
+        );
+    }
+
+    // --- 本体を退避できないときは .bak を採用しない ---
+
+    /// ディレクトリを読み取り専用にする（rename・新規作成が失敗する）。Drop で元に戻す。
+    #[cfg(unix)]
+    struct ReadOnlyDir(PathBuf);
+
+    #[cfg(unix)]
+    impl ReadOnlyDir {
+        fn new(dir: &Path) -> Self {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+            ReadOnlyDir(dir.to_path_buf())
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for ReadOnlyDir {
+        fn drop(&mut self) {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o755));
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_json_with_backup_returns_io_error_when_corrupt_primary_cannot_be_set_aside() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "{ broken").unwrap();
+        std::fs::write(append_ext(&path, ".bak"), r#"{"a":1}"#).unwrap();
+        let _read_only = ReadOnlyDir::new(dir.path());
+
+        let read = read_json_with_backup(&path, parse_json);
+
+        assert!(
+            matches!(read, Err(StoreError::Io(_))),
+            "退避も複製もできないときは .bak を採用せず Io エラーになること: {read:?}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn read_json_with_backup_keeps_corrupt_primary_in_place_when_it_cannot_be_set_aside() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "{ broken").unwrap();
+        std::fs::write(append_ext(&path, ".bak"), r#"{"a":1}"#).unwrap();
+        let _read_only = ReadOnlyDir::new(dir.path());
+
+        let _ = read_json_with_backup(&path, parse_json);
+
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{ broken");
+    }
+
+    // --- copy_aside ---
+
+    #[test]
+    fn copy_aside_copies_the_file_and_keeps_the_original() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "content").unwrap();
+
+        copy_aside(&path);
+
+        assert_eq!(
+            (
+                std::fs::read_to_string(&path).unwrap(),
+                corrupt_copies(dir.path(), "data.json")
+            ),
+            ("content".to_string(), vec!["content".to_string()])
+        );
+    }
+
+    #[test]
+    fn copy_aside_returns_true_when_copied() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "content").unwrap();
+
+        let copied = copy_aside(&path);
+
+        assert!(copied, "複製できたら true を返すこと");
+    }
+
+    #[test]
+    fn copy_aside_returns_false_when_the_file_cannot_be_read() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("missing.json");
+
+        let copied = copy_aside(&path);
+
+        assert!(!copied, "複製できなかったら false を返すこと");
+    }
+
+    #[test]
+    fn copy_aside_does_not_copy_again_when_an_identical_copy_exists() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "content").unwrap();
+        copy_aside(&path);
+
+        copy_aside(&path);
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "data.json"),
+            vec!["content".to_string()]
+        );
+    }
+
+    #[test]
+    fn copy_aside_returns_true_when_an_identical_copy_exists() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "content").unwrap();
+        copy_aside(&path);
+
+        let copied = copy_aside(&path);
+
+        assert!(copied, "同一の複製が既にあれば、保全済みとして true を返すこと");
+    }
+
+    #[test]
+    fn copy_aside_copies_again_when_the_content_differs_from_existing_copies() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        std::fs::write(&path, "first").unwrap();
+        copy_aside(&path);
+        std::fs::write(&path, "second").unwrap();
+
+        copy_aside(&path);
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "data.json"),
+            vec!["first".to_string(), "second".to_string()]
+        );
+    }
+
+    #[test]
+    fn copy_aside_ignores_identical_copies_of_another_file() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("data.json");
+        let other = dir.path().join("data.json.bak");
+        std::fs::write(&path, "content").unwrap();
+        std::fs::write(&other, "content").unwrap();
+        copy_aside(&other);
+
+        copy_aside(&path);
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "data.json"),
+            vec!["content".to_string()]
+        );
     }
 
     #[test]

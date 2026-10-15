@@ -602,15 +602,21 @@ mod tests {
 
     // --- 形の不正なレコード ---
 
-    /// 正しいセッション1件と、形の不正なレコード1件を持つ version 2 の月ファイルを置く。
-    /// 戻り値は (正しいセッション, 置いたファイルの中身)。
-    fn write_month_with_one_malformed_record(dir: &TempDir) -> (Session, String) {
+    /// 正しいセッション1件と、形の不正なレコード1件を持つ version 2 の月ファイルの中身。
+    /// 戻り値は (正しいセッション, ファイルの中身)。
+    fn month_with_one_malformed_record() -> (Session, String) {
         let valid = sample("valid", "2026-02-25");
         let raw = serde_json::json!({
             "version": 2,
             "sessions": [serde_json::to_value(&valid).unwrap(), { "name": 5 }],
         })
         .to_string();
+        (valid, raw)
+    }
+
+    /// month_with_one_malformed_record の中身を月ファイルとして置く。
+    fn write_month_with_one_malformed_record(dir: &TempDir) -> (Session, String) {
+        let (valid, raw) = month_with_one_malformed_record();
         std::fs::write(dir.path().join("sessions-2026-02.json"), &raw).unwrap();
         (valid, raw)
     }
@@ -668,6 +674,134 @@ mod tests {
             corrupt_copies(dir.path(), "sessions-2026-02.json"),
             vec![raw]
         );
+    }
+
+    #[test]
+    fn second_read_does_not_copy_aside_again_when_rewrite_fails() {
+        let (store, dir) = new_store();
+        let (_, raw) = write_month_with_one_malformed_record(&dir);
+        // tmp の位置にディレクトリを置いて、書き直しだけを失敗させる
+        std::fs::create_dir(dir.path().join("sessions-2026-02.json.tmp")).unwrap();
+        store.get_sessions("2026-02").unwrap();
+
+        store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "sessions-2026-02.json"),
+            vec![raw]
+        );
+    }
+
+    #[test]
+    fn malformed_record_in_backup_is_copied_aside_from_the_backup() {
+        let (store, dir) = new_store();
+        let (_, raw) = month_with_one_malformed_record();
+        std::fs::write(dir.path().join("sessions-2026-02.json"), "{ broken").unwrap();
+        std::fs::write(dir.path().join("sessions-2026-02.json.bak"), &raw).unwrap();
+
+        store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "sessions-2026-02.json.bak"),
+            vec![raw]
+        );
+    }
+
+    #[test]
+    fn malformed_record_in_backup_is_read_around() {
+        let (store, dir) = new_store();
+        let (valid, raw) = month_with_one_malformed_record();
+        std::fs::write(dir.path().join("sessions-2026-02.json"), "{ broken").unwrap();
+        std::fs::write(dir.path().join("sessions-2026-02.json.bak"), &raw).unwrap();
+
+        let got = store.get_sessions("2026-02").unwrap();
+
+        assert_eq!(got, vec![valid]);
+    }
+
+    /// 未移行（version 無し）で、移行対象の記録と形の不正なレコードを1件ずつ持つ月ファイルの中身。
+    const LEGACY_MONTH_WITH_MALFORMED_RAW: &str = r##"{"sessions":[{"id":"a","taskId":"a","name":"作業","times":[{"startTime":"2026-05-20T10:00:00","endTime":"2026-05-20T10:01:00"}],"date":"2026-05-20","color":"#FF9500","totalTime":30},{"name":5}]}"##;
+
+    fn write_legacy_month_with_malformed(dir: &TempDir) {
+        std::fs::write(
+            dir.path().join("sessions-2026-05.json"),
+            LEGACY_MONTH_WITH_MALFORMED_RAW,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn unmigrated_file_with_malformed_record_is_copied_aside_as_original() {
+        let (store, dir) = new_store();
+        write_legacy_month_with_malformed(&dir);
+
+        store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            corrupt_copies(dir.path(), "sessions-2026-05.json"),
+            vec![LEGACY_MONTH_WITH_MALFORMED_RAW.to_string()]
+        );
+    }
+
+    #[test]
+    fn unmigrated_file_with_malformed_record_keeps_original_in_pre_migration_backup() {
+        let (store, dir) = new_store();
+        write_legacy_month_with_malformed(&dir);
+
+        store.get_sessions("2026-05").unwrap();
+
+        let pre =
+            std::fs::read_to_string(dir.path().join("sessions-2026-05.json.pre-v2.bak")).unwrap();
+        assert_eq!(pre, LEGACY_MONTH_WITH_MALFORMED_RAW);
+    }
+
+    #[test]
+    fn unmigrated_file_with_malformed_record_still_gets_migrated() {
+        let (store, dir) = new_store();
+        write_legacy_month_with_malformed(&dir);
+
+        let got = store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(
+            got[0].times,
+            vec![interval("2026-05-20T10:00:00", Some("2026-05-20T10:30:00"))]
+        );
+    }
+
+    #[test]
+    fn unmigrated_file_with_malformed_record_returns_only_the_valid_session() {
+        let (store, dir) = new_store();
+        write_legacy_month_with_malformed(&dir);
+
+        let got = store.get_sessions("2026-05").unwrap();
+
+        assert_eq!(got.len(), 1);
+    }
+
+    // --- 読めないだけの月ファイル（I/O エラー）は壊れたものとして扱わない ---
+
+    #[test]
+    fn get_sessions_returns_io_error_when_month_file_cannot_be_read() {
+        let (store, dir) = new_store();
+        std::fs::create_dir(dir.path().join("sessions-2026-02.json")).unwrap();
+
+        let result = store.get_sessions("2026-02");
+
+        assert!(
+            matches!(result, Err(StoreError::Io(_))),
+            "Io エラーになること: {result:?}"
+        );
+    }
+
+    #[test]
+    fn get_sessions_moves_nothing_when_month_file_cannot_be_read() {
+        let (store, dir) = new_store();
+        let path = dir.path().join("sessions-2026-02.json");
+        std::fs::create_dir(&path).unwrap();
+
+        let _ = store.get_sessions("2026-02");
+
+        assert!(path.is_dir(), "読めなかったものを動かさないこと");
     }
 
     // --- 入力検証 ---
