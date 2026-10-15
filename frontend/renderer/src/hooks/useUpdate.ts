@@ -62,6 +62,8 @@ export function useUpdate(): UpdateState {
     const offAvail = updateRepository.onAvailable((i) => {
       setInfo(i)
       setPhase('available')
+      // 確認を出した版と別の版が見つかったら、古い確認のままでは承認させない
+      setConfirmingVersion(v => (v !== null && v !== i.latestVersion ? null : v))
     })
     const offProg = updateRepository.onProgress((p) => {
       if (p.error) {
@@ -115,9 +117,10 @@ export function useUpdate(): UpdateState {
   }
 
   const install = (): void => {
+    // 更新情報が無ければ承認する版が無いので何もしない
+    if (!info) return
     // 押した時点の版を承認の対象にする。確認中に新しい版が見つかっても、その版は承認していない。
-    // 更新情報が無ければ空文字を渡す（バックエンドは一致する版が無いものとして入れない）。
-    const version = info?.latestVersion ?? ''
+    const version = info.latestVersion
     void (async () => {
       const running = await timerRepository.isRunning().catch(() => false)
       if (running) {
