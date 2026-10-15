@@ -12,10 +12,11 @@ const TODAY = '2026-02-25'
 
 const setDailyDay = vi.fn()
 let dayStore: DailyMonth['days'] = {}
+let dailyChanged: (p: { yearMonth: string }) => void = () => {}
 vi.stubGlobal('bridge', {
   getDailyMonth: () => Promise.resolve({ version: 1, days: dayStore }),
   setDailyDay,
-  onDailyChanged: () => () => {},
+  onDailyChanged: (cb: (p: { yearMonth: string }) => void) => { dailyChanged = cb; return () => {} },
 })
 
 const session = (overrides: Partial<Session> = {}): Session => makeSession({
@@ -170,6 +171,17 @@ describe('SessionList', () => {
       for (let i = 0; i < 5; i++) await act(async () => {})
 
       expect(setDailyDay).toHaveBeenCalledTimes(1)
+    })
+
+    it('並び順が別の内容に変わったあとに同じ同期が必要になったら、保存を試みる', async () => {
+      dayStore = { [TODAY]: { sessionOrder: ['2', '1', 'STALE'] } }
+      renderList({ sessions: twoSessions })
+      await waitFor(() => expect(setDailyDay).toHaveBeenCalledTimes(1))
+
+      dayStore = { [TODAY]: { sessionOrder: ['2', '1', 'OTHER'] } }
+      await act(async () => { dailyChanged({ yearMonth: TODAY.slice(0, 7) }) })
+
+      await waitFor(() => expect(setDailyDay).toHaveBeenCalledTimes(2))
     })
   })
 

@@ -63,7 +63,8 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
   const customOrder = daily.getDay(todayKey)?.sessionOrder ?? null
 
   // セッションの追加/削除に customOrder を追従させる。死んだIDを除き新規IDを末尾へ。
-  // 保存に失敗すると setDay がディスクの順序へ戻して再びずれるため、同じ日・同じ並びの同期は1回しか試みない。
+  // 保存に失敗すると setDay がディスクの順序へ戻して再びずれるため、同じ日・同じ並びの同期は、
+  // 同期前の順序も同じ間は1回しか試みない（順序が別の内容に変われば、同じ並びでも改めて試みる）。
   // 表示は orderSessions が補正するので、同期の保存が失敗しても画面は崩れない
   const lastSyncRef = useRef<string | null>(null)
   useEffect(() => {
@@ -71,7 +72,7 @@ export function SessionList({ sessions, today, isRunning, onStartMore, onUpdate,
     const synced = orderSessions(sessions, customOrder).map(s => s.id)
     const changed = synced.length !== customOrder.length || synced.some((id, i) => id !== customOrder[i])
     if (!changed) return
-    const attempt = JSON.stringify([todayKey, synced])
+    const attempt = JSON.stringify([todayKey, customOrder, synced])
     if (lastSyncRef.current === attempt) return
     lastSyncRef.current = attempt
     void daily.setDay(todayKey, { sessionOrder: synced })
