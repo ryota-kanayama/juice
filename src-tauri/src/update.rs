@@ -79,26 +79,36 @@ impl LastChecked {
 }
 
 /// `update_install` の二重実行を防ぐゲート。
-#[allow(dead_code)] // Green で update_install から使う
 #[derive(Default)]
 pub struct InstallGate(std::sync::atomic::AtomicBool);
 
-#[allow(dead_code)] // Green で update_install から使う
 impl InstallGate {
     /// 実行を始められれば true。すでに実行中なら false。
     pub fn try_begin(&self) -> bool {
-        todo!()
+        self.0
+            .compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst)
+            .is_ok()
     }
     /// 実行の終了を知らせる。以降は再び始められる。
     pub fn finish(&self) {
-        todo!()
+        self.0.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+/// スコープを抜けるときにゲートを開ける。早期 return が多い install を確実に再実行可能へ戻す。
+struct InstallGuard<'a>(&'a InstallGate);
+
+impl Drop for InstallGuard<'_> {
+    fn drop(&mut self) {
+        self.0.finish();
     }
 }
 
 /// 画面で承認されたバージョンと、保持している直近のチェック結果が一致するときだけ、その情報を返す。
-#[allow(dead_code)] // Green で update_install から使う
-pub fn approved_update(_last: Option<UpdateInfo>, _approved: &str) -> Option<UpdateInfo> {
-    todo!()
+/// 承認後に新しい版が出ていても、承認していない版を入れないための照合。
+pub fn approved_update(last: Option<UpdateInfo>, approved: &str) -> Option<UpdateInfo> {
+    let approved = normalize_version(approved);
+    last.filter(|i| i.has_update && normalize_version(&i.latest_version) == approved)
 }
 
 // ---- バージョン比較（Electron 版 shared/version.ts 相当） ----
@@ -419,7 +429,12 @@ hdiutil attach "$DMG" -nobrowse -mountpoint "$MOUNT" || exit 1
 
 # 3) 退避 → コピー → 失敗時ロールバック
 rm -rf "$BACKUP"
-mv "$APP" "$BACKUP" 2>/dev/null
+if ! mv "$APP" "$BACKUP"; then
+  echo "backup failed: could not move $APP to $BACKUP"
+  hdiutil detach "$MOUNT" -quiet
+  open "$APP"
+  exit 1
+fi
 if ! cp -R "$MOUNT/$APP_NAME" "$APP"; then
   rm -rf "$APP"
   mv "$BACKUP" "$APP"
@@ -509,12 +524,19 @@ fn open_path_with_default(app: &AppHandle, path: &PathBuf) {
 }
 
 /// 更新を適用する（Electron 版 updateService.install 相当）。
-pub async fn install(app: &AppHandle) {
-    let info = match check_for_update(app).await {
-        Ok(i) => i,
-        Err(e) => {
-            eprintln!("[update] install: re-check failed: {e}");
-            emit_progress(app, 0, true, Some("更新情報の取得に失敗しました".into()));
+/// 最新リリースを取り直さず、画面で承認された版（approved_version）と直近のチェック結果が
+/// 一致したときだけ入れる。
+pub async fn install(app: &AppHandle, approved_version: &str) {
+    let gate = app.state::<InstallGate>();
+    if !gate.try_begin() {
+        return;
+    }
+    let _running = InstallGuard(&gate);
+    let info = match approved_update(app.state::<LastChecked>().get(), approved_version) {
+        Some(i) => i,
+        None => {
+            eprintln!("[update] install: approved version {approved_version} does not match the last check");
+            emit_progress(app, 0, true, Some("更新情報が変わりました。もう一度確認してください".into()));
             return;
         }
     };

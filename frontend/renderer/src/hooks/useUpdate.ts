@@ -31,6 +31,8 @@ export function useUpdate(): UpdateState {
   const [currentVersion, setCurrentVersion] = useState('')
   const [checking, setChecking] = useState(false)
   const [checkedUpToDate, setCheckedUpToDate] = useState(false)
+  // 確認ダイアログを出している間、承認の対象になっているバージョン（出していなければ null）
+  const [confirmingVersion, setConfirmingVersion] = useState<string | null>(null)
 
   useEffect(() => {
     // マウント時に現在のバージョンを取得する（ネットワーク不要）
@@ -101,21 +103,39 @@ export function useUpdate(): UpdateState {
     }
   }
 
+  const startInstall = (version: string): void => {
+    setError(null)
+    setPercent(0)
+    setPhase('downloading')
+    setCheckedUpToDate(false)
+    updateRepository.install(version).catch(() => {
+      setError('更新に失敗しました')
+      setPhase('error')
+    })
+  }
+
   const install = (): void => {
+    // 押した時点の版を承認の対象にする。確認中に新しい版が見つかっても、その版は承認していない。
+    // 更新情報が無ければ空文字を渡す（バックエンドは一致する版が無いものとして入れない）。
+    const version = info?.latestVersion ?? ''
     void (async () => {
       const running = await timerRepository.isRunning().catch(() => false)
-      if (running && !window.confirm('作業を保存して更新します。アプリが再起動します。よろしいですか？')) {
+      if (running) {
+        setConfirmingVersion(version)
         return
       }
-      setError(null)
-      setPercent(0)
-      setPhase('downloading')
-      setCheckedUpToDate(false)
-      updateRepository.install().catch(() => {
-        setError('更新に失敗しました')
-        setPhase('error')
-      })
+      startInstall(version)
     })()
+  }
+
+  const confirmInstall = (): void => {
+    if (confirmingVersion === null) return
+    setConfirmingVersion(null)
+    startInstall(confirmingVersion)
+  }
+
+  const cancelInstall = (): void => {
+    setConfirmingVersion(null)
   }
 
   const dismiss = (): void => {
@@ -123,13 +143,8 @@ export function useUpdate(): UpdateState {
     setPhase('idle')
   }
 
-  // Red のスタブ: 確認ダイアログの本体は Green で実装する
-  const confirmingInstall = false
-  const confirmInstall = (): void => { throw new Error('todo') }
-  const cancelInstall = (): void => { throw new Error('todo') }
-
   return {
     phase, info, percent, error, currentVersion, checking, checkedUpToDate,
-    check, install, confirmingInstall, confirmInstall, cancelInstall, dismiss,
+    check, install, confirmingInstall: confirmingVersion !== null, confirmInstall, cancelInstall, dismiss,
   }
 }

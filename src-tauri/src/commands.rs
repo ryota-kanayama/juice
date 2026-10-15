@@ -348,8 +348,8 @@ pub async fn update_check(app: tauri::AppHandle) -> CmdResult<crate::update::Upd
 }
 
 #[tauri::command]
-pub async fn update_install(app: tauri::AppHandle) {
-    crate::update::install(&app).await;
+pub async fn update_install(app: tauri::AppHandle, version: String) {
+    crate::update::install(&app, &version).await;
 }
 
 /// 直近の更新チェック結果を引き直す。レンダラーはマウント時にこれを呼び、

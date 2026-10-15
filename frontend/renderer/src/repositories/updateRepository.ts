@@ -7,7 +7,7 @@ export const updateRepository = {
   check(): Promise<UpdateInfo> {
     return window.bridge.checkForUpdate()
   },
-  install(version?: string): Promise<void> {
+  install(version: string): Promise<void> {
     return window.bridge.installUpdate(version)
   },
   readyToQuit(): Promise<void> {

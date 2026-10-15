@@ -69,7 +69,7 @@ interface Bridge {
 
   // update
   checkForUpdate: () => Promise<UpdateInfo>
-  installUpdate: (version?: string) => Promise<void>
+  installUpdate: (version: string) => Promise<void>
   readyToQuit: () => Promise<void>
   dismissUpdate: (version: string) => Promise<void>
   onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void

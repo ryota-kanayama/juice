@@ -1,5 +1,6 @@
 // src/renderer/src/components/Popover/UpdateBanner.tsx
 import type { UpdateState } from '../../hooks/useUpdate'
+import { UpdateInstallConfirm } from '../ConfirmDialog/UpdateInstallConfirm'
 import { releaseNotesRepository } from '../../repositories/releaseNotesRepository'
 
 interface Props {
@@ -17,19 +18,22 @@ export function UpdateBanner({ update }: Props) {
     // 文言ボタンの aria-label は可視テキストで始める。可視文言が読み上げ名に含まれないと
     // 音声操作で見えているとおりに言っても押せなくなる。
     return (
-      <div className={`${bar} bg-[var(--accent-light)] text-[var(--accent)]`}>
-        <button
-          className="text-left underline decoration-dotted underline-offset-2"
-          aria-label={`新しいバージョン v${info.latestVersion} があります — 変更点を見る`}
-          onClick={() => { releaseNotesRepository.openPending().catch(console.error) }}
-        >
-          新しいバージョン v{info.latestVersion} があります
-        </button>
-        <span className="flex shrink-0 items-center gap-2">
-          <button className="font-semibold underline" onClick={install}>更新</button>
-          <button aria-label="閉じる" onClick={dismiss}>✕</button>
-        </span>
-      </div>
+      <>
+        <div className={`${bar} bg-[var(--accent-light)] text-[var(--accent)]`}>
+          <button
+            className="text-left underline decoration-dotted underline-offset-2"
+            aria-label={`新しいバージョン v${info.latestVersion} があります — 変更点を見る`}
+            onClick={() => { releaseNotesRepository.openPending().catch(console.error) }}
+          >
+            新しいバージョン v{info.latestVersion} があります
+          </button>
+          <span className="flex shrink-0 items-center gap-2">
+            <button className="font-semibold underline" onClick={install}>更新</button>
+            <button aria-label="閉じる" onClick={dismiss}>✕</button>
+          </span>
+        </div>
+        <UpdateInstallConfirm update={update} />
+      </>
     )
   }
 
