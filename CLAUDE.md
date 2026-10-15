@@ -54,6 +54,32 @@ npm run mutation
 - コードを変更してコミットしたら `impl-review`、文書を更新したら `doc-review` を回す。`impl-review` は未実施を Stop フックが検知する。
 - テストの書き方は `test-writing`。AAA は空行で区切り（マーカーコメントは付けない）、共通のテストデータは `frontend/renderer/src/test/factories.ts` を使う。
 
+### 司令役を基本にする
+
+**作業は `orchestrate` スキルの司令役として進める。** ユーザーが「司令として」と言わなくても、これが既定である。司令は設計判断・レビュー・PR を持ち、プロダクトコードは書かずに子へ出す。子の出し先は実行環境で決まる（次節）。
+
+プロダクトコードを含まない軽微な変更（文書の誤字、設定1行など）は、司令が直接行ってよい。
+
+司令から委譲された子セッション（`.claude/skills/orchestrate/CHILD.md` を読むよう指示されたもの）は、この節と次節を適用せず CHILD.md に従う。子がさらに子を立てないためである。
+
+### 着手前に実行環境を判定する
+
+**最初に環境変数で実行環境を判定し、子の出し先を決める。** ユーザーは VSCode 拡張と herdr（AI エージェント向けの端末多重化ツール）を使い分けている。
+
+```bash
+echo "herdr=${HERDR_PANE_ID:-} entry=${CLAUDE_CODE_ENTRYPOINT:-}"
+```
+
+判定と出し先は次の表のとおり。上の行ほど優先する。VSCode の統合ターミナルで herdr を動かすと両方が立つが、そのときは herdr として扱う。
+
+| 判定 | 実行環境 | 子の出し先 |
+| --- | --- | --- |
+| `HERDR_PANE_ID` が空でない | herdr のペイン | `herdr agent start` で別ペインに子セッションを立てる（`orchestrate` の手順どおり） |
+| `CLAUDE_CODE_ENTRYPOINT` が `claude-vscode` | VSCode 拡張 | 指示書を `.claude/handoff/` に書き、貼り付け用の文面をコードブロックでユーザーに渡す。ユーザーが別セッションを開いて貼る（`orchestrate` の「子を直接起動できないとき」） |
+| どちらでもない | 素の端末など | VSCode 拡張と同じく指示書で渡す |
+
+VSCode 拡張から `tauri dev` を起動するときは `env -u ELECTRON_RUN_AS_NODE` を付ける（[Commands](#commands)）。
+
 ## アーキテクチャ
 
 **Juice Timer** は **Tauri（Rust）+ React** で構築された macOS メニューバーアプリ。作業セッションを時間区間として記録し、JSON ファイルに保存する。元は Electron 製で、Chromium 由来のメモリ過大（アイドル時 ≈230MB）を主因に Tauri へ移行した。
