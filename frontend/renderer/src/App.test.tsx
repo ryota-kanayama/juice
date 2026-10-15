@@ -154,30 +154,12 @@ describe('TimerPage', () => {
         expect(setDailyDay).toHaveBeenCalledWith(TODAY, { breakEnd: '12:30' })
       })
 
-      it('休憩を終えると、ボタンは「休憩」に戻る', async () => {
+      it('休憩を終えると、休憩ボタン（「休憩」「休憩終了」とも）は出さない', async () => {
         await startBreakWhileRunning('pause')
 
         await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩終了' })) })
 
-        expect(screen.getByRole('button', { name: '休憩' })).toBeInTheDocument()
-      })
-
-      it('休憩を終えると、「休憩終了」は消える', async () => {
-        await startBreakWhileRunning('pause')
-
-        await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩終了' })) })
-
-        expect(screen.queryByRole('button', { name: '休憩終了' })).not.toBeInTheDocument()
-      })
-
-      it('休憩を終えたあと、もう一度「休憩」を押すと新しい休憩開始を記録する', async () => {
-        await startBreakWhileRunning('pause')
-        await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩終了' })) })
-        vi.setSystemTime(new Date(`${TODAY}T15:00:00`))
-
-        await act(async () => { fireEvent.click(screen.getByRole('button', { name: '休憩' })) })
-
-        expect(setDailyDay).toHaveBeenLastCalledWith(TODAY, { breakStart: '15:00', breakEnd: null })
+        expect(screen.queryAllByRole('button', { name: /^休憩/ })).toEqual([])
       })
     })
 
