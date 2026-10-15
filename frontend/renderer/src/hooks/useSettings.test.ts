@@ -28,6 +28,11 @@ vi.mock('../theme/applyTheme', () => ({ applyTheme: (t: string) => mockApplyThem
 
 import { useSettings } from './useSettings'
 
+const setterMethods = [
+  'setTheme', 'setIdle', 'setElapsed', 'setPomodoro', 'setWhiteboard',
+  'setBreakBehavior', 'setMainProjectCode', 'setLaunchAtLogin',
+] as const
+
 let themeChanged: ((themeId: string) => void) | null = null
 const offThemeChanged = vi.fn()
 
@@ -46,6 +51,7 @@ beforeEach(() => {
   repo.getBreakBehavior.mockResolvedValue({ behavior: 'stop' })
   repo.getMainProjectCode.mockResolvedValue('')
   repo.getLaunchAtLogin.mockResolvedValue(false)
+  for (const setter of setterMethods) repo[setter].mockResolvedValue(undefined)
 })
 
 type Hook = RenderHookResult<SettingsState, unknown>
@@ -73,15 +79,16 @@ async function collectUnhandledRejections(run: () => Promise<void>): Promise<unk
 }
 
 const loadFailure = new Error('load failed')
+const reloadFailure = new Error('reload failed')
 const saveFailure = new Error('disk full')
 
 // vi.fn は返した Promise に自前で then を付けて結果を記録するため、呼び出し側が
 // 返り値を捨てても unhandled rejection にならない。捨てたことを検知できるよう、
-// unhandled rejection のテストでは素の関数に差し替えて、保存を必ず失敗させる。
+// unhandled rejection のテストでは素の関数に差し替えて、必ず失敗させる。
 const replaced = new Map<keyof typeof repo, unknown>()
-function failSaveWithPlainPromise(method: keyof typeof repo): void {
+function failWithPlainPromise(method: keyof typeof repo, reason: unknown): void {
   replaced.set(method, repo[method])
-  ;(repo as Record<string, unknown>)[method] = () => Promise.reject(saveFailure)
+  ;(repo as Record<string, unknown>)[method] = () => Promise.reject(reason)
 }
 afterEach(() => {
   for (const [method, original] of replaced) (repo as Record<string, unknown>)[method] = original
@@ -238,7 +245,7 @@ describe('useSettings', () => {
 
       it('unhandled rejection を出さない', async () => {
         const { result } = await renderLoaded()
-        failSaveWithPlainPromise('setTheme')
+        failWithPlainPromise('setTheme', saveFailure)
 
         const reasons = await collectUnhandledRejections(async () => {
           await act(async () => { result.current.setTheme('graphite') })
@@ -246,10 +253,46 @@ describe('useSettings', () => {
 
         expect(reasons).toEqual([])
       })
+
+      describe('ディスクの読み直しにも失敗したとき', () => {
+        it('選択中のテーマは楽観反映した値のまま', async () => {
+          const { result } = await renderLoaded()
+          repo.setTheme.mockRejectedValue(saveFailure)
+          repo.getTheme.mockRejectedValue(reloadFailure)
+
+          await act(async () => { result.current.setTheme('graphite') })
+
+          expect(result.current.activeThemeId).toBe('graphite')
+        })
+
+        it('読み直しの失敗の原因を console.error に出す', async () => {
+          const { result } = await renderLoaded()
+          repo.setTheme.mockRejectedValue(saveFailure)
+          repo.getTheme.mockRejectedValue(reloadFailure)
+
+          await act(async () => { result.current.setTheme('graphite') })
+
+          expect(vi.mocked(console.error).mock.calls.flat()).toContain(reloadFailure)
+        })
+
+        it('unhandled rejection を出さない', async () => {
+          const { result } = await renderLoaded()
+          failWithPlainPromise('setTheme', saveFailure)
+          failWithPlainPromise('getTheme', reloadFailure)
+
+          const reasons = await collectUnhandledRejections(async () => {
+            await act(async () => { result.current.setTheme('graphite') })
+          })
+
+          expect(reasons).toEqual([])
+        })
+      })
     })
   })
 
-  // 各 setter は「保存する」と「画面の状態を変える」の2つを行う
+  // 各 setter は「保存する」と「画面の状態を変える」の2つを行う。
+  // 初期ロード値・楽観値・読み直し値は、取れる値が2つしかない boolean と breakBehavior を除いてすべて異なる。
+  // その場合も、読み直し値は初期ロード値と異なる（直前の値へ戻す実装と区別するため）
   const setters: Array<{
     name: string
     call: (s: SettingsState) => void
@@ -259,13 +302,13 @@ describe('useSettings', () => {
     disk: [Getter, unknown]
     restored: Partial<SettingsState>
   }> = [
-    { name: 'setIdle', call: s => s.setIdle(true, 90), saved: ['setIdle', [true, 90]], state: { idleEnabled: true, idleMinutes: 90 } , disk: ['getIdle', { enabled: false, minutes: 30 }], restored: { idleEnabled: false, idleMinutes: 30 } },
-    { name: 'setElapsed', call: s => s.setElapsed(true, 15), saved: ['setElapsed', [true, 15]], state: { elapsedEnabled: true, elapsedMinutes: 15 } , disk: ['getElapsed', { enabled: false, minutes: 50 }], restored: { elapsedEnabled: false, elapsedMinutes: 50 } },
-    { name: 'setPomodoro', call: s => s.setPomodoro(true), saved: ['setPomodoro', [true]], state: { pomodoroEnabled: true } , disk: ['getPomodoro', { enabled: false }], restored: { pomodoroEnabled: false } },
-    { name: 'setWhiteboard', call: s => s.setWhiteboard(true), saved: ['setWhiteboard', [true]], state: { whiteboardEnabled: true } , disk: ['getWhiteboard', { enabled: false }], restored: { whiteboardEnabled: false } },
-    { name: 'setBreakBehavior', call: s => s.setBreakBehavior('pause'), saved: ['setBreakBehavior', ['pause']], state: { breakBehavior: 'pause' } , disk: ['getBreakBehavior', { behavior: 'stop' }], restored: { breakBehavior: 'stop' } },
-    { name: 'setMainProjectCode', call: s => s.setMainProjectCode('PJ-9'), saved: ['setMainProjectCode', ['PJ-9']], state: { mainProjectCode: 'PJ-9' } , disk: ['getMainProjectCode', 'PJ-1'], restored: { mainProjectCode: 'PJ-1' } },
-    { name: 'setLaunchAtLogin', call: s => s.setLaunchAtLogin(true), saved: ['setLaunchAtLogin', [true]], state: { launchAtLogin: true } , disk: ['getLaunchAtLogin', false], restored: { launchAtLogin: false } },
+    { name: 'setIdle', call: s => s.setIdle(true, 90), saved: ['setIdle', [true, 90]], state: { idleEnabled: true, idleMinutes: 90 }, disk: ['getIdle', { enabled: false, minutes: 30 }], restored: { idleEnabled: false, idleMinutes: 30 } },
+    { name: 'setElapsed', call: s => s.setElapsed(true, 15), saved: ['setElapsed', [true, 15]], state: { elapsedEnabled: true, elapsedMinutes: 15 }, disk: ['getElapsed', { enabled: false, minutes: 50 }], restored: { elapsedEnabled: false, elapsedMinutes: 50 } },
+    { name: 'setPomodoro', call: s => s.setPomodoro(true), saved: ['setPomodoro', [true]], state: { pomodoroEnabled: true }, disk: ['getPomodoro', { enabled: true }], restored: { pomodoroEnabled: true } },
+    { name: 'setWhiteboard', call: s => s.setWhiteboard(true), saved: ['setWhiteboard', [true]], state: { whiteboardEnabled: true }, disk: ['getWhiteboard', { enabled: true }], restored: { whiteboardEnabled: true } },
+    { name: 'setBreakBehavior', call: s => s.setBreakBehavior('pause'), saved: ['setBreakBehavior', ['pause']], state: { breakBehavior: 'pause' }, disk: ['getBreakBehavior', { behavior: 'pause' }], restored: { breakBehavior: 'pause' } },
+    { name: 'setMainProjectCode', call: s => s.setMainProjectCode('PJ-9'), saved: ['setMainProjectCode', ['PJ-9']], state: { mainProjectCode: 'PJ-9' }, disk: ['getMainProjectCode', 'PJ-1'], restored: { mainProjectCode: 'PJ-1' } },
+    { name: 'setLaunchAtLogin', call: s => s.setLaunchAtLogin(true), saved: ['setLaunchAtLogin', [true]], state: { launchAtLogin: true }, disk: ['getLaunchAtLogin', true], restored: { launchAtLogin: true } },
   ]
 
   describe.each(setters)('$name', ({ call, saved: [method, args], state, disk: [getter, diskValue], restored }) => {
@@ -296,6 +339,15 @@ describe('useSettings', () => {
         expect(result.current).toMatchObject(restored)
       })
 
+      it('ディスクの値を読み直す（初回の読み込みと合わせて2回）', async () => {
+        const { result } = await renderLoaded()
+        repo[method].mockRejectedValue(saveFailure)
+
+        await act(async () => { call(result.current) })
+
+        expect(repo[getter]).toHaveBeenCalledTimes(2)
+      })
+
       it('原因を console.error に出す', async () => {
         const { result } = await renderLoaded()
         repo[method].mockRejectedValue(saveFailure)
@@ -307,13 +359,47 @@ describe('useSettings', () => {
 
       it('unhandled rejection を出さない', async () => {
         const { result } = await renderLoaded()
-        failSaveWithPlainPromise(method)
+        failWithPlainPromise(method, saveFailure)
 
         const reasons = await collectUnhandledRejections(async () => {
           await act(async () => { call(result.current) })
         })
 
         expect(reasons).toEqual([])
+      })
+
+      describe('ディスクの読み直しにも失敗したとき', () => {
+        it('楽観反映した値のまま', async () => {
+          const { result } = await renderLoaded()
+          repo[method].mockRejectedValue(saveFailure)
+          repo[getter].mockRejectedValue(reloadFailure)
+
+          await act(async () => { call(result.current) })
+
+          expect(result.current).toMatchObject(state)
+        })
+
+        it('読み直しの失敗の原因を console.error に出す', async () => {
+          const { result } = await renderLoaded()
+          repo[method].mockRejectedValue(saveFailure)
+          repo[getter].mockRejectedValue(reloadFailure)
+
+          await act(async () => { call(result.current) })
+
+          expect(vi.mocked(console.error).mock.calls.flat()).toContain(reloadFailure)
+        })
+
+        it('unhandled rejection を出さない', async () => {
+          const { result } = await renderLoaded()
+          failWithPlainPromise(method, saveFailure)
+          failWithPlainPromise(getter, reloadFailure)
+
+          const reasons = await collectUnhandledRejections(async () => {
+            await act(async () => { call(result.current) })
+          })
+
+          expect(reasons).toEqual([])
+        })
       })
     })
   })

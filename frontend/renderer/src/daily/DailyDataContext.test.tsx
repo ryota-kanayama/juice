@@ -31,9 +31,6 @@ async function renderLoaded(days: DailyMonth['days'] = {}) {
   return { result, unmount }
 }
 
-/** 失敗するかどうかは別のテストで見る。ここでは結果を捨てて、その後の状態だけを検証できるようにする */
-const ignoringRejection = (p: Promise<void>): Promise<void> => p.catch(() => {})
-
 beforeEach(() => {
   repo.getMonth.mockReset()
   repo.setDay.mockReset().mockResolvedValue(undefined)
@@ -121,7 +118,7 @@ describe('DailyDataProvider', () => {
         repo.setDay.mockRejectedValue(saveFailure)
         repo.getMonth.mockResolvedValue(month({ '2026-08-09': { workStart: '09:00' } }))
 
-        await act(async () => { await ignoringRejection(result.current.setDay('2026-08-09', { workEnd: '18:00' })) })
+        await act(async () => { await result.current.setDay('2026-08-09', { workEnd: '18:00' }) })
 
         expect(result.current.getDay('2026-08-09')).toEqual({ workStart: '09:00' })
       })
@@ -131,7 +128,7 @@ describe('DailyDataProvider', () => {
         repo.setDay.mockRejectedValue(saveFailure)
         repo.getMonth.mockResolvedValue(month({}))
 
-        await act(async () => { await ignoringRejection(result.current.setDay('2026-08-09', { workStart: '09:00' })) })
+        await act(async () => { await result.current.setDay('2026-08-09', { workStart: '09:00' }) })
 
         expect(result.current.getDay('2026-08-09')).toBeNull()
       })
@@ -141,19 +138,31 @@ describe('DailyDataProvider', () => {
         repo.setDay.mockRejectedValue(saveFailure)
         repo.getMonth.mockResolvedValue(month({ '2026-08-09': { workStart: '08:30' } }))
 
-        await act(async () => { await ignoringRejection(result.current.setDay('2026-08-09', { workStart: '10:00' })) })
+        await act(async () => { await result.current.setDay('2026-08-09', { workStart: '10:00' }) })
 
         expect(result.current.getDay('2026-08-09')).toEqual({ workStart: '08:30' })
       })
 
-      it('同じ月の他の日の記録は読み直したディスクの内容になる', async () => {
+      it('同じ月の他の日の記録は手元の値を保つ', async () => {
         const { result } = await renderLoaded({ '2026-08-10': { workStart: '09:00' } })
         repo.setDay.mockRejectedValue(saveFailure)
         repo.getMonth.mockResolvedValue(month({ '2026-08-10': { workStart: '09:30' } }))
 
-        await act(async () => { await ignoringRejection(result.current.setDay('2026-08-09', { workStart: '10:00' })) })
+        await act(async () => { await result.current.setDay('2026-08-09', { workStart: '10:00' }) })
 
-        expect(result.current.getDay('2026-08-10')).toEqual({ workStart: '09:30' })
+        expect(result.current.getDay('2026-08-10')).toEqual({ workStart: '09:00' })
+      })
+
+      it('別の月の記録はそのまま残る', async () => {
+        const { result } = await renderLoaded({})
+        repo.getMonth.mockResolvedValue(month({ '2026-07-15': { workStart: '09:00' } }))
+        await act(async () => { result.current.ensureMonth('2026-07') })
+        repo.setDay.mockRejectedValue(saveFailure)
+        repo.getMonth.mockResolvedValue(month({}))
+
+        await act(async () => { await result.current.setDay('2026-08-09', { workStart: '10:00' }) })
+
+        expect(result.current.getDay('2026-07-15')).toEqual({ workStart: '09:00' })
       })
 
       it('読み直すのは保存に失敗した日の月', async () => {
@@ -161,7 +170,7 @@ describe('DailyDataProvider', () => {
         repo.setDay.mockRejectedValue(saveFailure)
         repo.getMonth.mockClear()
 
-        await act(async () => { await ignoringRejection(result.current.setDay('2026-08-09', { workStart: '09:00' })) })
+        await act(async () => { await result.current.setDay('2026-08-09', { workStart: '09:00' }) })
 
         expect(repo.getMonth).toHaveBeenCalledExactlyOnceWith('2026-08')
       })
@@ -179,9 +188,43 @@ describe('DailyDataProvider', () => {
         repo.setDay.mockRejectedValue(saveFailure)
         const { result } = await renderLoaded({})
 
-        await act(async () => { await ignoringRejection(result.current.setDay('2026-08-09', { workEnd: '18:00' })) })
+        await act(async () => { await result.current.setDay('2026-08-09', { workEnd: '18:00' }) })
 
         expect(vi.mocked(console.error).mock.calls.flat()).toContain(saveFailure)
+      })
+
+      describe('ディスクの読み直しにも失敗したとき', () => {
+        const reloadFailure = new Error('read failed')
+
+        it('呼び出し元へは例外を伝えない', async () => {
+          const { result } = await renderLoaded({})
+          repo.setDay.mockRejectedValue(saveFailure)
+          repo.getMonth.mockRejectedValue(reloadFailure)
+
+          const settled = await act(() => result.current.setDay('2026-08-09', { workEnd: '18:00' }).then(() => 'resolved', () => 'rejected'))
+
+          expect(settled).toBe('resolved')
+        })
+
+        it('反映済みの値を保つ', async () => {
+          const { result } = await renderLoaded({ '2026-08-09': { workStart: '09:00' } })
+          repo.setDay.mockRejectedValue(saveFailure)
+          repo.getMonth.mockRejectedValue(reloadFailure)
+
+          await act(async () => { await result.current.setDay('2026-08-09', { workEnd: '18:00' }) })
+
+          expect(result.current.getDay('2026-08-09')).toEqual({ workStart: '09:00', workEnd: '18:00' })
+        })
+
+        it('読み直しの失敗の原因を console.error に出す', async () => {
+          const { result } = await renderLoaded({})
+          repo.setDay.mockRejectedValue(saveFailure)
+          repo.getMonth.mockRejectedValue(reloadFailure)
+
+          await act(async () => { await result.current.setDay('2026-08-09', { workEnd: '18:00' }) })
+
+          expect(vi.mocked(console.error).mock.calls.flat()).toContain(reloadFailure)
+        })
       })
     })
   })

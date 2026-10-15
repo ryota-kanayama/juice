@@ -157,6 +157,20 @@ describe('SessionList', () => {
 
       expect(setDailyDay).not.toHaveBeenCalled()
     })
+
+    it('並び順の保存が失敗し続けても、同じ内容の保存を繰り返さない', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      // 保存は失敗し続ける。再試行が止まらない実装でもテストが終わるよう、10回目以降は保存を保留にする
+      for (let i = 0; i < 10; i++) setDailyDay.mockRejectedValueOnce(new Error('disk full'))
+      setDailyDay.mockReturnValue(new Promise(() => {}))
+      dayStore = { [TODAY]: { sessionOrder: ['2', '1', 'STALE'] } }
+
+      renderList({ sessions: twoSessions })
+      await waitFor(() => expect(setDailyDay).toHaveBeenCalled())
+      for (let i = 0; i < 5; i++) await act(async () => {})
+
+      expect(setDailyDay).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('編集', () => {
