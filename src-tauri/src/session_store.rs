@@ -163,13 +163,16 @@ impl SessionStore {
         };
         // 形の不正なレコードだけを除いて読む。元のファイルは複製して残す
         // （複製したので、以後の書き直しで不正なレコードが消えても中身は失われない）。
+        // 複製できなかったら何も書き直さず、読めた分だけを返す（次回の読み込みで再試行される）。
         if skipped > 0 {
             eprintln!(
                 "[juice] {} malformed session records skipped in {}",
                 skipped,
                 source.display()
             );
-            copy_aside(&source);
+            if !copy_aside(&source) {
+                return Ok(sessions);
+            }
         }
         if version >= SESSION_FILE_VERSION {
             // 書き直しに失敗しても読めた分は返す（次回の読み込みで再試行される）

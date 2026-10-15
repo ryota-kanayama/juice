@@ -74,14 +74,22 @@ impl SettingsStore {
         Some(raw.into_settings())
     }
 
-    /// プライマリ→.bak→デフォルトの順に読む。失敗はすべてフォールバック
-    /// （両方壊れていたときも、壊れたファイルは退避したうえでデフォルトを使う）。
+    /// プライマリ→.bak→デフォルトの順に読む。壊れていたときは退避したうえでデフォルトを使う
+    /// （両方壊れていたときも同じ）。壊れてはいないが読めない（I/O エラー）ときだけ Err。
+    /// 退避（rename）を伴うので、write_lock を取得済みの呼び出し元専用。自身ではロックを取らない。
+    fn read_locked(&self) -> Result<Settings, StoreError> {
+        match read_json_with_backup(&self.file_path(), Self::parse) {
+            Ok(found) => Ok(found.map(|(_, settings)| settings).unwrap_or_default()),
+            Err(StoreError::Corrupt(_)) => Ok(Settings::default()),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// 書き込みと同じロックを取って読む。読めなかったとき（I/O エラー）はデフォルトを返す。
+    /// write_lock は非再入なので、既にロックを持つ update からは read_locked を呼ぶこと。
     fn read_all(&self) -> Settings {
-        read_json_with_backup(&self.file_path(), Self::parse)
-            .ok()
-            .flatten()
-            .map(|(_, settings)| settings)
-            .unwrap_or_default()
+        let _guard = lock(&self.write_lock);
+        self.read_locked().unwrap_or_default()
     }
 
     fn write_all(&self, settings: &Settings) -> Result<(), StoreError> {
@@ -89,9 +97,10 @@ impl SettingsStore {
     }
 
     /// 現在の設定を読み、mutate を適用して書き戻す（直列化される）。
+    /// 読めなかったとき（I/O エラー）はデフォルトで上書きせず、エラーを返す。
     fn update(&self, mutate: impl FnOnce(&mut Settings)) -> Result<(), StoreError> {
         let _guard = lock(&self.write_lock);
-        let mut s = self.read_all();
+        let mut s = self.read_locked()?;
         mutate(&mut s);
         self.write_all(&s)
     }

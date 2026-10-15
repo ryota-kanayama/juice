@@ -71,7 +71,16 @@ impl DailyStore {
         Some(DailyMonth { version, days })
     }
 
+    /// 読み取りは壊れたファイルの退避（rename）を伴うので、書き込みと同じロックで直列化する。
+    /// write_lock は非再入なので、既にロックを持つ呼び出し元は get_month_locked を直接呼ぶこと
+    /// （ここを呼ぶとデッドロックする）。
     pub fn get_month(&self, year_month: &str) -> Result<DailyMonth, StoreError> {
+        let _guard = lock(&self.write_lock);
+        self.get_month_locked(year_month)
+    }
+
+    /// write_lock を取得済みの呼び出し元専用の読み取り。自身ではロックを取らない。
+    fn get_month_locked(&self, year_month: &str) -> Result<DailyMonth, StoreError> {
         let path = self.file_path(year_month)?; // 不正な yearMonth はここで即 throw
         if let Some((_, month)) = read_json_with_backup(&path, Self::parse_month)? {
             return Ok(month);
@@ -90,7 +99,7 @@ impl DailyStore {
     pub fn set_day(&self, date: &str, patch: Value) -> Result<(), StoreError> {
         let year_month = Self::year_month_of(date)?;
         let _guard = lock(&self.write_lock);
-        let mut month = self.get_month(&year_month)?;
+        let mut month = self.get_month_locked(&year_month)?;
         let mut record = month
             .days
             .get(date)
@@ -118,7 +127,7 @@ impl DailyStore {
         }
         for (year_month, list) in by_month {
             let _guard = lock(&self.write_lock);
-            let mut month = self.get_month(&year_month)?;
+            let mut month = self.get_month_locked(&year_month)?;
             let stamp = now_iso();
             for (date, record) in list {
                 if month.days.contains_key(&date) {
@@ -151,7 +160,7 @@ impl DailyStore {
         }
         for year_month in months {
             let _guard = lock(&self.write_lock);
-            let mut month = match self.get_month(&year_month) {
+            let mut month = match self.get_month_locked(&year_month) {
                 Ok(month) => month,
                 // 壊れた月は退避済み。他の月の整理は続ける
                 Err(StoreError::Corrupt(_)) => continue,

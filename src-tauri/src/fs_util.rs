@@ -72,28 +72,74 @@ pub(crate) fn corrupt_path(path: &Path) -> PathBuf {
 }
 
 /// 壊れたファイルを `.corrupt-<日時>` へ移動する（元の場所からは無くなる）。
-fn move_aside(path: &Path) {
+/// 移動に失敗したら複製で代える。どちらも失敗したら Err（元のファイルはそのまま残る）。
+fn move_aside(path: &Path) -> std::io::Result<()> {
     let to = corrupt_path(path);
     match std::fs::rename(path, &to) {
-        Ok(()) => eprintln!("[juice] corrupt file moved: {} -> {}", path.display(), to.display()),
-        Err(e) => eprintln!("[juice] failed to move corrupt file {}: {e}", path.display()),
+        Ok(()) => {
+            eprintln!("[juice] corrupt file moved: {} -> {}", path.display(), to.display());
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("[juice] failed to move corrupt file {}: {e}", path.display());
+            if copy_aside(path) {
+                Ok(())
+            } else {
+                Err(e)
+            }
+        }
     }
+}
+
+/// `path` の `.corrupt-` 退避ファイルに、`content` と同じ中身のものが既にあるか。
+fn has_identical_copy(path: &Path, content: &[u8]) -> bool {
+    let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
+        return false;
+    };
+    let prefix = format!("{}.corrupt-", name.to_string_lossy());
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    entries
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with(&prefix))
+        .any(|e| std::fs::read(e.path()).is_ok_and(|existing| existing == content))
 }
 
 /// 元のファイルを残したまま `.corrupt-<日時>` へ複製する。
+/// 同じ中身の複製が既にあれば作らない（読み込みのたびに増えるのを防ぐ）。
+/// 中身が退避済みである（複製できた、または既にある）ときだけ true を返す。
 pub(crate) fn copy_aside(path: &Path) -> bool {
-    let to = corrupt_path(path);
-    match std::fs::copy(path, &to) {
-        Ok(_) => eprintln!("[juice] corrupt file copied: {} -> {}", path.display(), to.display()),
-        Err(e) => eprintln!("[juice] failed to copy corrupt file {}: {e}", path.display()),
+    let content = match std::fs::read(path) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("[juice] failed to copy corrupt file {}: {e}", path.display());
+            return false;
+        }
+    };
+    if has_identical_copy(path, &content) {
+        return true;
     }
-    true
+    let to = corrupt_path(path);
+    match std::fs::write(&to, &content) {
+        Ok(()) => {
+            eprintln!("[juice] corrupt file copied: {} -> {}", path.display(), to.display());
+            true
+        }
+        Err(e) => {
+            eprintln!("[juice] failed to copy corrupt file {}: {e}", path.display());
+            false
+        }
+    }
 }
 
-/// 1つのファイルを読んだ結果。存在しない（NotFound）のと壊れているのは区別する。
+/// 1つのファイルを読んだ結果。存在しない（NotFound）・壊れている・読めない（I/O エラー）は区別する。
 enum ReadOne<T> {
     Missing,
+    /// JSON として解釈できない、または UTF-8 でない。
     Corrupt,
+    /// 権限・EIO・本体の位置にディレクトリがある等。壊れているとは限らないので何も動かさない。
+    Unreadable(std::io::Error),
     Ok(T),
 }
 
@@ -101,41 +147,52 @@ fn read_one<T>(path: &Path, parse: &mut impl FnMut(&str) -> Option<T>) -> ReadOn
     match std::fs::read_to_string(path) {
         Ok(content) => parse(&content).map_or(ReadOne::Corrupt, ReadOne::Ok),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => ReadOne::Missing,
-        Err(_) => ReadOne::Corrupt,
+        Err(e) if e.kind() == std::io::ErrorKind::InvalidData => ReadOne::Corrupt,
+        Err(e) => ReadOne::Unreadable(e),
     }
 }
 
 /// 本体→.bak の順に読み、parse が Some を返した最初のものを (読み取り元のパス, 値) で返す。
 /// 本体も .bak も存在しないときは Ok(None)。
-/// 壊れているもの（読めない・パースできない）は .corrupt-<日時> へ移動する。
+/// 壊れているもの（JSON として解釈できない・UTF-8 でない）は .corrupt-<日時> へ移動する。
 /// .bak から読めたときはログを出す。本体も .bak も読めないときは
 /// Err(StoreError::Corrupt(本体のパス)) を返す。
+/// 壊れてはいないが読めない（I/O エラー）ものがあるときは、何も動かさず Err(StoreError::Io) を返す。
+/// 壊れた本体を退避できないときも、.bak を採用せず Err(StoreError::Io) を返す
+/// （採用すると、次の保存が壊れた本体で正常な .bak を上書きする）。
+///
+/// 退避は rename を伴うので、呼び出し元は書き込みと同じロックを持った状態で呼ぶこと。
 pub(crate) fn read_json_with_backup<T>(
     path: &Path,
     mut parse: impl FnMut(&str) -> Option<T>,
 ) -> Result<Option<(PathBuf, T)>, StoreError> {
     let primary = match read_one(path, &mut parse) {
         ReadOne::Ok(value) => return Ok(Some((path.to_path_buf(), value))),
+        ReadOne::Unreadable(e) => return Err(StoreError::Io(e)),
         other => other,
     };
     let bak_path = append_ext(path, ".bak");
     let backup = read_one(&bak_path, &mut parse);
+    if let ReadOne::Unreadable(e) = backup {
+        return Err(StoreError::Io(e));
+    }
     let primary_corrupt = matches!(primary, ReadOne::Corrupt);
     match backup {
         ReadOne::Ok(value) => {
             eprintln!("[juice] restored from backup: {}", bak_path.display());
             if primary_corrupt {
-                move_aside(path);
+                move_aside(path)?;
             }
             Ok(Some((bak_path, value)))
         }
         ReadOne::Missing if !primary_corrupt => Ok(None),
         backup => {
+            // 退避に失敗しても、読めないという結果は変わらない（ログは move_aside が出す）
             if primary_corrupt {
-                move_aside(path);
+                let _ = move_aside(path);
             }
             if matches!(backup, ReadOne::Corrupt) {
-                move_aside(&bak_path);
+                let _ = move_aside(&bak_path);
             }
             Err(StoreError::Corrupt(path.to_path_buf()))
         }
