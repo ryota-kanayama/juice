@@ -86,7 +86,7 @@ function successPage(deepLink: string): FunctionUrlResponse {
   }
 }
 
-export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlResponse> {
+async function route(event: FunctionUrlEvent): Promise<FunctionUrlResponse> {
   const path = event.rawPath
   const query = event.queryStringParameters ?? {}
   const redirectUri = `https://${event.requestContext.domainName}/auth/callback`
@@ -204,4 +204,14 @@ export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlRespo
   }
 
   return json(404, { error: 'not found' })
+}
+
+// 想定外の例外（DynamoDB・SSM・環境変数の未設定など）は原因をログにだけ残し、内部情報を返さない
+export async function handler(event: FunctionUrlEvent): Promise<FunctionUrlResponse> {
+  try {
+    return await route(event)
+  } catch (e) {
+    console.error('unhandled error:', e)
+    return json(500, { error: 'internal error' })
+  }
 }

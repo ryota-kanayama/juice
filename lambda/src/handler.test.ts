@@ -1,9 +1,10 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { handler } from './handler'
 import { issueSessionJwt, verifySessionJwt, type SessionClaims } from './sessionJwt'
 import { signState, verifyState } from './stateSign'
 import { isRevoked } from './revocations'
+import { loadSecrets } from './secrets'
 import * as slackOidc from './slackOidc'
 import * as attendanceSend from './attendanceSend'
 import * as whiteboardPost from './whiteboardPost'
@@ -609,10 +610,28 @@ describe('GET /auth/start の state 検証', () => {
     expect(res.body).not.toContain('<script>alert(1)</script>')
   })
 
-  it('SLACK_CLIENT_ID が未設定ならエラーにする', async () => {
-    delete process.env.SLACK_CLIENT_ID
+  describe('SLACK_CLIENT_ID が未設定のとき', () => {
+    let errorLog: ReturnType<typeof vi.spyOn>
 
-    await expect(start('a'.repeat(32))).rejects.toThrow('環境変数 SLACK_CLIENT_ID が未設定')
+    beforeEach(() => {
+      errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+      delete process.env.SLACK_CLIENT_ID
+    })
+
+    afterEach(() => errorLog.mockRestore())
+
+    it('500 で {error:"internal error"} を返す', async () => {
+      const res = await start('a'.repeat(32))
+
+      expect(res.statusCode).toBe(500)
+      expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+    })
+
+    it('未設定の変数名を console.error に出す', async () => {
+      await start('a'.repeat(32))
+
+      expect(errorLog.mock.calls.flat().map(String).join(' ')).toContain('SLACK_CLIENT_ID')
+    })
   })
 })
 
@@ -629,5 +648,200 @@ describe('ホワイトボード API のルーティング', () => {
     const res = await handler(makeEvent('/api/whiteboard.other', {}, bearer(withEmail()), { method: 'POST', body: '{}' }))
 
     expect(res.statusCode).toBe(404)
+  })
+})
+
+describe('内部で例外が起きたとき', () => {
+  const CAUSE = 'ProvisionedThroughputExceeded: table=juice-revocations'
+  const withEmail = () => tokenFor({ email: 'a@jsl.co.jp' })
+  const post = (path: string, body = '{}') =>
+    handler(makeEvent(path, {}, bearer(withEmail()), { method: 'POST', body }))
+
+  // DynamoDB（失効チェック）を使う各ルート
+  const me = () => handler(makeEvent('/auth/me', {}, bearer(withEmail())))
+  const refresh = () => post('/auth/refresh')
+  const sendAttendance = () => post('/api/attendance.send', JSON.stringify({ text: 't' }))
+  const telework = () => post('/api/whiteboard.telework')
+  const leave = () => post('/api/whiteboard.leave')
+
+  let errorLog: ReturnType<typeof vi.spyOn>
+  const loggedText = () => errorLog.mock.calls.flat().map(String).join(' ')
+
+  beforeEach(() => {
+    errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(isRevoked).mockRejectedValue(new Error(CAUSE))
+  })
+
+  afterEach(() => errorLog.mockRestore())
+
+  it('500 の応答も、他の JSON 応答と同じヘッダを返す', async () => {
+    const res = await me()
+
+    expect(res.headers).toEqual({ 'Content-Type': 'application/json; charset=utf-8' })
+  })
+
+  it('GET /auth/me で DynamoDB が失敗したら 500', async () => {
+    const res = await me()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('GET /auth/me で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await me()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('GET /auth/me で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await me()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('GET /auth/me で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await me()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('POST /auth/refresh で DynamoDB が失敗したら 500', async () => {
+    const res = await refresh()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('POST /auth/refresh で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await refresh()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('POST /auth/refresh で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await refresh()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('POST /auth/refresh で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await refresh()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('POST /api/attendance.send で DynamoDB が失敗したら 500', async () => {
+    const res = await sendAttendance()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('POST /api/attendance.send で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await sendAttendance()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('POST /api/attendance.send で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await sendAttendance()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('POST /api/attendance.send で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await sendAttendance()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('POST /api/whiteboard.telework で DynamoDB が失敗したら 500', async () => {
+    const res = await telework()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('POST /api/whiteboard.telework で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await telework()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('POST /api/whiteboard.telework で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await telework()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('POST /api/whiteboard.telework で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await telework()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('POST /api/whiteboard.leave で DynamoDB が失敗したら 500', async () => {
+    const res = await leave()
+
+    expect(res.statusCode).toBe(500)
+  })
+
+  it('POST /api/whiteboard.leave で DynamoDB が失敗したら本文は {error:"internal error"}', async () => {
+    const res = await leave()
+
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('POST /api/whiteboard.leave で DynamoDB が失敗しても、上流の例外メッセージを返さない', async () => {
+    const res = await leave()
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('POST /api/whiteboard.leave で DynamoDB が失敗したら、原因を console.error に出す', async () => {
+    await leave()
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('SSM（秘密値の取得）が失敗したら 500 で {error:"internal error"}', async () => {
+    vi.mocked(loadSecrets).mockRejectedValueOnce(new Error(CAUSE))
+
+    const res = await handler(makeEvent('/auth/me', {}, bearer(withEmail())))
+
+    expect(res.statusCode).toBe(500)
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('SSM が失敗しても、上流の例外メッセージを返さない', async () => {
+    vi.mocked(loadSecrets).mockRejectedValueOnce(new Error(CAUSE))
+
+    const res = await handler(makeEvent('/auth/me', {}, bearer(withEmail())))
+
+    expect(res.body).not.toContain(CAUSE)
+  })
+
+  it('SSM が失敗したら、原因を console.error に出す', async () => {
+    vi.mocked(loadSecrets).mockRejectedValueOnce(new Error(CAUSE))
+
+    await handler(makeEvent('/auth/me', {}, bearer(withEmail())))
+
+    expect(loggedText()).toContain(CAUSE)
+  })
+
+  it('勤怠 API の呼び出しが例外を投げたら 500 で {error:"internal error"}', async () => {
+    vi.mocked(isRevoked).mockResolvedValue(false)
+    vi.mocked(attendanceSend.postAttendance).mockRejectedValue(new Error(CAUSE))
+
+    const res = await post('/api/attendance.send', JSON.stringify({ text: 't' }))
+
+    expect(res.statusCode).toBe(500)
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
+  })
+
+  it('ホワイトボード API の呼び出しが例外を投げたら 500 で {error:"internal error"}', async () => {
+    vi.mocked(isRevoked).mockResolvedValue(false)
+    vi.mocked(whiteboardPost.postWhiteboard).mockRejectedValue(new Error(CAUSE))
+
+    const res = await post('/api/whiteboard.telework')
+
+    expect(res.statusCode).toBe(500)
+    expect(JSON.parse(res.body!)).toEqual({ error: 'internal error' })
   })
 })

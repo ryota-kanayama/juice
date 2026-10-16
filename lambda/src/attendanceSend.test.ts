@@ -112,6 +112,35 @@ describe('postAttendance', () => {
     expect(result).toEqual({ ok: false, status: 400, body: '{"error_message":"format"}' })
   })
 
+  describe('記号を含む API キー', () => {
+    // & = + はそのまま載せるとクエリが壊れる。URL の中ではエンコードされた形（a%26b%3Dc%2Bd）で現れる
+    const SYMBOL_OPTS = { apiUrl: 'https://kintai.test/api/receive_slack_post', apiKey: 'a&b=c+d' }
+
+    it('クエリには URL エンコードして載せる', async () => {
+      const fetchMock = stubFetch({ ok: true, status: 200, body: '{}' })
+
+      await postAttendance('kanayama', '勤怠テキスト', SYMBOL_OPTS)
+
+      expect(fetchMock.mock.calls[0][0]).toBe('https://kintai.test/api/receive_slack_post?key=a%26b%3Dc%2Bd')
+    })
+
+    it('失敗メッセージにエンコード済みのキーが入っていたら伏せる', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Failed to parse URL from https://kintai.test/api/receive_slack_post?key=a%26b%3Dc%2Bd')))
+
+      const result = await postAttendance('a', 't', SYMBOL_OPTS)
+
+      expect(result).toEqual({ error: 'network: Failed to parse URL from https://kintai.test/api/receive_slack_post?key=***' })
+    })
+
+    it('失敗メッセージに生のキーが入っていたら伏せる', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('bad key a&b=c+d rejected')))
+
+      const result = await postAttendance('a', 't', SYMBOL_OPTS)
+
+      expect(result).toEqual({ error: 'network: bad key *** rejected' })
+    })
+  })
+
   it('通信に失敗しても例外は投げず、error を返す', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')))
 
